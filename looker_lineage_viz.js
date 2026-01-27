@@ -11,7 +11,7 @@ looker.plugins.visualizations.add({
     var container = element.querySelector('#lineage-container');
     
     if (!data || data.length === 0) {
-      container.innerHTML = '<div style="padding:20px;color:#666;">No data. Please select: dashboard_title, explore_name, view_name, table_name_short</div>';
+      container.innerHTML = '<div style="padding:40px;color:#64748b;background:#0f172a;min-height:100%;">No data. Please select: dashboard_title, explore_name, view_name, table_name_short</div>';
       done();
       return;
     }
@@ -24,7 +24,7 @@ looker.plugins.visualizations.add({
                   || fields.find(function(f) { return f.toLowerCase().indexOf('table') !== -1 && f.toLowerCase().indexOf('source') === -1; });
     
     if (!dashField || !expField || !viewField || !tableField) {
-      container.innerHTML = '<div style="padding:20px;color:#e74c3c;">Missing required fields.<br>Found: ' + fields.join(', ') + '</div>';
+      container.innerHTML = '<div style="padding:40px;color:#ef4444;background:#0f172a;min-height:100%;">Missing required fields.<br>Found: ' + fields.join(', ') + '</div>';
       done();
       return;
     }
@@ -55,10 +55,10 @@ looker.plugins.visualizations.add({
     var allEntities = Object.values(tables).concat(Object.values(views)).concat(Object.values(explores)).concat(Object.values(dashboards));
     
     var typeConfig = {
-      table: { color: '#10b981', label: 'SQL Tables' },
-      view: { color: '#3b82f6', label: 'Views' },
-      explore: { color: '#a855f7', label: 'Explores' },
-      dashboard: { color: '#f97316', label: 'Dashboards' }
+      table: { color: '#06b6d4', glow: '#06b6d4', label: 'SQL Tables', icon: '⬢' },
+      view: { color: '#8b5cf6', glow: '#8b5cf6', label: 'Views', icon: '◈' },
+      explore: { color: '#ec4899', glow: '#ec4899', label: 'Explores', icon: '⬡' },
+      dashboard: { color: '#f97316', glow: '#f97316', label: 'Dashboards', icon: '◧' }
     };
     
     var selected = null, upstream = [], downstream = [];
@@ -85,30 +85,27 @@ looker.plugins.visualizations.add({
     }
     
     function render() {
-      var colX = { table: 50, view: 230, explore: 410, dashboard: 590 };
-      var nodeW = 160, nodeH = 44;
+      var colX = { table: 60, view: 260, explore: 460, dashboard: 660 };
+      var nodeW = 175, nodeH = 48;
       
-      // Determine which entities to show
       var visibleEntities = allEntities;
       if (selected) {
         var visibleIds = [selected.id].concat(upstream).concat(downstream);
         visibleEntities = allEntities.filter(function(e) { return visibleIds.indexOf(e.id) !== -1; });
       }
       
-      // Calculate positions - reflow based on visible entities only
       var positions = {};
       var counts = { table: 0, view: 0, explore: 0, dashboard: 0 };
       
       visibleEntities.forEach(function(e) {
-        positions[e.id] = { x: colX[e.type], y: 60 + counts[e.type] * 54 };
+        positions[e.id] = { x: colX[e.type], y: 70 + counts[e.type] * 58 };
         counts[e.type]++;
       });
       
       var maxCount = Math.max(counts.table || 1, counts.view || 1, counts.explore || 1, counts.dashboard || 1);
-      var svgHeight = Math.max(maxCount * 54 + 100, 200);
-      var svgWidth = 780;
+      var svgHeight = Math.max(maxCount * 58 + 120, 250);
+      var svgWidth = 870;
       
-      // Build edges
       var edges = [];
       visibleEntities.forEach(function(e) { 
         (e.sources||[]).forEach(function(s) { 
@@ -120,15 +117,16 @@ looker.plugins.visualizations.add({
       edges.forEach(function(edge) {
         var f = positions[edge.from], t = positions[edge.to];
         if (!f || !t) return;
-        var stroke = '#94a3b8', op = 0.5, sw = 1.5;
+        var stroke = '#334155', op = 0.3, sw = 1.5;
         if (selected) {
           var isUp = upstream.indexOf(edge.from)!==-1 && (upstream.indexOf(edge.to)!==-1 || edge.to===selected.id);
           var isDown = downstream.indexOf(edge.to)!==-1 && (downstream.indexOf(edge.from)!==-1 || edge.from===selected.id);
-          if (edge.from===selected.id || isDown) { stroke='#f97316'; op=1; sw=2.5; }
-          else if (edge.to===selected.id || isUp) { stroke='#22d3ee'; op=1; sw=2.5; }
+          if (edge.from===selected.id || isDown) { stroke='#f97316'; op=1; sw=2; }
+          else if (edge.to===selected.id || isUp) { stroke='#06b6d4'; op=1; sw=2; }
         }
         var x1=f.x+nodeW, y1=f.y+nodeH/2, x2=t.x, y2=t.y+nodeH/2, mx=(x1+x2)/2;
-        edgesHtml += '<path d="M'+x1+' '+y1+' C'+mx+' '+y1+','+mx+' '+y2+','+x2+' '+y2+'" fill="none" stroke="'+stroke+'" stroke-width="'+sw+'" stroke-opacity="'+op+'" marker-end="url(#arrow'+(stroke==='#22d3ee'?'Cyan':stroke==='#f97316'?'Orange':'Gray')+')"/>';
+        var glow = op===1 ? '<path d="M'+x1+' '+y1+' C'+mx+' '+y1+','+mx+' '+y2+','+x2+' '+y2+'" fill="none" stroke="'+stroke+'" stroke-width="6" stroke-opacity="0.3" filter="url(#glow)"/>' : '';
+        edgesHtml += glow + '<path d="M'+x1+' '+y1+' C'+mx+' '+y1+','+mx+' '+y2+','+x2+' '+y2+'" fill="none" stroke="'+stroke+'" stroke-width="'+sw+'" stroke-opacity="'+op+'" marker-end="url(#arrow'+(stroke==='#06b6d4'?'Cyan':stroke==='#f97316'?'Orange':'Gray')+')"/>';
       });
       
       var nodesHtml = '';
@@ -140,49 +138,69 @@ looker.plugins.visualizations.add({
           else if (upstream.indexOf(entity.id)!==-1) st='upstream';
           else if (downstream.indexOf(entity.id)!==-1) st='downstream';
         }
-        var sc = st==='upstream'?'#22d3ee':st==='downstream'?'#f97316':st==='selected'?'#1e293b':cfg.color;
-        var fill = st==='selected'?'#f1f5f9':'#ffffff';
-        var sw = st!=='normal'?2.5:1.5;
-        var nm = entity.name.length>17?entity.name.substring(0,16)+'…':entity.name;
-        nodesHtml += '<g data-id="'+entity.id+'" style="cursor:pointer;" transform="translate('+pos.x+','+pos.y+')">';
-        nodesHtml += '<rect width="'+nodeW+'" height="'+nodeH+'" rx="8" fill="'+fill+'" stroke="'+sc+'" stroke-width="'+sw+'" filter="url(#shadow)"/>';
-        nodesHtml += '<rect width="32" height="'+nodeH+'" rx="8" fill="'+cfg.color+'"/><rect x="8" width="24" height="'+nodeH+'" fill="'+cfg.color+'"/>';
-        nodesHtml += '<text x="16" y="'+(nodeH/2+5)+'" fill="#fff" font-size="14" text-anchor="middle">'+(entity.type==='table'?'⬚':entity.type==='view'?'◉':entity.type==='explore'?'⬡':'▦')+'</text>';
-        nodesHtml += '<text x="40" y="'+(nodeH/2+4)+'" fill="#334155" font-size="11" font-weight="500">'+nm+'</text></g>';
+        var borderColor = st==='upstream'?'#06b6d4':st==='downstream'?'#f97316':st==='selected'?'#fff':cfg.color;
+        var bgOpacity = st==='selected'?'0.15':'0.05';
+        var sw = st!=='normal'?2:1;
+        var nm = entity.name.length>18?entity.name.substring(0,17)+'…':entity.name;
+        
+        var glowFilter = st!=='normal' ? 'filter="url(#glow'+entity.type+')"' : '';
+        
+        nodesHtml += '<g data-id="'+entity.id+'" style="cursor:pointer;" transform="translate('+pos.x+','+pos.y+'">';
+        if (st!=='normal') {
+          nodesHtml += '<rect x="-3" y="-3" width="'+(nodeW+6)+'" height="'+(nodeH+6)+'" rx="12" fill="none" stroke="'+borderColor+'" stroke-width="1" stroke-opacity="0.5" filter="url(#glow)"/>';
+        }
+        nodesHtml += '<rect width="'+nodeW+'" height="'+nodeH+'" rx="10" fill="#0f172a" fill-opacity="0.8" stroke="'+borderColor+'" stroke-width="'+sw+'"/>';
+        nodesHtml += '<rect x="1" y="1" width="38" height="'+(nodeH-2)+'" rx="9" fill="'+cfg.color+'" fill-opacity="0.2"/>';
+        nodesHtml += '<text x="20" y="'+(nodeH/2+5)+'" fill="'+cfg.color+'" font-size="16" text-anchor="middle">'+cfg.icon+'</text>';
+        nodesHtml += '<text x="48" y="'+(nodeH/2-2)+'" fill="#e2e8f0" font-size="11" font-weight="500">'+nm+'</text>';
+        nodesHtml += '<text x="48" y="'+(nodeH/2+12)+'" fill="'+cfg.color+'" font-size="9" opacity="0.8">'+entity.type.toUpperCase()+'</text>';
+        nodesHtml += '</g>';
       });
       
       var hdrHtml = '';
       ['table','view','explore','dashboard'].forEach(function(type) {
         var cfg = typeConfig[type];
         var count = visibleEntities.filter(function(e){return e.type===type;}).length;
-        hdrHtml += '<text x="'+(colX[type]+nodeW/2)+'" y="28" text-anchor="middle" fill="'+cfg.color+'" font-size="12" font-weight="600">'+cfg.label+' ('+count+')</text>';
+        hdrHtml += '<text x="'+(colX[type]+nodeW/2)+'" y="35" text-anchor="middle" fill="'+cfg.color+'" font-size="11" font-weight="600" letter-spacing="0.5">'+cfg.label.toUpperCase()+'</text>';
+        hdrHtml += '<text x="'+(colX[type]+nodeW/2)+'" y="50" text-anchor="middle" fill="#475569" font-size="10">'+count+' items</text>';
       });
       
       var info = selected 
-        ? 'Selected: <strong style="color:'+typeConfig[selected.type].color+'">'+selected.name+'</strong> &nbsp;|&nbsp; <span style="color:#22d3ee;">↑ '+upstream.length+'</span> &nbsp; <span style="color:#f97316;">↓ '+downstream.length+'</span>' 
+        ? '<span style="color:'+typeConfig[selected.type].color+'">'+selected.name+'</span>' 
         : '<span style="color:#64748b;">Click any node to trace lineage</span>';
       
+      var stats = selected 
+        ? '<span style="color:#06b6d4;margin-left:16px;">▲ '+upstream.length+' upstream</span><span style="color:#f97316;margin-left:12px;">▼ '+downstream.length+' downstream</span>'
+        : '';
+      
       container.innerHTML = 
-        '<div style="padding:12px 16px;background:#f8fafc;border-bottom:1px solid #e2e8f0;display:flex;align-items:center;justify-content:space-between;">'+
-          '<div style="display:flex;align-items:center;gap:10px;">'+
-            '<div style="font-size:20px;">📊</div>'+
-            '<div><div style="font-weight:600;color:#1e293b;font-size:15px;">Looker Lineage Graph</div><div style="font-size:11px;color:#64748b;">'+(selected ? visibleEntities.length+' of '+allEntities.length+' entities' : allEntities.length+' entities')+'</div></div>'+
+        '<div style="background:linear-gradient(180deg,#0f172a 0%,#1e293b 100%);min-height:100%;">'+
+          '<div style="padding:16px 24px;border-bottom:1px solid #1e293b;display:flex;align-items:center;justify-content:space-between;">'+
+            '<div style="display:flex;align-items:center;gap:14px;">'+
+              '<div style="width:40px;height:40px;border-radius:10px;background:linear-gradient(135deg,#06b6d4,#8b5cf6);display:flex;align-items:center;justify-content:center;font-size:18px;">◈</div>'+
+              '<div><div style="font-weight:600;color:#f1f5f9;font-size:16px;">Lineage Graph</div><div style="font-size:11px;color:#64748b;">'+(selected ? visibleEntities.length+' of '+allEntities.length+' entities' : allEntities.length+' total entities')+'</div></div>'+
+            '</div>'+
+            '<div style="display:flex;align-items:center;font-size:13px;">'+info+stats+(selected?'<button id="clearBtn" style="margin-left:16px;background:linear-gradient(135deg,#1e293b,#334155);border:1px solid #475569;padding:6px 14px;border-radius:6px;cursor:pointer;font-size:11px;color:#e2e8f0;font-weight:500;">SHOW ALL</button>':'')+'</div>'+
           '</div>'+
-          '<div style="font-size:13px;color:#475569;">'+info+(selected?' &nbsp;<button id="clearBtn" style="background:#e2e8f0;border:none;padding:4px 12px;border-radius:4px;cursor:pointer;font-size:12px;color:#475569;">Show All</button>':'')+'</div>'+
-        '</div>'+
-        '<div style="padding:16px;background:#ffffff;overflow:auto;">'+
-          '<svg width="'+svgWidth+'" height="'+svgHeight+'" style="font-family:system-ui,sans-serif;">'+
-            '<defs>'+
-              '<filter id="shadow" x="-10%" y="-10%" width="120%" height="130%"><feDropShadow dx="0" dy="1" stdDeviation="2" flood-opacity="0.1"/></filter>'+
-              '<marker id="arrowGray" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="5" markerHeight="5" orient="auto"><path d="M0 0 L10 5 L0 10 z" fill="#94a3b8"/></marker>'+
-              '<marker id="arrowCyan" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="5" markerHeight="5" orient="auto"><path d="M0 0 L10 5 L0 10 z" fill="#22d3ee"/></marker>'+
-              '<marker id="arrowOrange" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="5" markerHeight="5" orient="auto"><path d="M0 0 L10 5 L0 10 z" fill="#f97316"/></marker>'+
-            '</defs>'+hdrHtml+edgesHtml+nodesHtml+
-          '</svg>'+
-        '</div>'+
-        '<div style="padding:8px 16px;background:#f8fafc;border-top:1px solid #e2e8f0;display:flex;gap:24px;font-size:11px;color:#64748b;">'+
-          '<span><span style="color:#22d3ee;">━━</span> Upstream (data sources)</span>'+
-          '<span><span style="color:#f97316;">━━</span> Downstream (dependents)</span>'+
+          '<div style="padding:20px;overflow:auto;">'+
+            '<svg width="'+svgWidth+'" height="'+svgHeight+'" style="font-family:system-ui,sans-serif;">'+
+              '<defs>'+
+                '<filter id="glow" x="-50%" y="-50%" width="200%" height="200%"><feGaussianBlur stdDeviation="4" result="blur"/><feMerge><feMergeNode in="blur"/><feMergeNode in="SourceGraphic"/></feMerge></filter>'+
+                '<filter id="glowtable" x="-50%" y="-50%" width="200%" height="200%"><feDropShadow dx="0" dy="0" stdDeviation="4" flood-color="#06b6d4" flood-opacity="0.5"/></filter>'+
+                '<filter id="glowview" x="-50%" y="-50%" width="200%" height="200%"><feDropShadow dx="0" dy="0" stdDeviation="4" flood-color="#8b5cf6" flood-opacity="0.5"/></filter>'+
+                '<filter id="glowexplore" x="-50%" y="-50%" width="200%" height="200%"><feDropShadow dx="0" dy="0" stdDeviation="4" flood-color="#ec4899" flood-opacity="0.5"/></filter>'+
+                '<filter id="glowdashboard" x="-50%" y="-50%" width="200%" height="200%"><feDropShadow dx="0" dy="0" stdDeviation="4" flood-color="#f97316" flood-opacity="0.5"/></filter>'+
+                '<marker id="arrowGray" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="5" markerHeight="5" orient="auto"><path d="M0 0 L10 5 L0 10 z" fill="#334155"/></marker>'+
+                '<marker id="arrowCyan" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="5" markerHeight="5" orient="auto"><path d="M0 0 L10 5 L0 10 z" fill="#06b6d4"/></marker>'+
+                '<marker id="arrowOrange" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="5" markerHeight="5" orient="auto"><path d="M0 0 L10 5 L0 10 z" fill="#f97316"/></marker>'+
+              '</defs>'+hdrHtml+edgesHtml+nodesHtml+
+            '</svg>'+
+          '</div>'+
+          '<div style="padding:10px 24px;border-top:1px solid #1e293b;display:flex;gap:24px;font-size:10px;color:#64748b;text-transform:uppercase;letter-spacing:0.5px;">'+
+            '<span><span style="color:#06b6d4;">━━</span> Upstream</span>'+
+            '<span><span style="color:#f97316;">━━</span> Downstream</span>'+
+            '<span style="margin-left:auto;opacity:0.6;">Powered by Looker</span>'+
+          '</div>'+
         '</div>';
       
       container.querySelectorAll('g[data-id]').forEach(function(n) {
