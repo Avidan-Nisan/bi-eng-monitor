@@ -191,23 +191,23 @@ looker.plugins.visualizations.add({
         ? '<span style="color:#06b6d4;margin-left:16px;">▲ '+upstream.length+' upstream</span><span style="color:#f97316;margin-left:12px;">▼ '+downstream.length+' downstream</span>'
         : '';
       
-      // Logo SVG - infinity/chain style gradient logo
-      var logoSvg = '<svg width="40" height="40" viewBox="0 0 100 100" style="border-radius:10px;">' +
+      // Logo SVG - infinity chain style gradient logo
+      var logoSvg = '<svg width="44" height="44" viewBox="0 0 120 120" style="border-radius:10px;">' +
         '<defs>' +
-          '<linearGradient id="logoGrad1" x1="0%" y1="0%" x2="100%" y2="100%">' +
-            '<stop offset="0%" stop-color="#f97316"/>' +
-            '<stop offset="50%" stop-color="#ec4899"/>' +
-            '<stop offset="100%" stop-color="#8b5cf6"/>' +
+          '<linearGradient id="logoGrad1" x1="0%" y1="100%" x2="100%" y2="0%">' +
+            '<stop offset="0%" stop-color="#fb923c"/>' +
+            '<stop offset="40%" stop-color="#ec4899"/>' +
+            '<stop offset="100%" stop-color="#a855f7"/>' +
           '</linearGradient>' +
-          '<linearGradient id="logoGrad2" x1="0%" y1="100%" x2="100%" y2="0%">' +
-            '<stop offset="0%" stop-color="#8b5cf6"/>' +
-            '<stop offset="50%" stop-color="#3b82f6"/>' +
+          '<linearGradient id="logoGrad2" x1="0%" y1="0%" x2="100%" y2="100%">' +
+            '<stop offset="0%" stop-color="#a855f7"/>' +
+            '<stop offset="60%" stop-color="#3b82f6"/>' +
             '<stop offset="100%" stop-color="#06b6d4"/>' +
           '</linearGradient>' +
         '</defs>' +
-        '<rect width="100" height="100" fill="#000"/>' +
-        '<path d="M25 50 Q25 25 50 25 Q75 25 75 50 Q75 75 50 75 Q25 75 25 50 M50 50 Q50 35 65 35 Q80 35 80 50 Q80 65 65 65 Q50 65 50 50" fill="none" stroke="url(#logoGrad1)" stroke-width="12" stroke-linecap="round"/>' +
-        '<path d="M75 50 Q75 75 50 75 Q25 75 25 50 Q25 25 50 25 Q75 25 75 50 M50 50 Q50 65 35 65 Q20 65 20 50 Q20 35 35 35 Q50 35 50 50" fill="none" stroke="url(#logoGrad2)" stroke-width="12" stroke-linecap="round"/>' +
+        '<rect width="120" height="120" fill="#000" rx="12"/>' +
+        '<path d="M30 75 L30 45 Q30 25 50 25 L70 25 Q90 25 90 45 L90 75 Q90 95 70 95 L65 95" fill="none" stroke="url(#logoGrad2)" stroke-width="14" stroke-linecap="round" stroke-linejoin="round"/>' +
+        '<path d="M90 45 L90 75 Q90 95 70 95 L50 95 Q30 95 30 75 L30 45 Q30 25 50 25 L55 25" fill="none" stroke="url(#logoGrad1)" stroke-width="14" stroke-linecap="round" stroke-linejoin="round"/>' +
       '</svg>';
       
       container.innerHTML = 
