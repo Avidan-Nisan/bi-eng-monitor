@@ -55,10 +55,10 @@ looker.plugins.visualizations.add({
     var allEntities = Object.values(tables).concat(Object.values(views)).concat(Object.values(explores)).concat(Object.values(dashboards));
     
     var typeConfig = {
-      table: { color: '#06b6d4', glow: '#06b6d4', label: 'SQL Tables', icon: '⬢' },
-      view: { color: '#8b5cf6', glow: '#8b5cf6', label: 'Views', icon: '◈' },
-      explore: { color: '#ec4899', glow: '#ec4899', label: 'Explores', icon: '⬡' },
-      dashboard: { color: '#f97316', glow: '#f97316', label: 'Dashboards', icon: '◧' }
+      table: { color: '#06b6d4', label: 'SQL Tables', icon: '⬢' },
+      view: { color: '#8b5cf6', label: 'Views', icon: '◈' },
+      explore: { color: '#ec4899', label: 'Explores', icon: '⬡' },
+      dashboard: { color: '#f97316', label: 'Dashboards', icon: '◧' }
     };
     
     var selected = null, upstream = [], downstream = [];
@@ -86,7 +86,8 @@ looker.plugins.visualizations.add({
     
     function render() {
       var colX = { table: 60, view: 260, explore: 460, dashboard: 660 };
-      var nodeW = 175, nodeH = 48;
+      var nodeW = 175, nodeH = 44;
+      var nodeSpacing = 52;
       
       var visibleEntities = allEntities;
       if (selected) {
@@ -94,16 +95,25 @@ looker.plugins.visualizations.add({
         visibleEntities = allEntities.filter(function(e) { return visibleIds.indexOf(e.id) !== -1; });
       }
       
-      var positions = {};
-      var counts = { table: 0, view: 0, explore: 0, dashboard: 0 };
+      // Sort entities by type for proper column layout
+      var byType = { table: [], view: [], explore: [], dashboard: [] };
+      visibleEntities.forEach(function(e) { byType[e.type].push(e); });
       
-      visibleEntities.forEach(function(e) {
-        positions[e.id] = { x: colX[e.type], y: 70 + counts[e.type] * 58 };
-        counts[e.type]++;
+      // Sort alphabetically within each type
+      ['table', 'view', 'explore', 'dashboard'].forEach(function(type) {
+        byType[type].sort(function(a, b) { return a.name.localeCompare(b.name); });
       });
       
-      var maxCount = Math.max(counts.table || 1, counts.view || 1, counts.explore || 1, counts.dashboard || 1);
-      var svgHeight = Math.max(maxCount * 58 + 120, 250);
+      var positions = {};
+      var startY = 80;
+      ['table', 'view', 'explore', 'dashboard'].forEach(function(type) {
+        byType[type].forEach(function(e, idx) {
+          positions[e.id] = { x: colX[type], y: startY + idx * nodeSpacing };
+        });
+      });
+      
+      var maxCount = Math.max(byType.table.length || 1, byType.view.length || 1, byType.explore.length || 1, byType.dashboard.length || 1);
+      var svgHeight = Math.max(maxCount * nodeSpacing + 120, 350);
       var svgWidth = 870;
       
       var edges = [];
@@ -139,13 +149,10 @@ looker.plugins.visualizations.add({
           else if (downstream.indexOf(entity.id)!==-1) st='downstream';
         }
         var borderColor = st==='upstream'?'#06b6d4':st==='downstream'?'#f97316':st==='selected'?'#fff':cfg.color;
-        var bgOpacity = st==='selected'?'0.15':'0.05';
         var sw = st!=='normal'?2:1;
         var nm = entity.name.length>18?entity.name.substring(0,17)+'…':entity.name;
         
-        var glowFilter = st!=='normal' ? 'filter="url(#glow'+entity.type+')"' : '';
-        
-        nodesHtml += '<g data-id="'+entity.id+'" style="cursor:pointer;" transform="translate('+pos.x+','+pos.y+'">';
+        nodesHtml += '<g data-id="'+entity.id+'" style="cursor:pointer;" transform="translate('+pos.x+','+pos.y+')">';
         if (st!=='normal') {
           nodesHtml += '<rect x="-3" y="-3" width="'+(nodeW+6)+'" height="'+(nodeH+6)+'" rx="12" fill="none" stroke="'+borderColor+'" stroke-width="1" stroke-opacity="0.5" filter="url(#glow)"/>';
         }
@@ -160,9 +167,11 @@ looker.plugins.visualizations.add({
       var hdrHtml = '';
       ['table','view','explore','dashboard'].forEach(function(type) {
         var cfg = typeConfig[type];
-        var count = visibleEntities.filter(function(e){return e.type===type;}).length;
-        hdrHtml += '<text x="'+(colX[type]+nodeW/2)+'" y="35" text-anchor="middle" fill="'+cfg.color+'" font-size="11" font-weight="600" letter-spacing="0.5">'+cfg.label.toUpperCase()+'</text>';
-        hdrHtml += '<text x="'+(colX[type]+nodeW/2)+'" y="50" text-anchor="middle" fill="#475569" font-size="10">'+count+' items</text>';
+        var count = byType[type].length;
+        hdrHtml += '<text x="'+(colX[type]+nodeW/2)+'" y="30" text-anchor="middle" fill="'+cfg.color+'" font-size="11" font-weight="600" letter-spacing="0.5">'+cfg.label.toUpperCase()+'</text>';
+        hdrHtml += '<text x="'+(colX[type]+nodeW/2)+'" y="45" text-anchor="middle" fill="#475569" font-size="10">'+count+' items</text>';
+        // Add vertical guide line
+        hdrHtml += '<line x1="'+(colX[type]+nodeW/2)+'" y1="55" x2="'+(colX[type]+nodeW/2)+'" y2="'+(svgHeight-20)+'" stroke="'+cfg.color+'" stroke-opacity="0.1" stroke-width="1" stroke-dasharray="4,4"/>';
       });
       
       var info = selected 
@@ -186,10 +195,6 @@ looker.plugins.visualizations.add({
             '<svg width="'+svgWidth+'" height="'+svgHeight+'" style="font-family:system-ui,sans-serif;">'+
               '<defs>'+
                 '<filter id="glow" x="-50%" y="-50%" width="200%" height="200%"><feGaussianBlur stdDeviation="4" result="blur"/><feMerge><feMergeNode in="blur"/><feMergeNode in="SourceGraphic"/></feMerge></filter>'+
-                '<filter id="glowtable" x="-50%" y="-50%" width="200%" height="200%"><feDropShadow dx="0" dy="0" stdDeviation="4" flood-color="#06b6d4" flood-opacity="0.5"/></filter>'+
-                '<filter id="glowview" x="-50%" y="-50%" width="200%" height="200%"><feDropShadow dx="0" dy="0" stdDeviation="4" flood-color="#8b5cf6" flood-opacity="0.5"/></filter>'+
-                '<filter id="glowexplore" x="-50%" y="-50%" width="200%" height="200%"><feDropShadow dx="0" dy="0" stdDeviation="4" flood-color="#ec4899" flood-opacity="0.5"/></filter>'+
-                '<filter id="glowdashboard" x="-50%" y="-50%" width="200%" height="200%"><feDropShadow dx="0" dy="0" stdDeviation="4" flood-color="#f97316" flood-opacity="0.5"/></filter>'+
                 '<marker id="arrowGray" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="5" markerHeight="5" orient="auto"><path d="M0 0 L10 5 L0 10 z" fill="#334155"/></marker>'+
                 '<marker id="arrowCyan" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="5" markerHeight="5" orient="auto"><path d="M0 0 L10 5 L0 10 z" fill="#06b6d4"/></marker>'+
                 '<marker id="arrowOrange" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="5" markerHeight="5" orient="auto"><path d="M0 0 L10 5 L0 10 z" fill="#f97316"/></marker>'+
