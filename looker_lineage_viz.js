@@ -56,10 +56,18 @@ looker.plugins.visualizations.add({
     var allEntities = Object.values(tables).concat(Object.values(views)).concat(Object.values(explores)).concat(Object.values(dashboards));
     
     var typeConfig = {
-      table: { color: '#06b6d4', label: 'SQL Tables', icon: '⬢' },
-      view: { color: '#8b5cf6', label: 'Views', icon: '◈' },
-      explore: { color: '#ec4899', label: 'Explores', icon: '⬡' },
-      dashboard: { color: '#f97316', label: 'Dashboards', icon: '◧' }
+      table: { color: '#06b6d4', label: 'SQL Tables' },
+      view: { color: '#8b5cf6', label: 'Views' },
+      explore: { color: '#ec4899', label: 'Explores' },
+      dashboard: { color: '#f97316', label: 'Dashboards' }
+    };
+    
+    // SVG icons for each type
+    var typeIcons = {
+      table: '<svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor"><rect x="3" y="3" width="18" height="4" rx="1"/><rect x="3" y="9" width="8" height="3"/><rect x="13" y="9" width="8" height="3"/><rect x="3" y="14" width="8" height="3"/><rect x="13" y="14" width="8" height="3"/><rect x="3" y="19" width="8" height="2"/><rect x="13" y="19" width="8" height="2"/></svg>',
+      view: '<svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor"><circle cx="12" cy="12" r="3"/><path d="M12 5C7 5 2.7 8.4 1 12c1.7 3.6 6 7 11 7s9.3-3.4 11-7c-1.7-3.6-6-7-11-7zm0 12c-2.8 0-5-2.2-5-5s2.2-5 5-5 5 2.2 5 5-2.2 5-5 5z"/></svg>',
+      explore: '<svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor"><circle cx="10" cy="10" r="6" fill="none" stroke="currentColor" stroke-width="2.5"/><line x1="14.5" y1="14.5" x2="20" y2="20" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"/></svg>',
+      dashboard: '<svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="4" rx="1"/><rect x="14" y="10" width="7" height="11" rx="1"/><rect x="3" y="13" width="7" height="8" rx="1"/></svg>'
     };
     
     var selected = null, upstream = [], downstream = [];
@@ -168,7 +176,7 @@ looker.plugins.visualizations.add({
         }
         nodesHtml += '<rect width="'+nodeW+'" height="'+nodeH+'" rx="10" fill="#0f172a" fill-opacity="0.9" stroke="'+borderColor+'" stroke-width="'+sw+'"/>';
         nodesHtml += '<rect x="1" y="1" width="38" height="'+(nodeH-2)+'" rx="9" fill="'+cfg.color+'" fill-opacity="0.2"/>';
-        nodesHtml += '<text x="20" y="'+(nodeH/2+5)+'" fill="'+cfg.color+'" font-size="16" text-anchor="middle">'+cfg.icon+'</text>';
+        nodesHtml += '<g transform="translate(12,'+(nodeH/2-8)+')" fill="'+cfg.color+'">'+typeIcons[entity.type]+'</g>';
         nodesHtml += '<text x="48" y="'+(nodeH/2-2)+'" fill="#e2e8f0" font-size="11" font-weight="500">'+nm+'</text>';
         nodesHtml += '<text x="48" y="'+(nodeH/2+12)+'" fill="'+cfg.color+'" font-size="9" opacity="0.8">'+entity.type.toUpperCase()+'</text>';
         nodesHtml += '</g>';
@@ -191,24 +199,8 @@ looker.plugins.visualizations.add({
         ? '<span style="color:#06b6d4;margin-left:16px;">▲ '+upstream.length+' upstream</span><span style="color:#f97316;margin-left:12px;">▼ '+downstream.length+' downstream</span>'
         : '';
       
-      // Logo SVG - infinity chain style gradient logo
-      var logoSvg = '<svg width="44" height="44" viewBox="0 0 120 120" style="border-radius:10px;">' +
-        '<defs>' +
-          '<linearGradient id="logoGrad1" x1="0%" y1="100%" x2="100%" y2="0%">' +
-            '<stop offset="0%" stop-color="#fb923c"/>' +
-            '<stop offset="40%" stop-color="#ec4899"/>' +
-            '<stop offset="100%" stop-color="#a855f7"/>' +
-          '</linearGradient>' +
-          '<linearGradient id="logoGrad2" x1="0%" y1="0%" x2="100%" y2="100%">' +
-            '<stop offset="0%" stop-color="#a855f7"/>' +
-            '<stop offset="60%" stop-color="#3b82f6"/>' +
-            '<stop offset="100%" stop-color="#06b6d4"/>' +
-          '</linearGradient>' +
-        '</defs>' +
-        '<rect width="120" height="120" fill="#000" rx="12"/>' +
-        '<path d="M30 75 L30 45 Q30 25 50 25 L70 25 Q90 25 90 45 L90 75 Q90 95 70 95 L65 95" fill="none" stroke="url(#logoGrad2)" stroke-width="14" stroke-linecap="round" stroke-linejoin="round"/>' +
-        '<path d="M90 45 L90 75 Q90 95 70 95 L50 95 Q30 95 30 75 L30 45 Q30 25 50 25 L55 25" fill="none" stroke="url(#logoGrad1)" stroke-width="14" stroke-linecap="round" stroke-linejoin="round"/>' +
-      '</svg>';
+      // Logo - using an image URL for the exact logo
+      var logoSvg = '<img src="https://avidan-nisan.github.io/bi-eng-monitor/logo.png" width="44" height="44" style="border-radius:10px;" onerror="this.style.display=\'none\'" />';
       
       container.innerHTML = 
         '<div style="background:linear-gradient(180deg,#0f172a 0%,#1e293b 100%);min-height:100%;">'+
