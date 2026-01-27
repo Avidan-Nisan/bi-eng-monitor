@@ -1,7 +1,11 @@
 (function(window) {
   'use strict';
   
-  function init() {
+  // Looker Extension SDK connection
+  var extensionSDK = null;
+  var coreSDK = null;
+  
+  function connectToLooker() {
     var container = document.body;
     container.style.margin = '0';
     container.style.padding = '0';
@@ -10,46 +14,104 @@
     container.innerHTML = 
       '<div style="padding:40px;background:#0a0f1a;min-height:100vh;color:white;">' +
         '<h1 style="color:#3b82f6;margin-bottom:16px;">✅ Extension Connected!</h1>' +
-        '<p style="color:#9ca3af;">Looker Extension is working. Loading lineage data...</p>' +
+        '<p style="color:#9ca3af;">Initializing Looker SDK...</p>' +
         '<div id="content" style="margin-top:24px;"></div>' +
       '</div>';
     
-    // Check if Looker SDK is available
     var contentDiv = document.getElementById('content');
     
-    if (typeof looker !== 'undefined' && looker.plugins && looker.plugins.visualizations) {
-      contentDiv.innerHTML = '<p style="color:#22d3ee;">Looker Visualization SDK detected</p>';
-    } else if (window.extensionSDK) {
-      contentDiv.innerHTML = '<p style="color:#22d3ee;">Extension SDK detected - loading data...</p>';
-      loadData(window.extensionSDK);
-    } else if (window.lookerExtensionSDK) {
-      contentDiv.innerHTML = '<p style="color:#22d3ee;">Looker Extension SDK detected - initializing...</p>';
-      window.lookerExtensionSDK.init().then(function(extensionSDK) {
-        loadData(extensionSDK);
-      }).catch(function(err) {
-        contentDiv.innerHTML = '<p style="color:#ef4444;">SDK init error: ' + err.message + '</p>';
-      });
-    } else {
-      contentDiv.innerHTML = 
-        '<p style="color:#f97316;">Waiting for SDK...</p>' +
-        '<p style="color:#6b7280;font-size:14px;margin-top:8px;">Available globals: ' + Object.keys(window).filter(function(k) { return k.toLowerCase().includes('looker') || k.toLowerCase().includes('extension'); }).join(', ') + '</p>';
+    // Use postMessage to communicate with Looker
+    window.addEventListener('message', function(event) {
+      // Verify origin
+      if (window.lookerHostOrigin && event.origin !== window.lookerHostOrigin) {
+        return;
+      }
+      
+      try {
+        var data = typeof event.data === 'string' ? JSON.parse(event.data) : event.data;
+        
+        if (data.type === 'EXTENSION_SDK_READY') {
+          contentDiv.innerHTML = '<p style="color:#22d3ee;">SDK Ready! Fetching data...</p>';
+          fetchDataViaMessage();
+        }
+        
+        if (data.type === 'QUERY_RESULT') {
+          contentDiv.innerHTML = '<p style="color:#10b981;">Data received!</p>';
+          renderGraph(data.payload);
+        }
+        
+        if (data.type === 'QUERY_ERROR') {
+          contentDiv.innerHTML = '<p style="color:#ef4444;">Query Error: ' + data.payload + '</p>';
+        }
+      } catch (e) {
+        // Not a JSON message, ignore
+      }
+    });
+    
+    // Try to initialize via the Looker extension handshake
+    setTimeout(function() {
+      if (window.lookerHostOrigin) {
+        window.parent.postMessage(JSON.stringify({
+          type: 'EXTENSION_API_REQUEST',
+          payload: { type: 'INIT' }
+        }), window.lookerHostOrigin);
+      }
+      
+      // Fallback: try direct fetch if SDK not available after 2 seconds
+      setTimeout(function() {
+        if (contentDiv.innerHTML.indexOf('Fetching') === -1 && contentDiv.innerHTML.indexOf('Data received') === -1) {
+          contentDiv.innerHTML = '<p style="color:#f97316;">SDK handshake timeout. Trying direct API...</p>';
+          tryDirectAPI();
+        }
+      }, 2000);
+    }, 500);
+  }
+  
+  function fetchDataViaMessage() {
+    if (window.lookerHostOrigin) {
+      window.parent.postMessage(JSON.stringify({
+        type: 'EXTENSION_API_REQUEST',
+        payload: {
+          type: 'RUN_INLINE_QUERY',
+          body: {
+            model: 'demand_ob',
+            view: 'looker_dashboard_table_mapping',
+            fields: [
+              'looker_dashboard_table_mapping.dashboard_title',
+              'looker_dashboard_table_mapping.explore_name',
+              'looker_dashboard_table_mapping.view_name',
+              'looker_dashboard_table_mapping.table_name_short'
+            ],
+            filters: {
+              'looker_dashboard_table_mapping.partition_date': '1 day ago'
+            },
+            limit: '500'
+          }
+        }
+      }), window.lookerHostOrigin);
     }
   }
   
-  function loadData(extensionSDK) {
+  function tryDirectAPI() {
     var contentDiv = document.getElementById('content');
-    var sdk = extensionSDK.core40SDK || extensionSDK.coreSDK;
     
-    if (!sdk) {
-      contentDiv.innerHTML = '<p style="color:#ef4444;">No core SDK found in extension SDK</p>';
+    // Get the Looker host from the metadata
+    var host = window.lookerHostOrigin || '';
+    if (!host) {
+      contentDiv.innerHTML = '<p style="color:#ef4444;">No Looker host origin found</p>';
       return;
     }
     
-    contentDiv.innerHTML = '<p style="color:#22d3ee;">Running query...</p>';
+    contentDiv.innerHTML = '<p style="color:#22d3ee;">Attempting direct API call to ' + host + '...</p>';
     
-    sdk.run_inline_query({
-      result_format: 'json',
-      body: {
+    // Try using fetch with credentials
+    fetch(host + '/api/4.0/queries/run/json', {
+      method: 'POST',
+      credentials: 'include',
+      headers: {
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({
         model: 'demand_ob',
         view: 'looker_dashboard_table_mapping',
         fields: [
@@ -62,17 +124,27 @@
           'looker_dashboard_table_mapping.partition_date': '1 day ago'
         },
         limit: '500'
-      }
-    }).then(function(response) {
-      if (response.ok) {
-        var data = response.value;
-        contentDiv.innerHTML = '<p style="color:#10b981;">✅ Loaded ' + data.length + ' rows!</p>';
-        renderGraph(data);
-      } else {
-        contentDiv.innerHTML = '<p style="color:#ef4444;">Query error: ' + JSON.stringify(response) + '</p>';
-      }
-    }).catch(function(err) {
-      contentDiv.innerHTML = '<p style="color:#ef4444;">Error: ' + (err.message || JSON.stringify(err)) + '</p>';
+      })
+    })
+    .then(function(response) {
+      if (!response.ok) throw new Error('HTTP ' + response.status);
+      return response.json();
+    })
+    .then(function(data) {
+      contentDiv.innerHTML = '<p style="color:#10b981;">✅ Loaded ' + data.length + ' rows via direct API!</p>';
+      renderGraph(data);
+    })
+    .catch(function(err) {
+      contentDiv.innerHTML = 
+        '<p style="color:#ef4444;">Direct API failed: ' + err.message + '</p>' +
+        '<p style="color:#6b7280;margin-top:16px;font-size:13px;">The extension needs proper SDK integration. Please check:</p>' +
+        '<ul style="color:#6b7280;font-size:13px;">' +
+          '<li>manifest.lkml has correct entitlements</li>' +
+          '<li>Extension Framework is enabled in Admin</li>' +
+          '<li>You have access to the explore</li>' +
+        '</ul>' +
+        '<p style="color:#9ca3af;margin-top:16px;">Host: ' + host + '</p>' +
+        '<p style="color:#9ca3af;">Metadata: ' + JSON.stringify(window.lookerExtensionMetadata || 'none') + '</p>';
     });
   }
   
@@ -82,10 +154,10 @@
     var viewToTables = {}, exploreToViews = {}, dashToExplores = {};
     
     rows.forEach(function(row) {
-      var tbl = row['looker_dashboard_table_mapping.table_name_short'];
-      var vw = row['looker_dashboard_table_mapping.view_name'];
-      var exp = row['looker_dashboard_table_mapping.explore_name'];
-      var dash = row['looker_dashboard_table_mapping.dashboard_title'];
+      var tbl = row['looker_dashboard_table_mapping.table_name_short'] || row['table_name_short'];
+      var vw = row['looker_dashboard_table_mapping.view_name'] || row['view_name'];
+      var exp = row['looker_dashboard_table_mapping.explore_name'] || row['explore_name'];
+      var dash = row['looker_dashboard_table_mapping.dashboard_title'] || row['dashboard_title'];
       
       if (tbl && !tables[tbl]) tables[tbl] = { id: 't_' + tbl, name: tbl, type: 'table', sources: [] };
       if (vw && !views[vw]) views[vw] = { id: 'v_' + vw, name: vw, type: 'view', sources: [] };
@@ -222,7 +294,7 @@
       });
       
       var info = selected 
-        ? 'Selected: ' + selected.name + ' | ↑' + upstream.length + ' ↓' + downstream.length + ' <tspan fill="#6b7280" style="cursor:pointer;" id="clearSel">[clear]</tspan>'
+        ? 'Selected: ' + selected.name + ' | ↑' + upstream.length + ' ↓' + downstream.length
         : 'Click any node to see lineage';
       
       document.body.innerHTML = 
@@ -230,7 +302,7 @@
           '<div style="display:flex;align-items:center;gap:12px;margin-bottom:16px;">' +
             '<div style="padding:8px;border-radius:8px;background:linear-gradient(135deg,#3b82f6,#9333ea);">📊</div>' +
             '<div><div style="font-size:16px;font-weight:600;">Looker Lineage Graph</div><div style="font-size:12px;color:#6b7280;">' + allEntities.length + ' entities</div></div>' +
-            '<div style="margin-left:auto;padding:8px 16px;background:rgba(255,255,255,0.05);border-radius:6px;font-size:13px;">' + info.replace('<tspan', '</div><span').replace('</tspan>', '</span><div style="display:none;">') + '</div>' +
+            '<div style="margin-left:auto;padding:8px 16px;background:rgba(255,255,255,0.05);border-radius:6px;font-size:13px;">' + info + (selected ? ' <span id="clearBtn" style="color:#6b7280;cursor:pointer;margin-left:8px;">[clear]</span>' : '') + '</div>' +
           '</div>' +
           '<div style="overflow:auto;">' +
             '<svg width="750" height="' + svgHeight + '" style="font-family:system-ui,sans-serif;">' +
@@ -261,6 +333,14 @@
           render();
         };
       });
+      
+      var clearBtn = document.getElementById('clearBtn');
+      if (clearBtn) {
+        clearBtn.onclick = function() {
+          selected = null; upstream = []; downstream = [];
+          render();
+        };
+      }
     }
     
     render();
@@ -268,9 +348,9 @@
   
   // Initialize when ready
   if (document.readyState === 'loading') {
-    document.addEventListener('DOMContentLoaded', init);
+    document.addEventListener('DOMContentLoaded', connectToLooker);
   } else {
-    init();
+    connectToLooker();
   }
   
 })(window);
