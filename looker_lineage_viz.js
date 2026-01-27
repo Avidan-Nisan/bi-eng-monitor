@@ -170,7 +170,7 @@ looker.plugins.visualizations.add({
         var sw = st!=='normal'?2:1;
         var nm = entity.name.length>18?entity.name.substring(0,17)+'…':entity.name;
         
-        nodesHtml += '<g data-id="'+entity.id+'" style="cursor:pointer;" transform="translate('+pos.x+','+pos.y+')">';
+        nodesHtml += '<g data-id="'+entity.id+'" data-name="'+entity.name.replace(/"/g, '&quot;')+'" style="cursor:pointer;" transform="translate('+pos.x+','+pos.y+')">';
         if (st!=='normal') {
           nodesHtml += '<rect x="-3" y="-3" width="'+(nodeW+6)+'" height="'+(nodeH+6)+'" rx="12" fill="none" stroke="'+borderColor+'" stroke-width="1" stroke-opacity="0.5" filter="url(#glow)"/>';
         }
@@ -179,6 +179,7 @@ looker.plugins.visualizations.add({
         nodesHtml += '<g transform="translate(12,'+(nodeH/2-8)+')" fill="'+cfg.color+'">'+typeIcons[entity.type]+'</g>';
         nodesHtml += '<text x="48" y="'+(nodeH/2-2)+'" fill="#e2e8f0" font-size="11" font-weight="500">'+nm+'</text>';
         nodesHtml += '<text x="48" y="'+(nodeH/2+12)+'" fill="'+cfg.color+'" font-size="9" opacity="0.8">'+entity.type.toUpperCase()+'</text>';
+        nodesHtml += '<title>'+entity.name.replace(/</g, '&lt;').replace(/>/g, '&gt;')+' ('+entity.type+')</title>';
         nodesHtml += '</g>';
       });
       
