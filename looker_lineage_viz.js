@@ -21,7 +21,8 @@ looker.plugins.visualizations.add({
     var dashField = fields.find(function(f) { return f.toLowerCase().indexOf('dashboard') !== -1 && f.toLowerCase().indexOf('title') !== -1; });
     var expField = fields.find(function(f) { return f.toLowerCase().indexOf('explore') !== -1; });
     var viewField = fields.find(function(f) { return f.toLowerCase().indexOf('view') !== -1 && f.toLowerCase().indexOf('count') === -1; });
-    var tableField = fields.find(function(f) { return f.toLowerCase().indexOf('table') !== -1 && f.toLowerCase().indexOf('short') !== -1; }) 
+    var tableField = fields.find(function(f) { return f.toLowerCase().indexOf('sql_table') !== -1 && f.toLowerCase().indexOf('short') === -1; })
+                  || fields.find(function(f) { return f.toLowerCase().indexOf('sql_table') !== -1; })
                   || fields.find(function(f) { return f.toLowerCase().indexOf('table') !== -1 && f.toLowerCase().indexOf('source') === -1; });
     
     if (!dashField || !expField || !viewField || !tableField) {
