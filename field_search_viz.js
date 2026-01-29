@@ -156,47 +156,80 @@ looker.plugins.visualizations.add({
       return matches;
     }
     
-    // Find duplicates
+    // Find duplicates - analyze views with overlapping fields
     function findDuplicates() {
       var viewFields = {};
+      
+      // Collect all fields per view, and track which dashboards/explores use each view
       allRows.forEach(function(row) {
-        if (row.view && row.fields.length > 0) {
+        if (row.view && row.fields && row.fields.length > 0) {
           var key = row.view;
-          if (!viewFields[key]) viewFields[key] = { view: row.view, fields: row.fields, dashboards: [], explores: [] };
-          if (row.dashboard && viewFields[key].dashboards.indexOf(row.dashboard) === -1) viewFields[key].dashboards.push(row.dashboard);
-          if (row.explore && viewFields[key].explores.indexOf(row.explore) === -1) viewFields[key].explores.push(row.explore);
+          if (!viewFields[key]) {
+            viewFields[key] = { view: row.view, fields: [], dashboards: [], explores: [] };
+          }
+          // Add fields (deduplicated)
+          row.fields.forEach(function(f) {
+            if (viewFields[key].fields.indexOf(f) === -1) {
+              viewFields[key].fields.push(f);
+            }
+          });
+          // Track dashboards
+          if (row.dashboard && viewFields[key].dashboards.indexOf(row.dashboard) === -1) {
+            viewFields[key].dashboards.push(row.dashboard);
+          }
+          // Track explores
+          if (row.explore && viewFields[key].explores.indexOf(row.explore) === -1) {
+            viewFields[key].explores.push(row.explore);
+          }
         }
       });
       
-      var duplicates = {};
-      var viewList = Object.values(viewFields);
+      console.log('Similar Views Analysis - Views with fields:', Object.keys(viewFields).length);
+      
+      var duplicates = [];
+      var viewList = Object.values(viewFields).filter(function(v) { return v.fields.length >= 3; });
+      
+      console.log('Similar Views Analysis - Views with 3+ fields:', viewList.length);
       
       for (var i = 0; i < viewList.length; i++) {
         for (var j = i + 1; j < viewList.length; j++) {
           var v1 = viewList[i], v2 = viewList[j];
           var common = v1.fields.filter(function(f) { return v2.fields.indexOf(f) !== -1; });
-          var similarity = common.length / Math.min(v1.fields.length, v2.fields.length);
+          var minFields = Math.min(v1.fields.length, v2.fields.length);
+          var similarity = minFields > 0 ? (common.length / minFields) : 0;
           
-          if (similarity >= 0.5 && common.length >= 3) {
-            var key = [v1.view, v2.view].sort().join('|');
-            if (!duplicates[key]) duplicates[key] = { views: [v1, v2], commonFields: common, similarity: Math.round(similarity * 100) };
+          if (similarity >= 0.4 && common.length >= 3) {
+            duplicates.push({
+              views: [v1, v2],
+              commonFields: common,
+              similarity: Math.round(similarity * 100)
+            });
           }
         }
       }
-      return Object.values(duplicates).sort(function(a, b) { return b.similarity - a.similarity; });
+      
+      console.log('Similar Views Analysis - Pairs found:', duplicates.length);
+      
+      return duplicates.sort(function(a, b) { return b.similarity - a.similarity; });
     }
     
     function renderDuplicatesTab() {
       var duplicates = findDuplicates();
       
       var html = '<div style="padding:20px 24px;border-bottom:1px solid #1e293b;">'+
-        '<div style="color:#e2e8f0;font-size:14px;font-weight:500;">Potential Duplicate Views</div>'+
-        '<div style="color:#64748b;font-size:12px;margin-top:4px;">Views with 50%+ field overlap (min 3 common fields)</div></div>';
+        '<div style="color:#e2e8f0;font-size:14px;font-weight:500;">🔍 Find Similar Views</div>'+
+        '<div style="color:#64748b;font-size:12px;margin-top:4px;">Identify views that share many common fields - potential candidates for consolidation</div></div>';
       
       if (duplicates.length === 0) {
-        html += '<div style="text-align:center;padding:60px 40px;color:#64748b;">No duplicate views found</div>';
+        html += '<div style="text-align:center;padding:60px 40px;">'+
+          '<div style="font-size:48px;margin-bottom:16px;">✨</div>'+
+          '<div style="color:#e2e8f0;font-size:16px;margin-bottom:8px;">No Similar Views Found</div>'+
+          '<div style="color:#64748b;font-size:13px;">All views have unique field combinations.<br>This is good - no redundant data models detected!</div>'+
+        '</div>';
       } else {
-        html += '<div style="padding:12px 24px;border-bottom:1px solid #1e293b;font-size:13px;color:#94a3b8;">'+duplicates.length+' potential duplicate pair(s)</div>';
+        html += '<div style="padding:12px 24px;border-bottom:1px solid #1e293b;background:#10b98115;font-size:13px;color:#10b981;">'+
+          '⚠️ Found '+duplicates.length+' pair'+(duplicates.length>1?'s':'')+' of views with overlapping fields - review for potential consolidation'+
+        '</div>';
         html += '<div style="max-height:450px;overflow-y:auto;">';
         
         duplicates.forEach(function(dup, idx) {
@@ -429,10 +462,10 @@ looker.plugins.visualizations.add({
                 '<div><div style="font-weight:600;color:#f1f5f9;font-size:16px;">Asset Manager</div>'+
                 '<div style="font-size:10px;color:#64748b;">'+allRows.length+' assets</div></div>'+
               '</div>'+
-              // Tabs
-              '<div style="display:flex;gap:4px;">'+
-                '<button class="tab-btn" data-tab="lineage" style="display:flex;align-items:center;gap:6px;padding:8px 14px;border-radius:6px;border:none;cursor:pointer;font-size:12px;background:'+(activeTab==='lineage'?'#334155':'transparent')+';color:'+(activeTab==='lineage'?'#e2e8f0':'#64748b')+';">'+icons.lineage+' Lineage</button>'+
-                '<button class="tab-btn" data-tab="duplicates" style="display:flex;align-items:center;gap:6px;padding:8px 14px;border-radius:6px;border:none;cursor:pointer;font-size:12px;background:'+(activeTab==='duplicates'?'#334155':'transparent')+';color:'+(activeTab==='duplicates'?'#e2e8f0':'#64748b')+';">'+icons.duplicate+' Duplicates</button>'+
+              // Tabs - make them look more like actual tabs
+              '<div style="display:flex;border-bottom:2px solid #334155;">'+
+                '<button class="tab-btn" data-tab="lineage" style="display:flex;align-items:center;gap:6px;padding:10px 20px;border:none;cursor:pointer;font-size:12px;font-weight:500;background:transparent;border-bottom:2px solid '+(activeTab==='lineage'?'#10b981':'transparent')+';margin-bottom:-2px;color:'+(activeTab==='lineage'?'#10b981':'#64748b')+';transition:all 0.2s;">'+icons.lineage+' Data Lineage</button>'+
+                '<button class="tab-btn" data-tab="duplicates" style="display:flex;align-items:center;gap:6px;padding:10px 20px;border:none;cursor:pointer;font-size:12px;font-weight:500;background:transparent;border-bottom:2px solid '+(activeTab==='duplicates'?'#f97316':'transparent')+';margin-bottom:-2px;color:'+(activeTab==='duplicates'?'#f97316':'#64748b')+';transition:all 0.2s;">'+icons.duplicate+' Similar Views</button>'+
               '</div>'+
             '</div>'+
             // Prominent search box
@@ -456,13 +489,66 @@ looker.plugins.visualizations.add({
           '</div>'+
         '</div>';
       
+      function attachLineageEvents() {
+        // Event: node click
+        container.querySelectorAll('.node').forEach(function(n) {
+          n.addEventListener('click', function(e) {
+            if (e.target.closest('.fields-btn')) return;
+            var id = n.dataset.id;
+            var entity = allEntities.find(function(x) { return x.id === id; });
+            if (selectedNode && selectedNode.id === id) { selectedNode = null; upstream = []; downstream = []; }
+            else { selectedNode = entity; searchTerm = ''; searchTags = []; }
+            showFieldsPanel = null;
+            render();
+          });
+        });
+        
+        // Event: fields button
+        container.querySelectorAll('.fields-btn').forEach(function(btn) {
+          btn.addEventListener('click', function(e) {
+            e.stopPropagation();
+            var id = btn.dataset.id;
+            showFieldsPanel = showFieldsPanel === id ? null : id;
+            var tabContent = container.querySelector('#tab-content');
+            if (tabContent && activeTab === 'lineage') {
+              tabContent.innerHTML = renderLineageTab();
+              attachLineageEvents();
+            }
+          });
+        });
+        
+        // Event: close fields panel
+        var closePanel = container.querySelector('#close-panel');
+        if (closePanel) closePanel.addEventListener('click', function() { 
+          showFieldsPanel = null; 
+          var tabContent = container.querySelector('#tab-content');
+          if (tabContent && activeTab === 'lineage') {
+            tabContent.innerHTML = renderLineageTab();
+            attachLineageEvents();
+          }
+        });
+      }
+      
       // Event: search input
       var input = container.querySelector('#searchInput');
+      var debounceTimer = null;
+      
       input.addEventListener('input', function(e) {
         searchTerm = e.target.value;
         selectedNode = null; upstream = []; downstream = [];
-        render();
+        
+        // Debounce the render to avoid cursor issues
+        clearTimeout(debounceTimer);
+        debounceTimer = setTimeout(function() {
+          // Only update the tab content, not the search box
+          var tabContent = container.querySelector('#tab-content');
+          if (tabContent && activeTab === 'lineage') {
+            tabContent.innerHTML = renderLineageTab();
+            attachLineageEvents();
+          }
+        }, 150);
       });
+      
       input.addEventListener('keydown', function(e) {
         if ((e.key === 'Enter' || e.key === ',') && searchTerm.trim()) {
           e.preventDefault();
@@ -475,7 +561,9 @@ looker.plugins.visualizations.add({
           render();
         }
       });
+      
       input.focus();
+      input.setSelectionRange(input.value.length, input.value.length);
       
       // Event: clear all
       var clearBtn = container.querySelector('#clearAll');
@@ -502,32 +590,10 @@ looker.plugins.visualizations.add({
         });
       });
       
-      // Event: node click
-      container.querySelectorAll('.node').forEach(function(n) {
-        n.addEventListener('click', function(e) {
-          if (e.target.closest('.fields-btn')) return;
-          var id = n.dataset.id;
-          var entity = allEntities.find(function(x) { return x.id === id; });
-          if (selectedNode && selectedNode.id === id) { selectedNode = null; upstream = []; downstream = []; }
-          else { selectedNode = entity; searchTerm = ''; searchTags = []; }
-          showFieldsPanel = null;
-          render();
-        });
-      });
-      
-      // Event: fields button
-      container.querySelectorAll('.fields-btn').forEach(function(btn) {
-        btn.addEventListener('click', function(e) {
-          e.stopPropagation();
-          var id = btn.dataset.id;
-          showFieldsPanel = showFieldsPanel === id ? null : id;
-          render();
-        });
-      });
-      
-      // Event: close fields panel
-      var closePanel = container.querySelector('#close-panel');
-      if (closePanel) closePanel.addEventListener('click', function() { showFieldsPanel = null; render(); });
+      // Attach lineage events
+      if (activeTab === 'lineage') {
+        attachLineageEvents();
+      }
       
       // Event: duplicates expand
       container.querySelectorAll('.dup-header').forEach(function(h) {
