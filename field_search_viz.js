@@ -138,19 +138,7 @@ looker.plugins.visualizations.add({
       
       var matches = [];
       allEntities.forEach(function(entity) {
-        var nameMatches = terms.filter(function(term) {
-          return smartMatch(entity.name, term);
-        });
-        
-        var fieldMatches = [];
-        (entity.fields || []).forEach(function(field) {
-          var hasMatch = terms.some(function(term) {
-            return smartMatch(field, term);
-          });
-          if (hasMatch) fieldMatches.push(field);
-        });
-        
-        // Entity matches if ALL search terms are found somewhere
+        // For each search term, check if it matches name OR any field
         var allTermsMatched = terms.every(function(term) {
           var inName = smartMatch(entity.name, term);
           var inFields = (entity.fields || []).some(function(f) { return smartMatch(f, term); });
@@ -158,9 +146,22 @@ looker.plugins.visualizations.add({
         });
         
         if (allTermsMatched) {
+          // Collect which fields matched which terms
+          var fieldMatches = [];
+          (entity.fields || []).forEach(function(field) {
+            var hasMatch = terms.some(function(term) {
+              return smartMatch(field, term);
+            });
+            if (hasMatch) fieldMatches.push(field);
+          });
+          
+          var nameMatches = terms.some(function(term) {
+            return smartMatch(entity.name, term);
+          });
+          
           matches.push({
             entity: entity,
-            nameMatch: nameMatches.length > 0,
+            nameMatch: nameMatches,
             fieldMatches: fieldMatches
           });
         }
@@ -289,21 +290,21 @@ looker.plugins.visualizations.add({
       var filterMode = '';
       
       if (selectedNode) {
+        // Lineage mode: show selected + upstream + downstream
         filterMode = 'lineage';
         upstream = getUpstream(selectedNode.id, 0);
         downstream = getDownstream(selectedNode.id, 0);
         var visibleIds = [selectedNode.id].concat(upstream).concat(downstream);
         visibleEntities = allEntities.filter(function(e) { return visibleIds.indexOf(e.id) !== -1; });
-      } else if ((searchTags.length > 0 || searchTerm.trim()) && highlightedEntities.length > 0) {
+      } else if ((searchTags.length > 0 || searchTerm.trim())) {
+        // Search mode: show ONLY matching entities (not their lineage)
         filterMode = 'search';
-        var allRelated = [];
-        highlightedEntities.forEach(function(id) {
-          allRelated.push(id);
-          allRelated = allRelated.concat(getUpstream(id, 0));
-          allRelated = allRelated.concat(getDownstream(id, 0));
-        });
-        allRelated = allRelated.filter(function(v,i,a) { return a.indexOf(v)===i; });
-        visibleEntities = allEntities.filter(function(e) { return allRelated.indexOf(e.id) !== -1; });
+        if (highlightedEntities.length > 0) {
+          visibleEntities = allEntities.filter(function(e) { return highlightedEntities.indexOf(e.id) !== -1; });
+        } else {
+          // No matches - show empty state
+          visibleEntities = [];
+        }
       }
       
       var byType = { table: [], view: [], explore: [], dashboard: [] };
@@ -370,7 +371,7 @@ looker.plugins.visualizations.add({
         }
         
         var hasFields = entity.fields && entity.fields.length > 0;
-        var fieldsBtn = hasFields ? '<g class="fields-btn" data-id="'+entity.id+'" transform="translate('+(nodeW-24)+',10)" style="cursor:pointer;"><rect width="18" height="18" rx="4" fill="#334155" fill-opacity="0.8"/><g transform="translate(2,2)" fill="#94a3b8">'+icons.list+'</g></g>' : '';
+        var fieldsBtn = hasFields ? '<g class="fields-btn" data-id="'+entity.id+'" transform="translate('+(nodeW-26)+',8)" style="cursor:pointer;"><rect width="20" height="20" rx="5" fill="#10b981" fill-opacity="0.2" stroke="#10b981" stroke-width="1"/><g transform="translate(3,3)" fill="#10b981">'+icons.list+'</g><title>View '+entity.fields.length+' fields</title></g>' : '';
         
         nodesHtml += '<g class="node" data-id="'+entity.id+'" style="cursor:pointer;" transform="translate('+pos.x+','+pos.y+')">'+
           glowHtml+
@@ -499,7 +500,7 @@ looker.plugins.visualizations.add({
             '<div style="background:linear-gradient(135deg,#1e293b,#334155);border:1px solid #475569;border-radius:12px;padding:16px;">'+
               '<div style="display:flex;align-items:center;gap:8px;margin-bottom:'+(searchTags.length?'10px':'0')+';">'+
                 '<span style="color:#10b981;">'+icons.search+'</span>'+
-                '<input id="searchInput" type="text" value="'+searchTerm+'" placeholder="Search fields (press Enter to add multiple terms)" style="flex:1;background:transparent;border:none;color:#e2e8f0;font-size:14px;outline:none;"/>'+
+                '<input id="searchInput" type="text" value="'+searchTerm+'" placeholder="Search fields (press Enter to add multiple terms)" autocomplete="off" style="flex:1;background:transparent;border:none;color:#e2e8f0;font-size:14px;outline:none;"/>'+
                 (hasSearch||selectedNode?'<span id="clearAll" style="color:#64748b;cursor:pointer;padding:4px;">'+icons.x+'</span>':'')+
               '</div>'+
               (searchTags.length?'<div style="display:flex;flex-wrap:wrap;gap:6px;">'+tagsHtml+'</div>':'')+
