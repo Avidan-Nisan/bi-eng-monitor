@@ -61,7 +61,6 @@ looker.plugins.visualizations.add({
     
     var allEntities = Object.values(tables).concat(Object.values(views)).concat(Object.values(explores)).concat(Object.values(dashboards));
     
-    // State
     var activeTab = 'lineage';
     var searchTerm = '';
     var searchTags = [];
@@ -95,22 +94,18 @@ looker.plugins.visualizations.add({
       dashboard: { color: '#f97316', label: 'Dashboards' }
     };
     
-    // Smart search function
     function smartMatch(text, searchTerm) {
       if (!text || !searchTerm) return false;
       
       var textLower = text.toLowerCase();
       var termLower = searchTerm.toLowerCase();
       
-      // 1. Exact contains match
       if (textLower.indexOf(termLower) !== -1) return true;
       
-      // 2. Remove all separators and compare
       var textClean = textLower.replace(/[_\-\s\.]+/g, '');
       var termClean = termLower.replace(/[_\-\s\.]+/g, '');
       if (textClean.indexOf(termClean) !== -1) return true;
       
-      // 3. Split search term into words and check if all are present
       var termWords = termLower.split(/[_\-\s\.]+/).filter(function(w) { return w.length > 0; });
       if (termWords.length > 1) {
         var allWordsFound = termWords.every(function(word) {
@@ -119,7 +114,6 @@ looker.plugins.visualizations.add({
         if (allWordsFound) return true;
       }
       
-      // 4. Check if any word in text starts with or contains the search term
       var textWords = textLower.split(/[_\-\s\.]+/).filter(function(w) { return w.length > 0; });
       for (var i = 0; i < textWords.length; i++) {
         if (textWords[i].indexOf(termClean) !== -1) return true;
@@ -138,7 +132,6 @@ looker.plugins.visualizations.add({
       
       var matches = [];
       allEntities.forEach(function(entity) {
-        // For each search term, check if it matches name OR any field
         var allTermsMatched = terms.every(function(term) {
           var inName = smartMatch(entity.name, term);
           var inFields = (entity.fields || []).some(function(f) { return smartMatch(f, term); });
@@ -146,7 +139,6 @@ looker.plugins.visualizations.add({
         });
         
         if (allTermsMatched) {
-          // Collect which fields matched which terms
           var fieldMatches = [];
           (entity.fields || []).forEach(function(field) {
             var hasMatch = terms.some(function(term) {
@@ -197,7 +189,6 @@ looker.plugins.visualizations.add({
       return r.filter(function(v,i,a) { return a.indexOf(v)===i; });
     }
     
-    // Find similar views
     function findDuplicates() {
       var viewFields = {};
       
@@ -290,19 +281,16 @@ looker.plugins.visualizations.add({
       var filterMode = '';
       
       if (selectedNode) {
-        // Lineage mode: show selected + upstream + downstream
         filterMode = 'lineage';
         upstream = getUpstream(selectedNode.id, 0);
         downstream = getDownstream(selectedNode.id, 0);
         var visibleIds = [selectedNode.id].concat(upstream).concat(downstream);
         visibleEntities = allEntities.filter(function(e) { return visibleIds.indexOf(e.id) !== -1; });
       } else if ((searchTags.length > 0 || searchTerm.trim())) {
-        // Search mode: show ONLY matching entities (not their lineage)
         filterMode = 'search';
         if (highlightedEntities.length > 0) {
           visibleEntities = allEntities.filter(function(e) { return highlightedEntities.indexOf(e.id) !== -1; });
         } else {
-          // No matches - show empty state
           visibleEntities = [];
         }
       }
@@ -339,9 +327,7 @@ looker.plugins.visualizations.add({
             if (s===selectedNode.id || isDown) { stroke='#f97316'; op=0.9; sw=2.5; }
             else if (e.id===selectedNode.id || isUp) { stroke='#06b6d4'; op=0.9; sw=2.5; }
           } else if (filterMode === 'search') {
-            var srcMatch = highlightedEntities.indexOf(s) !== -1;
-            var tgtMatch = highlightedEntities.indexOf(e.id) !== -1;
-            if (srcMatch || tgtMatch) { stroke='#10b981'; op=0.7; sw=2; }
+            stroke='#10b981'; op=0.7; sw=2;
           }
           var x1=f.x+nodeW, y1=f.y+nodeH/2, x2=t.x, y2=t.y+nodeH/2, mx=(x1+x2)/2;
           if (op > 0.5) edgesHtml += '<path d="M'+x1+' '+y1+' C'+mx+' '+y1+','+mx+' '+y2+','+x2+' '+y2+'" fill="none" stroke="'+stroke+'" stroke-width="8" stroke-opacity="0.2" filter="url(#glow)"/>';
@@ -409,16 +395,16 @@ looker.plugins.visualizations.add({
       if (showFieldsPanel) {
         var panelEntity = allEntities.find(function(e) { return e.id === showFieldsPanel; });
         if (panelEntity && panelEntity.fields && panelEntity.fields.length > 0) {
-          fieldsPanelHtml = '<div id="fields-panel" style="position:absolute;top:60px;right:20px;width:280px;max-height:400px;background:#1e293b;border:1px solid #334155;border-radius:10px;box-shadow:0 10px 40px rgba(0,0,0,0.5);z-index:100;overflow:hidden;">'+
-            '<div style="padding:12px 16px;border-bottom:1px solid #334155;display:flex;justify-content:space-between;align-items:center;">'+
-              '<div><div style="color:'+typeConfig[panelEntity.type].color+';font-size:12px;font-weight:500;">'+panelEntity.name+'</div>'+
-              '<div style="color:#64748b;font-size:10px;">'+panelEntity.fields.length+' fields</div></div>'+
-              '<span id="close-panel" style="color:#64748b;cursor:pointer;">'+icons.x+'</span></div>'+
-            '<div style="padding:12px 16px;max-height:300px;overflow-y:auto;">'+
-              '<div style="display:flex;flex-wrap:wrap;gap:4px;">'+
-                panelEntity.fields.map(function(f) {
+          fieldsPanelHtml = '<div id="fields-panel" style="position:absolute;top:60px;right:20px;width:300px;max-height:450px;background:#1e293b;border:1px solid #334155;border-radius:10px;box-shadow:0 10px 40px rgba(0,0,0,0.5);z-index:100;overflow:hidden;">'+
+            '<div style="padding:12px 16px;border-bottom:1px solid #334155;display:flex;justify-content:space-between;align-items:center;background:#0f172a;">'+
+              '<div><div style="color:'+typeConfig[panelEntity.type].color+';font-size:13px;font-weight:600;">'+panelEntity.name+'</div>'+
+              '<div style="color:#64748b;font-size:11px;margin-top:2px;">'+panelEntity.fields.length+' fields</div></div>'+
+              '<span id="close-panel" style="color:#64748b;cursor:pointer;padding:4px;">'+icons.x+'</span></div>'+
+            '<div style="padding:12px 16px;max-height:350px;overflow-y:auto;">'+
+              '<div style="display:flex;flex-wrap:wrap;gap:6px;">'+
+                panelEntity.fields.sort().map(function(f) {
                   var isMatch = searchMatches.some(function(m) { return m.entity.id === panelEntity.id && m.fieldMatches.indexOf(f) !== -1; });
-                  return '<span style="background:'+(isMatch?'#10b98133':'#334155')+';border:1px solid '+(isMatch?'#10b981':'#475569')+';padding:3px 8px;border-radius:4px;font-size:10px;color:'+(isMatch?'#6ee7b7':'#94a3b8')+';">'+f+'</span>';
+                  return '<span style="background:'+(isMatch?'#10b98133':'#334155')+';border:1px solid '+(isMatch?'#10b981':'#475569')+';padding:4px 10px;border-radius:6px;font-size:11px;color:'+(isMatch?'#6ee7b7':'#e2e8f0')+';">'+f+'</span>';
                 }).join('')+
               '</div></div></div>';
         }
@@ -500,11 +486,11 @@ looker.plugins.visualizations.add({
             '<div style="background:linear-gradient(135deg,#1e293b,#334155);border:1px solid #475569;border-radius:12px;padding:16px;">'+
               '<div style="display:flex;align-items:center;gap:8px;margin-bottom:'+(searchTags.length?'10px':'0')+';">'+
                 '<span style="color:#10b981;">'+icons.search+'</span>'+
-                '<input id="searchInput" type="text" value="'+searchTerm+'" placeholder="Search fields (press Enter to add multiple terms)" autocomplete="off" style="flex:1;background:transparent;border:none;color:#e2e8f0;font-size:14px;outline:none;"/>'+
+                '<input id="searchInput" type="text" value="'+searchTerm+'" placeholder="Search fields (press Enter to add multiple terms)" autocomplete="off" spellcheck="false" style="flex:1;background:transparent;border:none;color:#e2e8f0;font-size:14px;outline:none;"/>'+
                 (hasSearch||selectedNode?'<span id="clearAll" style="color:#64748b;cursor:pointer;padding:4px;">'+icons.x+'</span>':'')+
               '</div>'+
               (searchTags.length?'<div style="display:flex;flex-wrap:wrap;gap:6px;">'+tagsHtml+'</div>':'')+
-              '<div style="margin-top:10px;font-size:10px;color:#64748b;">💡 Searches: campaign_name, Campaign Name, campaignname all match the same</div>'+
+              '<div style="margin-top:10px;font-size:10px;color:#64748b;">💡 Tip: Click the green <span style="color:#10b981;">☰</span> icon on any node to see all its fields</div>'+
             '</div></div>'+
           '<div id="tab-content">'+(activeTab==='lineage'?renderLineageTab():renderDuplicatesTab())+'</div>'+
           '<div style="padding:10px 24px;border-top:1px solid #1e293b;display:flex;gap:20px;font-size:10px;color:#64748b;text-transform:uppercase;letter-spacing:0.5px;">'+
@@ -577,10 +563,16 @@ looker.plugins.visualizations.add({
           var idx = parseInt(h.parentElement.dataset.idx);
           expandedDuplicates[idx] = !expandedDuplicates[idx];
           var tabContent = container.querySelector('#tab-content');
-          if (tabContent) tabContent.innerHTML = renderDuplicatesTab();
-          container.querySelectorAll('.dup-header').forEach(function(h2) {
-            h2.addEventListener('click', arguments.callee);
-          });
+          if (tabContent) {
+            tabContent.innerHTML = renderDuplicatesTab();
+            container.querySelectorAll('.dup-header').forEach(function(h2) {
+              h2.addEventListener('click', function() {
+                var idx2 = parseInt(h2.parentElement.dataset.idx);
+                expandedDuplicates[idx2] = !expandedDuplicates[idx2];
+                tabContent.innerHTML = renderDuplicatesTab();
+              });
+            });
+          }
         });
       });
     }
