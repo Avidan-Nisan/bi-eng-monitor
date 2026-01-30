@@ -77,7 +77,8 @@ looker.plugins.visualizations.add({
       lineage: '<svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2"><circle cx="5" cy="12" r="2"/><circle cx="19" cy="6" r="2"/><circle cx="19" cy="18" r="2"/><path d="M7 12h4l4-6h2M11 12l4 6h2"/></svg>',
       duplicate: '<svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2"><rect x="8" y="8" width="12" height="12" rx="2"/><path d="M4 16V6a2 2 0 012-2h10"/></svg>',
       chevronDown: '<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 12 15 18 9"/></svg>',
-      chevronRight: '<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2"><polyline points="9 18 15 12 9 6"/></svg>'
+      chevronRight: '<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2"><polyline points="9 18 15 12 9 6"/></svg>',
+      ai: '<svg viewBox="0 0 24 24" width="14" height="14" fill="currentColor"><path d="M12 2a2 2 0 012 2c0 .74-.4 1.39-1 1.73V7h1a7 7 0 017 7h1a1 1 0 011 1v3a1 1 0 01-1 1h-1v1a2 2 0 01-2 2H5a2 2 0 01-2-2v-1H2a1 1 0 01-1-1v-3a1 1 0 011-1h1a7 7 0 017-7h1V5.73c-.6-.34-1-.99-1-1.73a2 2 0 012-2M7.5 13A2.5 2.5 0 005 15.5 2.5 2.5 0 007.5 18a2.5 2.5 0 002.5-2.5A2.5 2.5 0 007.5 13m9 0a2.5 2.5 0 00-2.5 2.5 2.5 2.5 0 002.5 2.5 2.5 2.5 0 002.5-2.5 2.5 2.5 0 00-2.5-2.5z"/></svg>'
     };
     
     var typeIcons = {
@@ -94,31 +95,172 @@ looker.plugins.visualizations.add({
       dashboard: { color: '#f97316', label: 'Dashboards' }
     };
     
-    // Smart match function - handles various formats
-    function smartMatch(text, searchTerm) {
-      if (!text || !searchTerm) return false;
+    // ========== AI-LIKE SMART SEARCH ENGINE ==========
+    
+    // Normalize text: remove all separators and convert to lowercase
+    function normalize(str) {
+      if (!str) return '';
+      return str.toLowerCase().replace(/[_\-\s\.]+/g, '');
+    }
+    
+    // Tokenize: split into meaningful words
+    function tokenize(str) {
+      if (!str) return [];
+      // Split by common separators
+      var tokens = str.toLowerCase().split(/[_\-\s\.]+/).filter(function(t) { return t.length > 0; });
+      // Also add camelCase splits
+      var camelSplit = str.replace(/([a-z])([A-Z])/g, '$1 $2').toLowerCase().split(/\s+/);
+      tokens = tokens.concat(camelSplit);
+      return tokens.filter(function(v, i, a) { return a.indexOf(v) === i && v.length > 0; });
+    }
+    
+    // Levenshtein distance for fuzzy matching
+    function levenshtein(a, b) {
+      if (!a || !b) return Math.max((a||'').length, (b||'').length);
+      var m = a.length, n = b.length;
+      if (m === 0) return n;
+      if (n === 0) return m;
+      var d = [];
+      for (var i = 0; i <= m; i++) { d[i] = [i]; }
+      for (var j = 0; j <= n; j++) { d[0][j] = j; }
+      for (i = 1; i <= m; i++) {
+        for (j = 1; j <= n; j++) {
+          var cost = a[i-1] === b[j-1] ? 0 : 1;
+          d[i][j] = Math.min(d[i-1][j] + 1, d[i][j-1] + 1, d[i-1][j-1] + cost);
+        }
+      }
+      return d[m][n];
+    }
+    
+    // Common synonyms/abbreviations in data contexts
+    var synonyms = {
+      'campaign': ['cmpgn', 'camp', 'cmp'],
+      'name': ['nm', 'title', 'label'],
+      'date': ['dt', 'time', 'timestamp', 'ts'],
+      'number': ['num', 'no', 'nr', 'count', 'cnt'],
+      'amount': ['amt', 'value', 'val'],
+      'customer': ['cust', 'client', 'user'],
+      'product': ['prod', 'item', 'sku'],
+      'order': ['ord', 'purchase'],
+      'identifier': ['id', 'key', 'code'],
+      'description': ['desc', 'descr'],
+      'quantity': ['qty', 'qnty'],
+      'category': ['cat', 'catg', 'type'],
+      'status': ['stat', 'state'],
+      'created': ['crtd', 'create'],
+      'updated': ['upd', 'update', 'modified'],
+      'revenue': ['rev', 'sales'],
+      'transaction': ['trans', 'txn', 'trx'],
+      'account': ['acct', 'acc'],
+      'address': ['addr', 'adr'],
+      'phone': ['ph', 'tel', 'telephone'],
+      'email': ['mail', 'eml'],
+      'first': ['fst', '1st'],
+      'last': ['lst', 'final'],
+      'total': ['tot', 'sum', 'ttl'],
+      'average': ['avg', 'mean'],
+      'maximum': ['max', 'highest'],
+      'minimum': ['min', 'lowest']
+    };
+    
+    // Expand search term with synonyms
+    function expandWithSynonyms(term) {
+      var expanded = [term];
+      var termLower = term.toLowerCase();
+      
+      // Check if term matches any synonym key or value
+      Object.keys(synonyms).forEach(function(key) {
+        if (key === termLower || synonyms[key].indexOf(termLower) !== -1) {
+          expanded.push(key);
+          expanded = expanded.concat(synonyms[key]);
+        }
+      });
+      
+      return expanded.filter(function(v, i, a) { return a.indexOf(v) === i; });
+    }
+    
+    // Calculate match score (0-100)
+    function calculateMatchScore(text, searchTerm) {
+      if (!text || !searchTerm) return 0;
       
       var textLower = text.toLowerCase();
       var termLower = searchTerm.toLowerCase().trim();
+      var textNorm = normalize(text);
+      var termNorm = normalize(searchTerm);
       
-      // Direct contains
-      if (textLower.indexOf(termLower) !== -1) return true;
+      // Exact match = 100
+      if (textLower === termLower) return 100;
+      if (textNorm === termNorm) return 98;
       
-      // Remove all separators and compare
-      var textClean = textLower.replace(/[_\-\s\.]+/g, '');
-      var termClean = termLower.replace(/[_\-\s\.]+/g, '');
-      if (textClean.indexOf(termClean) !== -1) return true;
+      // Contains exact term = 90
+      if (textLower.indexOf(termLower) !== -1) return 90;
+      if (textNorm.indexOf(termNorm) !== -1) return 88;
       
-      // Check each word in the text against search term
-      var textWords = textLower.split(/[_\-\s\.]+/).filter(function(w) { return w.length > 0; });
-      for (var i = 0; i < textWords.length; i++) {
-        if (textWords[i].indexOf(termLower) !== -1) return true;
-        if (textWords[i].indexOf(termClean) !== -1) return true;
-        // Partial match at start of word
-        if (termClean.length >= 3 && textWords[i].substring(0, termClean.length) === termClean) return true;
-      }
+      // Tokenize and check word matches
+      var textTokens = tokenize(text);
+      var termTokens = tokenize(searchTerm);
       
-      return false;
+      // All search tokens found in text tokens
+      var allTokensFound = termTokens.every(function(tt) {
+        return textTokens.some(function(txtt) {
+          return txtt.indexOf(tt) !== -1 || tt.indexOf(txtt) !== -1;
+        });
+      });
+      if (allTokensFound && termTokens.length > 0) return 85;
+      
+      // Check with synonyms
+      var expandedTerms = [];
+      termTokens.forEach(function(tt) {
+        expandedTerms = expandedTerms.concat(expandWithSynonyms(tt));
+      });
+      
+      var synonymMatch = expandedTerms.some(function(et) {
+        var etNorm = normalize(et);
+        return textNorm.indexOf(etNorm) !== -1 || textTokens.some(function(txtt) {
+          return txtt.indexOf(etNorm) !== -1 || etNorm.indexOf(txtt) !== -1;
+        });
+      });
+      if (synonymMatch) return 75;
+      
+      // Word starts with search term
+      var startsWithMatch = textTokens.some(function(txtt) {
+        return txtt.indexOf(termNorm) === 0 || termNorm.indexOf(txtt) === 0;
+      });
+      if (startsWithMatch) return 70;
+      
+      // Fuzzy match with Levenshtein distance
+      var minDist = Infinity;
+      textTokens.forEach(function(txtt) {
+        termTokens.forEach(function(tt) {
+          if (tt.length >= 3) {
+            var dist = levenshtein(txtt, tt);
+            var maxLen = Math.max(txtt.length, tt.length);
+            var normalizedDist = dist / maxLen;
+            if (normalizedDist < minDist) minDist = normalizedDist;
+          }
+        });
+      });
+      
+      // Allow ~25% typo tolerance for words >= 4 chars
+      if (minDist <= 0.25) return 60;
+      // Allow ~40% typo tolerance
+      if (minDist <= 0.4) return 45;
+      
+      // Partial character sequence match (for abbreviations)
+      var charSeqMatch = termNorm.split('').every(function(c, idx) {
+        var pos = textNorm.indexOf(c, idx === 0 ? 0 : textNorm.indexOf(termNorm[idx-1]) + 1);
+        return pos !== -1;
+      });
+      if (charSeqMatch && termNorm.length >= 2) return 35;
+      
+      return 0;
+    }
+    
+    // Main AI-like smart match function
+    function smartMatch(text, searchTerm, returnScore) {
+      var score = calculateMatchScore(text, searchTerm);
+      if (returnScore) return score;
+      return score >= 35; // Threshold for match
     }
     
     function getSearchMatches() {
@@ -126,55 +268,108 @@ looker.plugins.visualizations.add({
       if (searchTerm.trim()) terms.push(searchTerm.trim());
       if (terms.length === 0) return [];
       
-      console.log('=== SEARCH ===');
+      console.log('=== AI SEARCH ===');
       console.log('Terms:', terms);
       
       var matches = [];
       
       allEntities.forEach(function(entity) {
-        // For each term, check if it's found in name OR in any field
-        var allTermsFound = terms.every(function(term) {
+        var totalScore = 0;
+        var matchedTerms = 0;
+        var fieldMatches = [];
+        var termDetails = []; // Track which term matched which field
+        var nameScore = 0;
+        
+        terms.forEach(function(term) {
+          var termMatched = false;
+          var bestFieldScore = 0;
+          var bestFieldForTerm = null;
+          
           // Check name
-          if (smartMatch(entity.name, term)) return true;
+          var ns = smartMatch(entity.name, term, true);
+          if (ns >= 35) {
+            termMatched = true;
+            nameScore = Math.max(nameScore, ns);
+          }
+          
           // Check fields
           if (entity.fields && entity.fields.length > 0) {
-            for (var i = 0; i < entity.fields.length; i++) {
-              if (smartMatch(entity.fields[i], term)) return true;
-            }
-          }
-          return false;
-        });
-        
-        if (allTermsFound) {
-          // Collect matched fields
-          var fieldMatches = [];
-          if (entity.fields) {
             entity.fields.forEach(function(field) {
-              var fieldMatchesTerm = terms.some(function(term) {
-                return smartMatch(field, term);
-              });
-              if (fieldMatchesTerm) fieldMatches.push(field);
+              var fs = smartMatch(field, term, true);
+              if (fs >= 35) {
+                termMatched = true;
+                if (fs > bestFieldScore) {
+                  bestFieldScore = fs;
+                  bestFieldForTerm = field;
+                }
+                // Track all matching fields
+                var existing = fieldMatches.find(function(fm) { return fm.field === field; });
+                if (!existing) {
+                  fieldMatches.push({ field: field, score: fs, matchedTerms: [term] });
+                } else if (existing.matchedTerms.indexOf(term) === -1) {
+                  existing.matchedTerms.push(term);
+                  existing.score = Math.max(existing.score, fs);
+                }
+              }
             });
           }
           
+          if (termMatched) {
+            matchedTerms++;
+            totalScore += Math.max(nameScore, bestFieldScore);
+            termDetails.push({
+              term: term,
+              matchedName: ns >= 35,
+              matchedField: bestFieldForTerm,
+              score: Math.max(ns, bestFieldScore)
+            });
+          }
+        });
+        
+        // All terms must match (AND logic for multiple search terms)
+        if (matchedTerms === terms.length) {
+          var avgScore = totalScore / terms.length;
+          
+          // Bonus for entities that have more unique field matches
+          var uniqueFieldCount = fieldMatches.length;
+          var bonusScore = Math.min(uniqueFieldCount * 2, 10);
+          avgScore += bonusScore;
+          
+          // Sort field matches by score
+          fieldMatches.sort(function(a, b) { return b.score - a.score; });
+          
           matches.push({
             entity: entity,
-            nameMatch: terms.some(function(t) { return smartMatch(entity.name, t); }),
-            fieldMatches: fieldMatches
+            score: avgScore,
+            nameMatch: nameScore >= 35,
+            nameScore: nameScore,
+            fieldMatches: fieldMatches.map(function(fm) { return fm.field; }),
+            fieldScores: fieldMatches,
+            termDetails: termDetails,
+            matchedTermCount: matchedTerms,
+            totalTerms: terms.length
           });
         }
       });
       
-      console.log('Found:', matches.length);
-      console.log('==============');
-      
-      // Sort by number of field matches
+      // Sort by: 1) number of field matches, 2) score
       matches.sort(function(a, b) {
-        return b.fieldMatches.length - a.fieldMatches.length;
+        if (b.fieldMatches.length !== a.fieldMatches.length) {
+          return b.fieldMatches.length - a.fieldMatches.length;
+        }
+        return b.score - a.score;
       });
+      
+      console.log('Found:', matches.length, 'matches');
+      if (matches.length > 0) {
+        console.log('Top match:', matches[0].entity.name, 'Fields:', matches[0].fieldMatches.length, 'Score:', matches[0].score);
+      }
+      console.log('=================');
       
       return matches;
     }
+    
+    // ========== END AI SEARCH ENGINE ==========
     
     function getUpstream(id, d) {
       if (d > 10) return [];
@@ -365,7 +560,11 @@ looker.plugins.visualizations.add({
         if (isSearchMatch) {
           var match = searchMatches.find(function(m) { return m.entity.id === entity.id; });
           if (match && match.fieldMatches.length > 0) {
-            subText = '<text x="46" y="'+(nodeH/2+11)+'" fill="#10b981" font-size="9">'+match.fieldMatches.length+' field'+(match.fieldMatches.length>1?'s':'')+' matched</text>';
+            var fieldText = match.fieldMatches.length+' field'+(match.fieldMatches.length>1?'s':'')+' matched';
+            if (match.totalTerms > 1) {
+              fieldText = match.fieldMatches.length+'/'+match.totalTerms+' terms found';
+            }
+            subText = '<text x="46" y="'+(nodeH/2+11)+'" fill="#10b981" font-size="9">'+fieldText+'</text>';
           }
         }
         
@@ -399,7 +598,11 @@ looker.plugins.visualizations.add({
           '<span style="color:#06b6d4;margin-left:14px;">▲ '+upstream.length+'</span>'+
           '<span style="color:#f97316;margin-left:10px;">▼ '+downstream.length+'</span>';
       } else if ((searchTags.length > 0 || searchTerm.trim()) && highlightedEntities.length > 0) {
-        statsText = '<span style="color:#10b981;font-weight:500;">'+highlightedEntities.length+' matches</span>';
+        var topMatch = searchMatches[0];
+        var termCount = searchTags.length + (searchTerm.trim() ? 1 : 0);
+        var scoreInfo = topMatch ? ' <span style="color:#64748b;font-size:10px;">('+topMatch.fieldMatches.length+' fields, '+Math.round(topMatch.score)+'% match)</span>' : '';
+        var termInfo = termCount > 1 ? '<span style="color:#94a3b8;margin-left:8px;">'+termCount+' terms</span>' : '';
+        statsText = '<span style="color:#10b981;font-weight:500;">'+highlightedEntities.length+' matches</span>'+termInfo+scoreInfo;
       } else if (searchTags.length > 0 || searchTerm.trim()) {
         statsText = '<span style="color:#ef4444;">No matches found</span>';
       } else {
@@ -420,8 +623,19 @@ looker.plugins.visualizations.add({
             '<div style="padding:14px 18px;max-height:350px;overflow-y:auto;">'+
               '<div style="display:flex;flex-wrap:wrap;gap:6px;">'+
                 sortedFields.map(function(f) {
-                  var isMatch = searchMatches.some(function(m) { return m.entity.id === panelEntity.id && m.fieldMatches.indexOf(f) !== -1; });
-                  return '<span style="background:'+(isMatch?'#10b98125':'#0f172a')+';border:1px solid '+(isMatch?'#10b981':'#334155')+';padding:5px 10px;border-radius:6px;font-size:11px;color:'+(isMatch?'#6ee7b7':'#e2e8f0')+';">'+f+'</span>';
+                  var matchInfo = null;
+                  searchMatches.forEach(function(m) {
+                    if (m.entity.id === panelEntity.id) {
+                      var fieldScore = m.fieldScores.find(function(fs) { return fs.field === f; });
+                      if (fieldScore) matchInfo = fieldScore;
+                    }
+                  });
+                  var isMatch = matchInfo !== null;
+                  var matchLabel = '';
+                  if (isMatch && matchInfo.matchedTerms && matchInfo.matchedTerms.length > 0) {
+                    matchLabel = '<span style="font-size:9px;opacity:0.7;margin-left:4px;">(' + matchInfo.matchedTerms.join(', ') + ')</span>';
+                  }
+                  return '<span style="background:'+(isMatch?'#10b98125':'#0f172a')+';border:1px solid '+(isMatch?'#10b981':'#334155')+';padding:5px 10px;border-radius:6px;font-size:11px;color:'+(isMatch?'#6ee7b7':'#e2e8f0')+';">'+f+matchLabel+'</span>';
                 }).join('')+
               '</div></div></div>';
         }
@@ -484,7 +698,7 @@ looker.plugins.visualizations.add({
       var logoHtml = '<img src="https://avidan-nisan.github.io/bi-eng-monitor/logo.png" width="40" height="40" style="border-radius:8px;" onerror="this.style.display=\'none\'"/>';
       
       var tagsHtml = searchTags.map(function(tag, i) {
-        return '<span class="search-tag" data-idx="'+i+'" style="display:inline-flex;align-items:center;gap:6px;background:#10b98125;border:1px solid #10b981;padding:6px 10px 6px 12px;border-radius:8px;font-size:12px;color:#6ee7b7;font-weight:500;">'+tag+'<span class="remove-tag" style="cursor:pointer;opacity:0.7;padding:2px;">'+icons.x+'</span></span>';
+        return '<span class="search-tag" data-idx="'+i+'" style="display:inline-flex;align-items:center;gap:6px;background:#10b98125;border:1px solid #10b981;padding:6px 10px 6px 12px;border-radius:8px;font-size:12px;color:#6ee7b7;font-weight:500;"><span style="opacity:0.6;font-size:10px;">'+(i+1)+'.</span> '+tag+'<span class="remove-tag" style="cursor:pointer;opacity:0.7;padding:2px;">'+icons.x+'</span></span>';
       }).join('');
       
       var hasSearch = searchTags.length > 0 || searchTerm.trim();
@@ -502,12 +716,12 @@ looker.plugins.visualizations.add({
               '</div></div>'+
             '<div style="background:linear-gradient(135deg,#1e293b,#334155);border:1px solid #475569;border-radius:12px;padding:16px;">'+
               '<div style="display:flex;align-items:center;gap:10px;margin-bottom:'+(searchTags.length?'12px':'0')+';">'+
-                '<span style="color:#10b981;">'+icons.search+'</span>'+
-                '<input id="searchInput" type="text" value="'+searchTerm+'" placeholder="Search for fields... (press Enter to add term)" autocomplete="off" spellcheck="false" style="flex:1;background:transparent;border:none;color:#e2e8f0;font-size:14px;outline:none;"/>'+
+                '<span style="color:#10b981;display:flex;align-items:center;gap:4px;">'+icons.ai+icons.search+'</span>'+
+                '<input id="searchInput" type="text" value="'+searchTerm+'" placeholder="Search fields: campaign name, gross revenue, country... (Enter to add each)" autocomplete="off" spellcheck="false" style="flex:1;background:transparent;border:none;color:#e2e8f0;font-size:14px;outline:none;"/>'+
                 (hasSearch||selectedNode?'<span id="clearAll" style="color:#64748b;cursor:pointer;padding:6px;border-radius:6px;background:#334155;">'+icons.x+'</span>':'')+
               '</div>'+
               (searchTags.length?'<div style="display:flex;flex-wrap:wrap;gap:8px;">'+tagsHtml+'</div>':'')+
-              '<div style="margin-top:12px;font-size:11px;color:#64748b;">💡 Click the green <span style="color:#10b981;background:#10b98125;padding:1px 4px;border-radius:3px;">☰</span> button on nodes to view all fields</div>'+
+              '<div style="margin-top:12px;font-size:11px;color:#64748b;">🤖 <span style="color:#10b981;">AI-powered</span>: Press Enter after each field to search multiple fields (AND logic). Understands typos & abbreviations.</div>'+
             '</div></div>'+
           '<div id="tab-content">'+(activeTab==='lineage'?renderLineageTab():renderDuplicatesTab())+'</div>'+
           '<div style="padding:10px 24px;border-top:1px solid #1e293b;display:flex;gap:20px;font-size:10px;color:#64748b;text-transform:uppercase;letter-spacing:0.5px;">'+
@@ -535,10 +749,13 @@ looker.plugins.visualizations.add({
       });
       
       input.addEventListener('keydown', function(e) {
-        if ((e.key === 'Enter' || e.key === ',') && searchTerm.trim()) {
+        if (e.key === 'Enter' && searchTerm.trim()) {
           e.preventDefault();
-          var term = searchTerm.trim().replace(/,/g, '');
-          if (term && searchTags.indexOf(term) === -1) searchTags.push(term);
+          // Support comma-separated input: "campaign name, gross revenue, country"
+          var terms = searchTerm.split(',').map(function(t) { return t.trim(); }).filter(function(t) { return t.length > 0; });
+          terms.forEach(function(term) {
+            if (searchTags.indexOf(term) === -1) searchTags.push(term);
+          });
           searchTerm = '';
           render();
         } else if (e.key === 'Backspace' && !searchTerm && searchTags.length > 0) {
