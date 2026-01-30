@@ -94,30 +94,28 @@ looker.plugins.visualizations.add({
       dashboard: { color: '#f97316', label: 'Dashboards' }
     };
     
+    // Smart match function - handles various formats
     function smartMatch(text, searchTerm) {
       if (!text || !searchTerm) return false;
       
       var textLower = text.toLowerCase();
-      var termLower = searchTerm.toLowerCase();
+      var termLower = searchTerm.toLowerCase().trim();
       
+      // Direct contains
       if (textLower.indexOf(termLower) !== -1) return true;
       
+      // Remove all separators and compare
       var textClean = textLower.replace(/[_\-\s\.]+/g, '');
       var termClean = termLower.replace(/[_\-\s\.]+/g, '');
       if (textClean.indexOf(termClean) !== -1) return true;
       
-      var termWords = termLower.split(/[_\-\s\.]+/).filter(function(w) { return w.length > 0; });
-      if (termWords.length > 1) {
-        var allWordsFound = termWords.every(function(word) {
-          return textLower.indexOf(word) !== -1 || textClean.indexOf(word) !== -1;
-        });
-        if (allWordsFound) return true;
-      }
-      
+      // Check each word in the text against search term
       var textWords = textLower.split(/[_\-\s\.]+/).filter(function(w) { return w.length > 0; });
       for (var i = 0; i < textWords.length; i++) {
+        if (textWords[i].indexOf(termLower) !== -1) return true;
         if (textWords[i].indexOf(termClean) !== -1) return true;
-        if (termClean.indexOf(textWords[i]) !== -1 && textWords[i].length >= 3) return true;
+        // Partial match at start of word
+        if (termClean.length >= 3 && textWords[i].substring(0, termClean.length) === termClean) return true;
       }
       
       return false;
@@ -128,39 +126,49 @@ looker.plugins.visualizations.add({
       if (searchTerm.trim()) terms.push(searchTerm.trim());
       if (terms.length === 0) return [];
       
-      console.log('Search terms:', terms);
+      console.log('=== SEARCH ===');
+      console.log('Terms:', terms);
       
       var matches = [];
+      
       allEntities.forEach(function(entity) {
-        var allTermsMatched = terms.every(function(term) {
-          var inName = smartMatch(entity.name, term);
-          var inFields = (entity.fields || []).some(function(f) { return smartMatch(f, term); });
-          return inName || inFields;
+        // For each term, check if it's found in name OR in any field
+        var allTermsFound = terms.every(function(term) {
+          // Check name
+          if (smartMatch(entity.name, term)) return true;
+          // Check fields
+          if (entity.fields && entity.fields.length > 0) {
+            for (var i = 0; i < entity.fields.length; i++) {
+              if (smartMatch(entity.fields[i], term)) return true;
+            }
+          }
+          return false;
         });
         
-        if (allTermsMatched) {
+        if (allTermsFound) {
+          // Collect matched fields
           var fieldMatches = [];
-          (entity.fields || []).forEach(function(field) {
-            var hasMatch = terms.some(function(term) {
-              return smartMatch(field, term);
+          if (entity.fields) {
+            entity.fields.forEach(function(field) {
+              var fieldMatchesTerm = terms.some(function(term) {
+                return smartMatch(field, term);
+              });
+              if (fieldMatchesTerm) fieldMatches.push(field);
             });
-            if (hasMatch) fieldMatches.push(field);
-          });
-          
-          var nameMatches = terms.some(function(term) {
-            return smartMatch(entity.name, term);
-          });
+          }
           
           matches.push({
             entity: entity,
-            nameMatch: nameMatches,
+            nameMatch: terms.some(function(t) { return smartMatch(entity.name, t); }),
             fieldMatches: fieldMatches
           });
         }
       });
       
-      console.log('Matches found:', matches.length);
+      console.log('Found:', matches.length);
+      console.log('==============');
       
+      // Sort by number of field matches
       matches.sort(function(a, b) {
         return b.fieldMatches.length - a.fieldMatches.length;
       });
@@ -286,7 +294,7 @@ looker.plugins.visualizations.add({
         downstream = getDownstream(selectedNode.id, 0);
         var visibleIds = [selectedNode.id].concat(upstream).concat(downstream);
         visibleEntities = allEntities.filter(function(e) { return visibleIds.indexOf(e.id) !== -1; });
-      } else if ((searchTags.length > 0 || searchTerm.trim())) {
+      } else if (searchTags.length > 0 || searchTerm.trim()) {
         filterMode = 'search';
         if (highlightedEntities.length > 0) {
           visibleEntities = allEntities.filter(function(e) { return highlightedEntities.indexOf(e.id) !== -1; });
@@ -315,6 +323,7 @@ looker.plugins.visualizations.add({
       var maxCount = Math.max(byType.table.length||1, byType.view.length||1, byType.explore.length||1, byType.dashboard.length||1);
       var svgHeight = Math.max(maxCount * nodeSpacing + 110, 350);
       
+      // Draw edges
       var edgesHtml = '';
       visibleEntities.forEach(function(e) {
         (e.sources||[]).forEach(function(s) {
@@ -327,49 +336,54 @@ looker.plugins.visualizations.add({
             if (s===selectedNode.id || isDown) { stroke='#f97316'; op=0.9; sw=2.5; }
             else if (e.id===selectedNode.id || isUp) { stroke='#06b6d4'; op=0.9; sw=2.5; }
           } else if (filterMode === 'search') {
-            stroke='#10b981'; op=0.7; sw=2;
+            stroke='#10b981'; op=0.6; sw=2;
           }
           var x1=f.x+nodeW, y1=f.y+nodeH/2, x2=t.x, y2=t.y+nodeH/2, mx=(x1+x2)/2;
-          if (op > 0.5) edgesHtml += '<path d="M'+x1+' '+y1+' C'+mx+' '+y1+','+mx+' '+y2+','+x2+' '+y2+'" fill="none" stroke="'+stroke+'" stroke-width="8" stroke-opacity="0.2" filter="url(#glow)"/>';
+          if (op > 0.5) edgesHtml += '<path d="M'+x1+' '+y1+' C'+mx+' '+y1+','+mx+' '+y2+','+x2+' '+y2+'" fill="none" stroke="'+stroke+'" stroke-width="8" stroke-opacity="0.15" filter="url(#glow)"/>';
           edgesHtml += '<path d="M'+x1+' '+y1+' C'+mx+' '+y1+','+mx+' '+y2+','+x2+' '+y2+'" fill="none" stroke="'+stroke+'" stroke-width="'+sw+'" stroke-opacity="'+op+'" marker-end="url(#arrow'+(stroke==='#06b6d4'?'Cyan':stroke==='#f97316'?'Orange':stroke==='#10b981'?'Green':'Gray')+')"/>';
         });
       });
       
+      // Draw nodes
       var nodesHtml = '';
       visibleEntities.forEach(function(entity) {
         var pos = positions[entity.id], cfg = typeConfig[entity.type];
         var isSelected = selectedNode && selectedNode.id === entity.id;
         var isUpstream = selectedNode && upstream.indexOf(entity.id) !== -1;
         var isDownstream = selectedNode && downstream.indexOf(entity.id) !== -1;
-        var isSearchMatch = highlightedEntities.indexOf(entity.id) !== -1;
+        var isSearchMatch = highlightedEntities.indexOf(entity.id) !== -1 && !selectedNode;
         
         var borderColor = cfg.color, borderWidth = 1, glowHtml = '';
         if (isSelected) { borderColor = '#ffffff'; borderWidth = 2; glowHtml = '<rect x="-4" y="-4" width="'+(nodeW+8)+'" height="'+(nodeH+8)+'" rx="12" fill="none" stroke="#ffffff" stroke-width="1" stroke-opacity="0.4" filter="url(#glow)"/>'; }
         else if (isUpstream) { borderColor = '#06b6d4'; borderWidth = 2; glowHtml = '<rect x="-3" y="-3" width="'+(nodeW+6)+'" height="'+(nodeH+6)+'" rx="11" fill="none" stroke="#06b6d4" stroke-width="1" stroke-opacity="0.4" filter="url(#glow)"/>'; }
         else if (isDownstream) { borderColor = '#f97316'; borderWidth = 2; glowHtml = '<rect x="-3" y="-3" width="'+(nodeW+6)+'" height="'+(nodeH+6)+'" rx="11" fill="none" stroke="#f97316" stroke-width="1" stroke-opacity="0.4" filter="url(#glow)"/>'; }
-        else if (isSearchMatch && !selectedNode) { borderColor = '#10b981'; borderWidth = 2; glowHtml = '<rect x="-3" y="-3" width="'+(nodeW+6)+'" height="'+(nodeH+6)+'" rx="11" fill="none" stroke="#10b981" stroke-width="1" stroke-opacity="0.5" filter="url(#glow)"/>'; }
+        else if (isSearchMatch) { borderColor = '#10b981'; borderWidth = 2; glowHtml = '<rect x="-3" y="-3" width="'+(nodeW+6)+'" height="'+(nodeH+6)+'" rx="11" fill="none" stroke="#10b981" stroke-width="1" stroke-opacity="0.5" filter="url(#glow)"/>'; }
         
         var nm = entity.name.length > 17 ? entity.name.substring(0,16)+'…' : entity.name;
-        var matchInfo = '';
-        if (isSearchMatch && !selectedNode) {
+        var subText = '<text x="46" y="'+(nodeH/2+11)+'" fill="'+cfg.color+'" font-size="9" opacity="0.7">'+entity.type.toUpperCase()+'</text>';
+        
+        if (isSearchMatch) {
           var match = searchMatches.find(function(m) { return m.entity.id === entity.id; });
-          if (match && match.fieldMatches.length > 0) matchInfo = '<text x="46" y="'+(nodeH/2+12)+'" fill="#10b981" font-size="9">'+match.fieldMatches.length+' field match'+(match.fieldMatches.length>1?'es':'')+'</text>';
+          if (match && match.fieldMatches.length > 0) {
+            subText = '<text x="46" y="'+(nodeH/2+11)+'" fill="#10b981" font-size="9">'+match.fieldMatches.length+' field'+(match.fieldMatches.length>1?'s':'')+' matched</text>';
+          }
         }
         
         var hasFields = entity.fields && entity.fields.length > 0;
-        var fieldsBtn = hasFields ? '<g class="fields-btn" data-id="'+entity.id+'" transform="translate('+(nodeW-26)+',8)" style="cursor:pointer;"><rect width="20" height="20" rx="5" fill="#10b981" fill-opacity="0.2" stroke="#10b981" stroke-width="1"/><g transform="translate(3,3)" fill="#10b981">'+icons.list+'</g><title>View '+entity.fields.length+' fields</title></g>' : '';
+        var fieldsBtn = hasFields ? '<g class="fields-btn" data-id="'+entity.id+'" transform="translate('+(nodeW-26)+',8)" style="cursor:pointer;"><rect width="20" height="20" rx="5" fill="#10b981" fill-opacity="0.3" stroke="#10b981" stroke-width="1"/><g transform="translate(3,3)" fill="#10b981">'+icons.list+'</g><title>View '+entity.fields.length+' fields</title></g>' : '';
         
         nodesHtml += '<g class="node" data-id="'+entity.id+'" style="cursor:pointer;" transform="translate('+pos.x+','+pos.y+')">'+
           glowHtml+
-          '<rect width="'+nodeW+'" height="'+nodeH+'" rx="10" fill="#0f172a" fill-opacity="0.9" stroke="'+borderColor+'" stroke-width="'+borderWidth+'"/>'+
+          '<rect width="'+nodeW+'" height="'+nodeH+'" rx="10" fill="#0f172a" fill-opacity="0.95" stroke="'+borderColor+'" stroke-width="'+borderWidth+'"/>'+
           '<rect x="1" y="1" width="36" height="'+(nodeH-2)+'" rx="9" fill="'+cfg.color+'" fill-opacity="0.15"/>'+
           '<g transform="translate(11,'+(nodeH/2-7)+')" fill="'+cfg.color+'">'+typeIcons[entity.type]+'</g>'+
           '<text x="46" y="'+(nodeH/2-1)+'" fill="#e2e8f0" font-size="11" font-weight="500">'+nm+'</text>'+
-          (matchInfo || '<text x="46" y="'+(nodeH/2+11)+'" fill="'+cfg.color+'" font-size="9" opacity="0.7">'+entity.type.toUpperCase()+'</text>')+
+          subText+
           fieldsBtn+
           '</g>';
       });
       
+      // Column headers
       var hdrHtml = '';
       ['table','view','explore','dashboard'].forEach(function(type) {
         var cfg = typeConfig[type];
@@ -378,6 +392,7 @@ looker.plugins.visualizations.add({
         hdrHtml += '<line x1="'+(colX[type]+nodeW/2)+'" y1="52" x2="'+(colX[type]+nodeW/2)+'" y2="'+(svgHeight-15)+'" stroke="'+cfg.color+'" stroke-opacity="0.08" stroke-width="1" stroke-dasharray="4,4"/>';
       });
       
+      // Stats text
       var statsText = '';
       if (selectedNode) {
         statsText = '<span style="color:'+typeConfig[selectedNode.type].color+';font-weight:500;">'+selectedNode.name+'</span>'+
@@ -385,33 +400,35 @@ looker.plugins.visualizations.add({
           '<span style="color:#f97316;margin-left:10px;">▼ '+downstream.length+'</span>';
       } else if ((searchTags.length > 0 || searchTerm.trim()) && highlightedEntities.length > 0) {
         statsText = '<span style="color:#10b981;font-weight:500;">'+highlightedEntities.length+' matches</span>';
-      } else if ((searchTags.length > 0 || searchTerm.trim()) && highlightedEntities.length === 0) {
+      } else if (searchTags.length > 0 || searchTerm.trim()) {
         statsText = '<span style="color:#ef4444;">No matches found</span>';
       } else {
         statsText = '<span style="color:#64748b;">Click node to trace lineage</span>';
       }
       
+      // Fields panel
       var fieldsPanelHtml = '';
       if (showFieldsPanel) {
         var panelEntity = allEntities.find(function(e) { return e.id === showFieldsPanel; });
         if (panelEntity && panelEntity.fields && panelEntity.fields.length > 0) {
-          fieldsPanelHtml = '<div id="fields-panel" style="position:absolute;top:60px;right:20px;width:300px;max-height:450px;background:#1e293b;border:1px solid #334155;border-radius:10px;box-shadow:0 10px 40px rgba(0,0,0,0.5);z-index:100;overflow:hidden;">'+
-            '<div style="padding:12px 16px;border-bottom:1px solid #334155;display:flex;justify-content:space-between;align-items:center;background:#0f172a;">'+
-              '<div><div style="color:'+typeConfig[panelEntity.type].color+';font-size:13px;font-weight:600;">'+panelEntity.name+'</div>'+
-              '<div style="color:#64748b;font-size:11px;margin-top:2px;">'+panelEntity.fields.length+' fields</div></div>'+
-              '<span id="close-panel" style="color:#64748b;cursor:pointer;padding:4px;">'+icons.x+'</span></div>'+
-            '<div style="padding:12px 16px;max-height:350px;overflow-y:auto;">'+
+          var sortedFields = panelEntity.fields.slice().sort();
+          fieldsPanelHtml = '<div id="fields-panel" style="position:absolute;top:60px;right:20px;width:320px;max-height:450px;background:#1e293b;border:1px solid #475569;border-radius:12px;box-shadow:0 20px 50px rgba(0,0,0,0.5);z-index:100;overflow:hidden;">'+
+            '<div style="padding:14px 18px;border-bottom:1px solid #334155;display:flex;justify-content:space-between;align-items:center;background:linear-gradient(135deg,#1e293b,#334155);">'+
+              '<div><div style="color:'+typeConfig[panelEntity.type].color+';font-size:14px;font-weight:600;">'+panelEntity.name+'</div>'+
+              '<div style="color:#94a3b8;font-size:11px;margin-top:3px;">'+panelEntity.fields.length+' fields</div></div>'+
+              '<span id="close-panel" style="color:#94a3b8;cursor:pointer;padding:6px;border-radius:6px;background:#334155;">'+icons.x+'</span></div>'+
+            '<div style="padding:14px 18px;max-height:350px;overflow-y:auto;">'+
               '<div style="display:flex;flex-wrap:wrap;gap:6px;">'+
-                panelEntity.fields.sort().map(function(f) {
+                sortedFields.map(function(f) {
                   var isMatch = searchMatches.some(function(m) { return m.entity.id === panelEntity.id && m.fieldMatches.indexOf(f) !== -1; });
-                  return '<span style="background:'+(isMatch?'#10b98133':'#334155')+';border:1px solid '+(isMatch?'#10b981':'#475569')+';padding:4px 10px;border-radius:6px;font-size:11px;color:'+(isMatch?'#6ee7b7':'#e2e8f0')+';">'+f+'</span>';
+                  return '<span style="background:'+(isMatch?'#10b98125':'#0f172a')+';border:1px solid '+(isMatch?'#10b981':'#334155')+';padding:5px 10px;border-radius:6px;font-size:11px;color:'+(isMatch?'#6ee7b7':'#e2e8f0')+';">'+f+'</span>';
                 }).join('')+
               '</div></div></div>';
         }
       }
       
       return '<div style="position:relative;">'+
-        '<div style="padding:10px 24px;border-bottom:1px solid #1e293b;font-size:12px;display:flex;justify-content:space-between;">'+
+        '<div style="padding:12px 24px;border-bottom:1px solid #1e293b;font-size:12px;display:flex;justify-content:space-between;align-items:center;">'+
           '<div>'+statsText+'</div>'+
           '<div style="color:#64748b;font-size:11px;">'+(filterMode?visibleEntities.length+' of ':'')+allEntities.length+' entities</div></div>'+
         '<div style="padding:15px;overflow:auto;">'+
@@ -467,7 +484,7 @@ looker.plugins.visualizations.add({
       var logoHtml = '<img src="https://avidan-nisan.github.io/bi-eng-monitor/logo.png" width="40" height="40" style="border-radius:8px;" onerror="this.style.display=\'none\'"/>';
       
       var tagsHtml = searchTags.map(function(tag, i) {
-        return '<span class="search-tag" data-idx="'+i+'" style="display:inline-flex;align-items:center;gap:4px;background:#10b98133;border:1px solid #10b981;padding:4px 8px 4px 10px;border-radius:6px;font-size:11px;color:#6ee7b7;">'+tag+'<span class="remove-tag" style="cursor:pointer;opacity:0.7;">'+icons.x+'</span></span>';
+        return '<span class="search-tag" data-idx="'+i+'" style="display:inline-flex;align-items:center;gap:6px;background:#10b98125;border:1px solid #10b981;padding:6px 10px 6px 12px;border-radius:8px;font-size:12px;color:#6ee7b7;font-weight:500;">'+tag+'<span class="remove-tag" style="cursor:pointer;opacity:0.7;padding:2px;">'+icons.x+'</span></span>';
       }).join('');
       
       var hasSearch = searchTags.length > 0 || searchTerm.trim();
@@ -484,21 +501,22 @@ looker.plugins.visualizations.add({
                 '<button class="tab-btn" data-tab="duplicates" style="display:flex;align-items:center;gap:6px;padding:10px 20px;border:none;cursor:pointer;font-size:12px;font-weight:500;background:transparent;border-bottom:2px solid '+(activeTab==='duplicates'?'#f97316':'transparent')+';margin-bottom:-2px;color:'+(activeTab==='duplicates'?'#f97316':'#64748b')+';">'+icons.duplicate+' Similar Views</button>'+
               '</div></div>'+
             '<div style="background:linear-gradient(135deg,#1e293b,#334155);border:1px solid #475569;border-radius:12px;padding:16px;">'+
-              '<div style="display:flex;align-items:center;gap:8px;margin-bottom:'+(searchTags.length?'10px':'0')+';">'+
+              '<div style="display:flex;align-items:center;gap:10px;margin-bottom:'+(searchTags.length?'12px':'0')+';">'+
                 '<span style="color:#10b981;">'+icons.search+'</span>'+
-                '<input id="searchInput" type="text" value="'+searchTerm+'" placeholder="Search fields (press Enter to add multiple terms)" autocomplete="off" spellcheck="false" style="flex:1;background:transparent;border:none;color:#e2e8f0;font-size:14px;outline:none;"/>'+
-                (hasSearch||selectedNode?'<span id="clearAll" style="color:#64748b;cursor:pointer;padding:4px;">'+icons.x+'</span>':'')+
+                '<input id="searchInput" type="text" value="'+searchTerm+'" placeholder="Search for fields... (press Enter to add term)" autocomplete="off" spellcheck="false" style="flex:1;background:transparent;border:none;color:#e2e8f0;font-size:14px;outline:none;"/>'+
+                (hasSearch||selectedNode?'<span id="clearAll" style="color:#64748b;cursor:pointer;padding:6px;border-radius:6px;background:#334155;">'+icons.x+'</span>':'')+
               '</div>'+
-              (searchTags.length?'<div style="display:flex;flex-wrap:wrap;gap:6px;">'+tagsHtml+'</div>':'')+
-              '<div style="margin-top:10px;font-size:10px;color:#64748b;">💡 Tip: Click the green <span style="color:#10b981;">☰</span> icon on any node to see all its fields</div>'+
+              (searchTags.length?'<div style="display:flex;flex-wrap:wrap;gap:8px;">'+tagsHtml+'</div>':'')+
+              '<div style="margin-top:12px;font-size:11px;color:#64748b;">💡 Click the green <span style="color:#10b981;background:#10b98125;padding:1px 4px;border-radius:3px;">☰</span> button on nodes to view all fields</div>'+
             '</div></div>'+
           '<div id="tab-content">'+(activeTab==='lineage'?renderLineageTab():renderDuplicatesTab())+'</div>'+
           '<div style="padding:10px 24px;border-top:1px solid #1e293b;display:flex;gap:20px;font-size:10px;color:#64748b;text-transform:uppercase;letter-spacing:0.5px;">'+
             '<span><span style="color:#06b6d4;">━━</span> Upstream</span>'+
             '<span><span style="color:#f97316;">━━</span> Downstream</span>'+
-            '<span><span style="color:#10b981;">━━</span> Search Match</span>'+
+            '<span><span style="color:#10b981;">━━</span> Match</span>'+
           '</div></div>';
       
+      // Search input events
       var input = container.querySelector('#searchInput');
       var debounceTimer = null;
       
@@ -513,7 +531,7 @@ looker.plugins.visualizations.add({
             tabContent.innerHTML = renderLineageTab();
             attachLineageEvents();
           }
-        }, 200);
+        }, 250);
       });
       
       input.addEventListener('keydown', function(e) {
@@ -532,12 +550,14 @@ looker.plugins.visualizations.add({
       input.focus();
       input.setSelectionRange(input.value.length, input.value.length);
       
+      // Clear button
       var clearBtn = container.querySelector('#clearAll');
       if (clearBtn) clearBtn.addEventListener('click', function() {
         searchTerm = ''; searchTags = []; selectedNode = null; upstream = []; downstream = []; showFieldsPanel = null;
         render();
       });
       
+      // Remove tag buttons
       container.querySelectorAll('.remove-tag').forEach(function(btn) {
         btn.addEventListener('click', function(e) {
           e.stopPropagation();
@@ -547,6 +567,7 @@ looker.plugins.visualizations.add({
         });
       });
       
+      // Tab buttons
       container.querySelectorAll('.tab-btn').forEach(function(btn) {
         btn.addEventListener('click', function() {
           activeTab = btn.dataset.tab;
@@ -554,10 +575,12 @@ looker.plugins.visualizations.add({
         });
       });
       
+      // Lineage events
       if (activeTab === 'lineage') {
         attachLineageEvents();
       }
       
+      // Duplicates expand events
       container.querySelectorAll('.dup-header').forEach(function(h) {
         h.addEventListener('click', function() {
           var idx = parseInt(h.parentElement.dataset.idx);
