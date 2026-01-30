@@ -679,8 +679,8 @@ looker.plugins.visualizations.add({
         byType[t].sort(function(a,b) { return a.name.localeCompare(b.name); });
       });
       
-      var nodeW = 170, nodeH = 42, nodeSpacing = 50, padding = 35;
-      var svgWidth = Math.max(containerWidth - 50, 950);
+      var nodeW = 200, nodeH = 44, nodeSpacing = 52, padding = 30;
+      var svgWidth = Math.max(containerWidth - 50, 1000);
       var colSpacing = (svgWidth - padding * 2 - nodeW) / 3;
       var colX = { table: padding, view: padding + colSpacing, explore: padding + colSpacing * 2, dashboard: padding + colSpacing * 3 };
       
@@ -729,8 +729,8 @@ looker.plugins.visualizations.add({
         else if (isDownstream) { borderColor = '#f97316'; borderWidth = 2; glowHtml = '<rect x="-3" y="-3" width="'+(nodeW+6)+'" height="'+(nodeH+6)+'" rx="11" fill="none" stroke="#f97316" stroke-width="1" stroke-opacity="0.4" filter="url(#glow)"/>'; }
         else if (isSearchMatch) { borderColor = '#10b981'; borderWidth = 2; glowHtml = '<rect x="-3" y="-3" width="'+(nodeW+6)+'" height="'+(nodeH+6)+'" rx="11" fill="none" stroke="#10b981" stroke-width="1" stroke-opacity="0.5" filter="url(#glow)"/>'; }
         
-        var nm = entity.name.length > 17 ? entity.name.substring(0,16)+'…' : entity.name;
-        var subText = '<text x="46" y="'+(nodeH/2+11)+'" fill="'+cfg.color+'" font-size="9" opacity="0.7">'+entity.type.toUpperCase()+'</text>';
+        var nm = entity.name.length > 22 ? entity.name.substring(0,21)+'…' : entity.name;
+        var subText = '<text x="46" y="'+(nodeH/2+12)+'" fill="'+cfg.color+'" font-size="9" opacity="0.7">'+entity.type.toUpperCase()+'</text>';
         
         if (isSearchMatch) {
           var match = searchMatches.find(function(m) { return m.entity.id === entity.id; });
@@ -739,19 +739,23 @@ looker.plugins.visualizations.add({
             if (match.totalTerms > 1) {
               fieldText = match.fieldMatches.length+'/'+match.totalTerms+' terms found';
             }
-            subText = '<text x="46" y="'+(nodeH/2+11)+'" fill="#10b981" font-size="9">'+fieldText+'</text>';
+            subText = '<text x="46" y="'+(nodeH/2+12)+'" fill="#10b981" font-size="9">'+fieldText+'</text>';
           }
         }
         
         var hasFields = entity.fields && entity.fields.length > 0;
-        var fieldsBtn = hasFields ? '<g class="fields-btn" data-id="'+entity.id+'" transform="translate('+(nodeW-26)+',8)" style="cursor:pointer;"><rect width="20" height="20" rx="5" fill="#10b981" fill-opacity="0.3" stroke="#10b981" stroke-width="1"/><g transform="translate(3,3)" fill="#10b981">'+icons.list+'</g><title>View '+entity.fields.length+' fields</title></g>' : '';
+        var fieldsBtn = hasFields ? '<g class="fields-btn" data-id="'+entity.id+'" transform="translate('+(nodeW-26)+',10)" style="cursor:pointer;"><rect width="20" height="20" rx="5" fill="#10b981" fill-opacity="0.3" stroke="#10b981" stroke-width="1"/><g transform="translate(3,3)" fill="#10b981">'+icons.list+'</g></g>' : '';
+        
+        // Tooltip with full name
+        var tooltipHtml = '<title>'+entity.name+'\n'+entity.type.toUpperCase()+(entity.fields ? '\n'+entity.fields.length+' fields' : '')+(entity.sqlTables && entity.sqlTables.length > 0 ? '\nTables: '+entity.sqlTables.join(', ') : '')+'</title>';
         
         nodesHtml += '<g class="node" data-id="'+entity.id+'" style="cursor:pointer;" transform="translate('+pos.x+','+pos.y+')">'+
+          tooltipHtml+
           glowHtml+
           '<rect width="'+nodeW+'" height="'+nodeH+'" rx="10" fill="#0f172a" fill-opacity="0.95" stroke="'+borderColor+'" stroke-width="'+borderWidth+'"/>'+
-          '<rect x="1" y="1" width="36" height="'+(nodeH-2)+'" rx="9" fill="'+cfg.color+'" fill-opacity="0.15"/>'+
-          '<g transform="translate(11,'+(nodeH/2-7)+')" fill="'+cfg.color+'">'+typeIcons[entity.type]+'</g>'+
-          '<text x="46" y="'+(nodeH/2-1)+'" fill="#e2e8f0" font-size="11" font-weight="500">'+nm+'</text>'+
+          '<rect x="1" y="1" width="38" height="'+(nodeH-2)+'" rx="9" fill="'+cfg.color+'" fill-opacity="0.15"/>'+
+          '<g transform="translate(12,'+(nodeH/2-7)+')" fill="'+cfg.color+'">'+typeIcons[entity.type]+'</g>'+
+          '<text x="46" y="'+(nodeH/2)+'" fill="#e2e8f0" font-size="11" font-weight="500">'+nm+'</text>'+
           subText+
           fieldsBtn+
           '</g>';
