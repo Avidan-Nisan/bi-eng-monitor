@@ -25,11 +25,25 @@ looker.plugins.visualizations.add({
     var extendedViewField = fields.find(function(f) { return f.toLowerCase().indexOf('extended') !== -1 && f.toLowerCase().indexOf('view') !== -1; });
     var includedViewField = fields.find(function(f) { return f.toLowerCase().indexOf('included') !== -1 && f.toLowerCase().indexOf('view') !== -1; });
     
-    // Find fields field - looking specifically for falm_sql_table_fields
-    var fieldsField = fields.find(function(f) { 
-      var fl = f.toLowerCase();
-      return fl.indexOf('falm_sql_table_fields') !== -1 || fl.indexOf('sql_table_fields') !== -1;
-    });
+    // Find fields field - looking for any column containing falm_sql_table_fields or sql_table_fields
+    var fieldsField = null;
+    for (var i = 0; i < fields.length; i++) {
+      var fl = fields[i].toLowerCase();
+      if (fl.indexOf('falm_sql_table_fields') !== -1 || fl.indexOf('sql_table_fields') !== -1) {
+        fieldsField = fields[i];
+        break;
+      }
+    }
+    // If not found, try partial match
+    if (!fieldsField) {
+      for (var i = 0; i < fields.length; i++) {
+        var fl = fields[i].toLowerCase();
+        if (fl.indexOf('table_fields') !== -1 || fl.indexOf('_fields') !== -1) {
+          fieldsField = fields[i];
+          break;
+        }
+      }
+    }
     
     console.log('Field mappings:', { 
       dashField: dashField, 
@@ -172,13 +186,17 @@ looker.plugins.visualizations.add({
       var relevantTableIds = {};
       matches.forEach(function(m) {
         var entity = m.entity;
+        // Get tables from sqlTables of matched entity
+        if (entity.sqlTables && entity.sqlTables.length > 0) {
+          entity.sqlTables.forEach(function(tableName) {
+            relevantTableIds['t_' + tableName] = true;
+          });
+        }
+        // Also check sources that are tables
         if (entity.sources) {
           entity.sources.forEach(function(sourceId) {
             if (sourceId.indexOf('t_') === 0) {
-              var tableName = sourceId.substring(2);
-              if (entity.sqlTables && entity.sqlTables.indexOf(tableName) !== -1) {
-                relevantTableIds[sourceId] = true;
-              }
+              relevantTableIds[sourceId] = true;
             }
           });
         }
