@@ -204,7 +204,34 @@ looker.plugins.visualizations.add({
       return html;
     }
     
+    function getSearchMatches() {
+      var terms = searchTags.slice(); if (searchTerm.trim()) terms.push(searchTerm.trim()); if (terms.length === 0) return [];
+      var matches = [];
+      allEntities.forEach(function(entity) {
+        var totalScore = 0, matchedTerms = 0, fieldMatches = [], nameScore = 0, tableMatches = [];
+        terms.forEach(function(term) {
+          var termMatched = false, bestFieldScore = 0, termTokens = tokenize(term);
+          var ns = smartMatch(entity.name, term, true); if (ns >= 35) { termMatched = true; nameScore = Math.max(nameScore, ns); }
+          var tableContextMatch = false, matchedTable = null;
+          if (entity.sqlTables && entity.sqlTables.length > 0) { entity.sqlTables.forEach(function(tbl) { var ts = smartMatch(tbl, term, true); if (ts >= 35) { tableContextMatch = true; matchedTable = tbl; tableMatches.push({ table: tbl, term: term, score: ts }); } }); }
+          if (entity.fields && entity.fields.length > 0) {
+            entity.fields.forEach(function(field) {
+              var fs = smartMatch(field, term, true);
+              if (fs < 35 && tableContextMatch && termTokens.length > 1) { var fieldTokens = tokenize(field); if (termTokens.some(function(tt) { return fieldTokens.some(function(ft) { return ft === tt || ft.indexOf(tt) !== -1 || tt.indexOf(ft) !== -1; }); })) fs = 70; }
+              if (fs >= 35) { termMatched = true; if (fs > bestFieldScore) { bestFieldScore = fs; } var existing = fieldMatches.find(function(fm) { return fm.field === field; }); if (!existing) fieldMatches.push({ field: field, score: fs, matchedTerms: [term], tableContext: tableContextMatch ? matchedTable : null }); else if (existing.matchedTerms.indexOf(term) === -1) { existing.matchedTerms.push(term); existing.score = Math.max(existing.score, fs); } }
+            });
+          }
+          if (!termMatched && tableContextMatch) { termMatched = true; bestFieldScore = 50; }
+          if (termMatched) { matchedTerms++; totalScore += Math.max(nameScore, bestFieldScore); }
+        });
+        if (matchedTerms === terms.length) { fieldMatches.sort(function(a, b) { return b.score - a.score; }); matches.push({ entity: entity, score: totalScore / terms.length + Math.min(fieldMatches.length * 2, 10), nameMatch: nameScore >= 35, fieldMatches: fieldMatches.map(function(fm) { return fm.field; }), fieldScores: fieldMatches, tableMatches: tableMatches, totalTerms: terms.length }); }
+      });
+      return matches.sort(function(a, b) { return b.fieldMatches.length !== a.fieldMatches.length ? b.fieldMatches.length - a.fieldMatches.length : b.score - a.score; });
+    }
+    
     function renderLineageTab() {
+      var searchMatches = getSearchMatches(); 
+      highlightedEntities = searchMatches.map(function(m) { return m.entity.id; });
       var visibleEntities = allEntities, filterMode = '';
       
       if (selectedNode) { 
@@ -216,36 +243,7 @@ looker.plugins.visualizations.add({
       }
       else if (searchTags.length > 0 || searchTerm.trim()) { 
         filterMode = 'search'; 
-        var terms = searchTags.slice();
-        if (searchTerm.trim()) terms.push(searchTerm.trim());
-        
-        visibleEntities = allEntities.filter(function(entity) {
-          var matchedTermsCount = 0;
-          
-          for (var i = 0; i < terms.length; i++) {
-            var termMatched = false;
-            var term = terms[i];
-            
-            if (smartMatch(entity.name, term, true) >= 35) {
-              termMatched = true;
-            }
-            
-            if (!termMatched && entity.fields && entity.fields.length > 0) {
-              for (var j = 0; j < entity.fields.length; j++) {
-                if (smartMatch(entity.fields[j], term, true) >= 35) {
-                  termMatched = true;
-                  break;
-                }
-              }
-            }
-            
-            if (termMatched) matchedTermsCount++;
-          }
-          
-          return matchedTermsCount === terms.length;
-        });
-        
-        highlightedEntities = visibleEntities.map(function(e) { return e.id; });
+        visibleEntities = highlightedEntities.length > 0 ? allEntities.filter(function(e) { return highlightedEntities.indexOf(e.id) !== -1; }) : [];
       }
       
       var byType = { table: [], view: [], explore: [], dashboard: [] }; 
@@ -296,7 +294,8 @@ looker.plugins.visualizations.add({
       
       var statsText = '';
       if (selectedNode) statsText = '<span style="color:'+typeConfig[selectedNode.type].color+';">'+selectedNode.name+'</span> <span style="color:#06b6d4;">▲'+upstream.length+'</span> <span style="color:#f97316;">▼'+downstream.length+'</span>';
-      else if (filterMode === 'search') statsText = '<span style="color:#10b981;">'+visibleEntities.length+' matches</span>';
+      else if ((searchTags.length > 0 || searchTerm.trim()) && highlightedEntities.length > 0) statsText = '<span style="color:#10b981;">'+highlightedEntities.length+' matches</span>';
+      else if (searchTags.length > 0 || searchTerm.trim()) statsText = '<span style="color:#ef4444;">No matches found</span>';
       else statsText = '<span style="color:#64748b;">Click node to trace lineage</span>';
       
       return '<div><div style="padding:10px 20px;border-bottom:1px solid #1e293b;font-size:12px;display:flex;justify-content:space-between;"><div>'+statsText+'</div><div style="color:#64748b;font-size:11px;">'+(filterMode?visibleEntities.length+' of ':'')+allEntities.length+' entities</div></div><div style="padding:12px;overflow:auto;"><svg width="'+svgWidth+'" height="'+svgHeight+'" style="font-family:system-ui,sans-serif;">'+hdrHtml+edgesHtml+nodesHtml+'</svg></div></div>';
