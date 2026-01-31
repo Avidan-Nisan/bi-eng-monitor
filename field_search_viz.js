@@ -15,31 +15,56 @@ looker.plugins.visualizations.add({
     var fields = queryResponse.fields.dimension_like.map(function(f) { return f.name; });
     var dashField = fields.find(function(f) { return f.toLowerCase().indexOf('dashboard') !== -1 && f.toLowerCase().indexOf('title') !== -1; });
     var expField = fields.find(function(f) { return f.toLowerCase().indexOf('explore') !== -1 && f.toLowerCase().indexOf('name') !== -1; });
-    var viewField = fields.find(function(f) { return f.toLowerCase().indexOf('view') !== -1 && f.toLowerCase().indexOf('name') !== -1 && f.toLowerCase().indexOf('count') === -1; });
+    var viewField = fields.find(function(f) { return f.toLowerCase().indexOf('view') !== -1 && f.toLowerCase().indexOf('name') !== -1 && f.toLowerCase().indexOf('count') === -1 && f.toLowerCase().indexOf('extended') === -1 && f.toLowerCase().indexOf('included') === -1; });
     var fieldsField = fields.find(function(f) { return f.toLowerCase().indexOf('sql_table_fields') !== -1 || f.toLowerCase().indexOf('falm_sql_table_fields') !== -1; });
     var tableField = fields.find(function(f) { return f.toLowerCase().indexOf('sql_table') !== -1 && f.toLowerCase().indexOf('fields') === -1 && f.toLowerCase().indexOf('path') === -1; });
+    // New fields for view dependencies
+    var extendedViewField = fields.find(function(f) { return f.toLowerCase().indexOf('extended') !== -1 && f.toLowerCase().indexOf('view') !== -1; });
+    var includedViewField = fields.find(function(f) { return f.toLowerCase().indexOf('included') !== -1 && f.toLowerCase().indexOf('view') !== -1; });
+    
+    console.log('Fields detected:', { dashField: dashField, expField: expField, viewField: viewField, tableField: tableField, extendedViewField: extendedViewField, includedViewField: includedViewField });
     
     var allRows = data.map(function(row) {
-      return { dashboard: row[dashField] ? row[dashField].value : '', explore: row[expField] ? row[expField].value : '', view: row[viewField] ? row[viewField].value : '', table: tableField && row[tableField] ? row[tableField].value : '', fields: fieldsField && row[fieldsField] ? (row[fieldsField].value || '').split('|').filter(function(f) { return f.trim(); }) : [] };
+      return { 
+        dashboard: row[dashField] ? row[dashField].value : '', 
+        explore: row[expField] ? row[expField].value : '', 
+        view: row[viewField] ? row[viewField].value : '', 
+        table: tableField && row[tableField] ? row[tableField].value : '', 
+        fields: fieldsField && row[fieldsField] ? (row[fieldsField].value || '').split('|').filter(function(f) { return f.trim(); }) : [],
+        extendedView: extendedViewField && row[extendedViewField] ? row[extendedViewField].value : '',
+        includedView: includedViewField && row[includedViewField] ? row[includedViewField].value : ''
+      };
     });
     
-    var tables = {}, views = {}, explores = {}, dashboards = {}, viewToTables = {}, exploreToViews = {}, dashToExplores = {};
+    var tables = {}, views = {}, explores = {}, dashboards = {}, viewToTables = {}, viewToViews = {}, exploreToViews = {}, dashToExplores = {};
     
     allRows.forEach(function(row) {
-      var tbl = row.table, vw = row.view, exp = row.explore, dash = row.dashboard;
+      var tbl = row.table, vw = row.view, exp = row.explore, dash = row.dashboard, extVw = row.extendedView, incVw = row.includedView;
       if (tbl && !tables[tbl]) tables[tbl] = { id: 't_'+tbl, name: tbl, type: 'table', sources: [], fields: [], sqlTables: [] };
       if (vw && !views[vw]) views[vw] = { id: 'v_'+vw, name: vw, type: 'view', sources: [], fields: [], sqlTables: [] };
       if (exp && !explores[exp]) explores[exp] = { id: 'e_'+exp, name: exp, type: 'explore', sources: [], fields: [], sqlTables: [] };
       if (dash && !dashboards[dash]) dashboards[dash] = { id: 'd_'+dash, name: dash, type: 'dashboard', sources: [], fields: [], sqlTables: [] };
+      // Create extended/included views if they don't exist
+      if (extVw && !views[extVw]) views[extVw] = { id: 'v_'+extVw, name: extVw, type: 'view', sources: [], fields: [], sqlTables: [] };
+      if (incVw && !views[incVw]) views[incVw] = { id: 'v_'+incVw, name: incVw, type: 'view', sources: [], fields: [], sqlTables: [] };
+      
       if (vw && views[vw]) { row.fields.forEach(function(f) { if (views[vw].fields.indexOf(f) === -1) views[vw].fields.push(f); }); if (tbl && views[vw].sqlTables.indexOf(tbl) === -1) views[vw].sqlTables.push(tbl); }
       if (exp && explores[exp]) { row.fields.forEach(function(f) { if (explores[exp].fields.indexOf(f) === -1) explores[exp].fields.push(f); }); if (tbl && explores[exp].sqlTables.indexOf(tbl) === -1) explores[exp].sqlTables.push(tbl); }
       if (dash && dashboards[dash]) { row.fields.forEach(function(f) { if (dashboards[dash].fields.indexOf(f) === -1) dashboards[dash].fields.push(f); }); if (tbl && dashboards[dash].sqlTables.indexOf(tbl) === -1) dashboards[dash].sqlTables.push(tbl); }
       if (vw && tbl) { if (!viewToTables[vw]) viewToTables[vw] = {}; viewToTables[vw]['t_'+tbl] = true; }
+      // Track view-to-view dependencies (extends/includes)
+      if (vw && extVw && vw !== extVw) { if (!viewToViews[vw]) viewToViews[vw] = {}; viewToViews[vw]['v_'+extVw] = true; }
+      if (vw && incVw && vw !== incVw) { if (!viewToViews[vw]) viewToViews[vw] = {}; viewToViews[vw]['v_'+incVw] = true; }
       if (exp && vw) { if (!exploreToViews[exp]) exploreToViews[exp] = {}; exploreToViews[exp]['v_'+vw] = true; }
       if (dash && exp) { if (!dashToExplores[dash]) dashToExplores[dash] = {}; dashToExplores[dash]['e_'+exp] = true; }
     });
     
-    Object.keys(views).forEach(function(k) { views[k].sources = Object.keys(viewToTables[k] || {}); });
+    // Combine table and view dependencies for views
+    Object.keys(views).forEach(function(k) { 
+      var tableSources = Object.keys(viewToTables[k] || {});
+      var viewSources = Object.keys(viewToViews[k] || {});
+      views[k].sources = tableSources.concat(viewSources);
+    });
     Object.keys(explores).forEach(function(k) { explores[k].sources = Object.keys(exploreToViews[k] || {}); });
     Object.keys(dashboards).forEach(function(k) { dashboards[k].sources = Object.keys(dashToExplores[k] || {}); });
     
@@ -104,8 +129,36 @@ looker.plugins.visualizations.add({
       return matches.sort(function(a, b) { return b.fieldMatches.length !== a.fieldMatches.length ? b.fieldMatches.length - a.fieldMatches.length : b.score - a.score; });
     }
     
-    function getUpstream(id, d) { if (d > 10) return []; var e = allEntities.find(function(x) { return x.id === id; }); if (!e || !e.sources) return []; var r = e.sources.slice(); e.sources.forEach(function(s) { r = r.concat(getUpstream(s, (d||0)+1)); }); return r.filter(function(v,i,a) { return a.indexOf(v)===i; }); }
-    function getDownstream(id, d) { if (d > 10) return []; var r = []; allEntities.forEach(function(e) { if (e.sources && e.sources.indexOf(id) !== -1) { r.push(e.id); r = r.concat(getDownstream(e.id, (d||0)+1)); } }); return r.filter(function(v,i,a) { return a.indexOf(v)===i; }); }
+    function getUpstream(id, depth, visited) { 
+      if (depth > 15) return []; 
+      if (!visited) visited = {};
+      if (visited[id]) return [];
+      visited[id] = true;
+      var e = allEntities.find(function(x) { return x.id === id; }); 
+      if (!e || !e.sources) return []; 
+      var r = []; 
+      e.sources.forEach(function(s) { 
+        if (!visited[s]) {
+          r.push(s); 
+          r = r.concat(getUpstream(s, (depth||0)+1, visited)); 
+        }
+      }); 
+      return r.filter(function(v,i,a) { return a.indexOf(v)===i; }); 
+    }
+    function getDownstream(id, depth, visited) { 
+      if (depth > 15) return []; 
+      if (!visited) visited = {};
+      if (visited[id]) return [];
+      visited[id] = true;
+      var r = []; 
+      allEntities.forEach(function(e) { 
+        if (e.sources && e.sources.indexOf(id) !== -1 && !visited[e.id]) { 
+          r.push(e.id); 
+          r = r.concat(getDownstream(e.id, (depth||0)+1, visited)); 
+        } 
+      }); 
+      return r.filter(function(v,i,a) { return a.indexOf(v)===i; }); 
+    }
     
     function fieldsSimilar(f1, f2) {
       if (!f1 || !f2) return { match: false, score: 0 }; if (f1 === f2) return { match: true, score: 100 };
