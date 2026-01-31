@@ -122,6 +122,7 @@ looker.plugins.visualizations.add({
     
     var allEntities = Object.values(tables).concat(Object.values(views)).concat(Object.values(explores)).concat(Object.values(dashboards));
     var activeTab = 'lineage', searchTerm = '', searchTags = [], selectedNode = null, upstream = [], downstream = [], highlightedEntities = [], showFieldsPanel = null, expandedDuplicates = {};
+    var aiSimilarResults = null, aiLoading = false, aiError = null;
     
     var icons = { search: '<svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><path d="M21 21l-4.35-4.35"/></svg>', x: '<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>', list: '<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2"><line x1="8" y1="6" x2="21" y2="6"/><line x1="8" y1="12" x2="21" y2="12"/><line x1="8" y1="18" x2="21" y2="18"/><line x1="3" y1="6" x2="3.01" y2="6"/><line x1="3" y1="12" x2="3.01" y2="12"/><line x1="3" y1="18" x2="3.01" y2="18"/></svg>', lineage: '<svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2"><circle cx="5" cy="12" r="2"/><circle cx="19" cy="6" r="2"/><circle cx="19" cy="18" r="2"/><path d="M7 12h4l4-6h2M11 12l4 6h2"/></svg>', duplicate: '<svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2"><rect x="8" y="8" width="12" height="12" rx="2"/><path d="M4 16V6a2 2 0 012-2h10"/></svg>', chevronDown: '<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 12 15 18 9"/></svg>', chevronRight: '<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2"><polyline points="9 18 15 12 9 6"/></svg>', ai: '<svg viewBox="0 0 24 24" width="14" height="14" fill="currentColor"><path d="M12 2a2 2 0 012 2c0 .74-.4 1.39-1 1.73V7h1a7 7 0 017 7h1a1 1 0 011 1v3a1 1 0 01-1 1h-1v1a2 2 0 01-2 2H5a2 2 0 01-2-2v-1H2a1 1 0 01-1-1v-3a1 1 0 011-1h1a7 7 0 017-7h1V5.73c-.6-.34-1-.99-1-1.73a2 2 0 012-2M7.5 13A2.5 2.5 0 005 15.5 2.5 2.5 0 007.5 18a2.5 2.5 0 002.5-2.5A2.5 2.5 0 007.5 13m9 0a2.5 2.5 0 00-2.5 2.5 2.5 2.5 0 002.5 2.5 2.5 2.5 0 002.5-2.5 2.5 2.5 0 00-2.5-2.5z"/></svg>' };
     var typeIcons = { table: '<svg viewBox="0 0 24 24" width="14" height="14" fill="currentColor"><rect x="3" y="3" width="18" height="4" rx="1"/><rect x="3" y="9" width="8" height="3"/><rect x="13" y="9" width="8" height="3"/><rect x="3" y="14" width="8" height="3"/><rect x="13" y="14" width="8" height="3"/></svg>', view: '<svg viewBox="0 0 24 24" width="14" height="14" fill="currentColor"><circle cx="12" cy="12" r="3"/><path d="M12 5C7 5 2.7 8.4 1 12c1.7 3.6 6 7 11 7s9.3-3.4 11-7c-1.7-3.6-6-7-11-7zm0 12c-2.8 0-5-2.2-5-5s2.2-5 5-5 5 2.2 5 5-2.2 5-5 5z"/></svg>', explore: '<svg viewBox="0 0 24 24" width="14" height="14" fill="currentColor"><circle cx="10" cy="10" r="6" fill="none" stroke="currentColor" stroke-width="2.5"/><line x1="14.5" y1="14.5" x2="20" y2="20" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"/></svg>', dashboard: '<svg viewBox="0 0 24 24" width="14" height="14" fill="currentColor"><rect x="2" y="2" width="9" height="6" rx="1"/><rect x="13" y="2" width="9" height="9" rx="1"/><rect x="2" y="10" width="9" height="12" rx="1"/><rect x="13" y="13" width="9" height="9" rx="1"/></svg>' };
@@ -232,97 +233,77 @@ looker.plugins.visualizations.add({
     }
     
     function findDuplicates() {
-      var viewsList = [], exploresList = [], dashboardsList = [];
+      // This is now handled by AI - return cached results or empty
+      return aiSimilarResults || [];
+    }
+    
+    function analyzeWithAI() {
+      if (aiLoading) return;
+      aiLoading = true;
+      aiError = null;
+      render();
       
-      // Include entities that have fields OR sqlTables
-      Object.values(views).forEach(function(v) { 
-        if ((v.fields && v.fields.length > 0) || (v.sqlTables && v.sqlTables.length > 0)) {
-          viewsList.push({ name: v.name, fields: v.fields || [], sqlTables: v.sqlTables || [], type: 'view' }); 
-        }
-      });
-      Object.values(explores).forEach(function(e) { 
-        if ((e.fields && e.fields.length > 0) || (e.sqlTables && e.sqlTables.length > 0)) {
-          exploresList.push({ name: e.name, fields: e.fields || [], sqlTables: e.sqlTables || [], type: 'explore' }); 
-        }
-      });
-      Object.values(dashboards).forEach(function(d) { 
-        if ((d.fields && d.fields.length > 0) || (d.sqlTables && d.sqlTables.length > 0)) {
-          dashboardsList.push({ name: d.name, fields: d.fields || [], sqlTables: d.sqlTables || [], type: 'dashboard' }); 
-        }
-      });
+      // Prepare data for AI analysis
+      var viewsData = Object.values(views).map(function(v) {
+        return { name: v.name, type: 'view', sqlTables: v.sqlTables || [] };
+      }).filter(function(v) { return v.sqlTables.length > 0; });
       
-      console.log('Similarity check - Views:', viewsList.length, 'Explores:', exploresList.length, 'Dashboards:', dashboardsList.length);
+      var exploresData = Object.values(explores).map(function(e) {
+        return { name: e.name, type: 'explore', sqlTables: e.sqlTables || [] };
+      }).filter(function(e) { return e.sqlTables.length > 0; });
       
-      var duplicates = [];
+      var prompt = 'Analyze these Looker views and explores to find similar ones based on their SQL tables. Two entities are similar if they share 20% or more of their SQL tables.\n\n';
+      prompt += 'VIEWS:\n' + JSON.stringify(viewsData.slice(0, 50), null, 2) + '\n\n';
+      prompt += 'EXPLORES:\n' + JSON.stringify(exploresData.slice(0, 50), null, 2) + '\n\n';
+      prompt += 'Return ONLY a JSON array of similar pairs. Each pair should have: entity1 (name), entity2 (name), type (view/explore), sharedTables (array of shared table names), similarity (percentage). Only include pairs with 20%+ similarity. Compare views with views and explores with explores only. Example format:\n[{"entity1":"view_a","entity2":"view_b","type":"view","sharedTables":["table1","table2"],"similarity":50}]';
       
-      function compareWithinType(list) {
-        for (var i = 0; i < list.length; i++) {
-          for (var j = i + 1; j < list.length; j++) {
-            var v1 = list[i], v2 = list[j]; 
-            if (v1.name === v2.name) continue;
-            
-            var pairs = [], m1 = {}, m2 = {};
-            
-            // First try field matching if both have fields
-            if (v1.fields.length > 0 && v2.fields.length > 0) {
-              v1.fields.forEach(function(f1) { 
-                if (m1[f1]) return; 
-                var best = null; 
-                v2.fields.forEach(function(f2) { 
-                  if (m2[f2]) return; 
-                  var r = fieldsSimilar(f1, f2); 
-                  if (r.match && (!best || r.score > best.score)) best = { f1: f1, f2: f2, score: r.score, reason: r.reason }; 
-                }); 
-                if (best) { pairs.push(best); m1[best.f1] = true; m2[best.f2] = true; } 
-              });
-            }
-            
-            // If no field matches, compare by SQL tables
-            if (pairs.length === 0 && v1.sqlTables.length > 0 && v2.sqlTables.length > 0) {
-              var commonTables = v1.sqlTables.filter(function(t) { 
-                return v2.sqlTables.some(function(t2) {
-                  // Exact match or similar table names
-                  if (t === t2) return true;
-                  var r = fieldsSimilar(t, t2);
-                  return r.match && r.score >= 80;
-                });
-              });
-              commonTables.forEach(function(t) {
-                var matchedT2 = v2.sqlTables.find(function(t2) {
-                  if (t === t2) return true;
-                  var r = fieldsSimilar(t, t2);
-                  return r.match && r.score >= 80;
-                });
-                pairs.push({ f1: t, f2: matchedT2 || t, score: t === matchedT2 ? 100 : 90, reason: 'same SQL table' });
-              });
-            }
-            
-            // Calculate similarity
-            var total1 = v1.fields.length > 0 ? v1.fields.length : v1.sqlTables.length;
-            var total2 = v2.fields.length > 0 ? v2.fields.length : v2.sqlTables.length;
-            var minTotal = Math.min(total1, total2);
-            var sim = minTotal > 0 ? (pairs.length / minTotal) * 100 : 0;
-            
-            if (pairs.length >= 1 && sim >= 20) {
-              duplicates.push({ 
-                views: [v1, v2], 
-                matchedPairs: pairs, 
-                commonCount: pairs.length, 
-                similarity: Math.round(sim),
-                v1Total: total1,
-                v2Total: total2
-              });
-            }
+      fetch("https://api.anthropic.com/v1/messages", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          model: "claude-sonnet-4-20250514",
+          max_tokens: 2000,
+          messages: [{ role: "user", content: prompt }]
+        })
+      })
+      .then(function(response) { return response.json(); })
+      .then(function(data) {
+        aiLoading = false;
+        try {
+          var text = data.content[0].text;
+          // Extract JSON from response
+          var jsonMatch = text.match(/\[[\s\S]*\]/);
+          if (jsonMatch) {
+            var results = JSON.parse(jsonMatch[0]);
+            aiSimilarResults = results.map(function(r) {
+              return {
+                views: [
+                  { name: r.entity1, type: r.type, sqlTables: r.sharedTables },
+                  { name: r.entity2, type: r.type, sqlTables: r.sharedTables }
+                ],
+                matchedPairs: r.sharedTables.map(function(t) {
+                  return { f1: t, f2: t, score: 100, reason: 'shared table' };
+                }),
+                commonCount: r.sharedTables.length,
+                similarity: r.similarity
+              };
+            });
+          } else {
+            aiSimilarResults = [];
           }
+        } catch(e) {
+          console.error('AI parse error:', e);
+          aiSimilarResults = [];
+          aiError = 'Failed to parse AI response';
         }
-      }
-      
-      compareWithinType(viewsList);
-      compareWithinType(exploresList);
-      compareWithinType(dashboardsList);
-      
-      console.log('Found similar pairs:', duplicates.length);
-      return duplicates.sort(function(a, b) { return b.similarity - a.similarity; });
+        render();
+      })
+      .catch(function(err) {
+        aiLoading = false;
+        aiError = 'API error: ' + err.message;
+        console.error('AI API error:', err);
+        render();
+      });
     }
     
     function renderDuplicatesTab() {
@@ -369,8 +350,39 @@ looker.plugins.visualizations.add({
       else if (searchTags.length > 0 || searchTerm.trim()) { 
         filterMode = 'search'; 
         if (highlightedEntities.length > 0) {
-          // Only show matched entities - no upstream tables unless they also match
-          visibleEntities = allEntities.filter(function(e) { return highlightedEntities.indexOf(e.id) !== -1; });
+          // Get all tables that are used by ANY matched entity
+          var relevantTableIds = {};
+          searchMatches.forEach(function(m) {
+            var entity = m.entity;
+            // Add tables from sqlTables
+            if (entity.sqlTables) {
+              entity.sqlTables.forEach(function(tbl) {
+                relevantTableIds['t_' + tbl] = true;
+              });
+            }
+            // Add table sources
+            if (entity.sources) {
+              entity.sources.forEach(function(sid) {
+                if (sid.indexOf('t_') === 0) {
+                  relevantTableIds[sid] = true;
+                }
+              });
+            }
+          });
+          
+          // Also check if any table NAME matches the search terms
+          var terms = searchTags.slice();
+          if (searchTerm.trim()) terms.push(searchTerm.trim());
+          Object.values(tables).forEach(function(tbl) {
+            terms.forEach(function(term) {
+              if (smartMatch(tbl.name, term, true) >= 35) {
+                relevantTableIds[tbl.id] = true;
+              }
+            });
+          });
+          
+          var allVisibleIds = highlightedEntities.concat(Object.keys(relevantTableIds));
+          visibleEntities = allEntities.filter(function(e) { return allVisibleIds.indexOf(e.id) !== -1; });
         } else {
           visibleEntities = [];
         }
@@ -402,8 +414,23 @@ looker.plugins.visualizations.add({
       container.querySelectorAll('.remove-tag').forEach(function(btn) { btn.addEventListener('click', function(e) { e.stopPropagation(); searchTags.splice(parseInt(btn.parentElement.dataset.idx), 1); render(); }); });
       container.querySelectorAll('.tab-btn').forEach(function(btn) { btn.addEventListener('click', function() { activeTab = btn.dataset.tab; render(); }); });
       if (activeTab === 'lineage') attachLineageEvents();
-      container.querySelectorAll('.dup-header').forEach(function(h) { h.addEventListener('click', function() { var idx = parseInt(h.parentElement.dataset.idx); expandedDuplicates[idx] = !expandedDuplicates[idx]; var tc = container.querySelector('#tab-content'); if (tc) { tc.innerHTML = renderDuplicatesTab(); container.querySelectorAll('.dup-header').forEach(function(h2) { h2.addEventListener('click', arguments.callee); }); } }); });
+      if (activeTab === 'duplicates') {
+        var analyzeBtn = container.querySelector('#analyzeBtn');
+        if (analyzeBtn) {
+          analyzeBtn.addEventListener('click', function() {
+            if (!aiLoading) analyzeWithAI();
+          });
+        }
+      }
+      container.querySelectorAll('.dup-header').forEach(function(h) { h.addEventListener('click', function() { var idx = parseInt(h.parentElement.dataset.idx); expandedDuplicates[idx] = !expandedDuplicates[idx]; var tc = container.querySelector('#tab-content'); if (tc) { tc.innerHTML = renderDuplicatesTab(); container.querySelectorAll('.dup-header').forEach(function(h2) { h2.addEventListener('click', arguments.callee); }); var analyzeBtn2 = container.querySelector('#analyzeBtn'); if (analyzeBtn2) analyzeBtn2.addEventListener('click', function() { if (!aiLoading) analyzeWithAI(); }); } }); });
     }
-    render(); done();
+    render(); 
+    
+    // Auto-run AI analysis on load
+    setTimeout(function() {
+      analyzeWithAI();
+    }, 500);
+    
+    done();
   }
 });
