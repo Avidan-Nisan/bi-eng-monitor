@@ -281,21 +281,28 @@ looker.plugins.visualizations.add({
       var terms = searchTags.slice(); if (searchTerm.trim()) terms.push(searchTerm.trim()); if (terms.length === 0) return [];
       var matches = [], partialMatches = [];
       
+      // Use consistent threshold
+      var MATCH_THRESHOLD = 40;
+      
       allEntities.forEach(function(entity) {
         var matchedTermsCount = 0, fieldMatches = [], nameScore = 0, tableMatches = [];
+        var debugInfo = []; // For debugging
         
         terms.forEach(function(term) {
           var termMatched = false;
+          var termDebug = { term: term, nameScore: 0, fieldScores: [], tableScores: [] };
           
           // Check entity name
           var ns = smartMatch(entity.name, term, true);
-          if (ns >= 35) { termMatched = true; nameScore = Math.max(nameScore, ns); }
+          termDebug.nameScore = ns;
+          if (ns >= MATCH_THRESHOLD) { termMatched = true; nameScore = Math.max(nameScore, ns); }
           
           // Check SQL tables
           if (entity.sqlTables && entity.sqlTables.length > 0) {
             entity.sqlTables.forEach(function(tbl) {
               var ts = smartMatch(tbl, term, true);
-              if (ts >= 35) { termMatched = true; tableMatches.push({ table: tbl, term: term, score: ts }); }
+              termDebug.tableScores.push({ table: tbl, score: ts });
+              if (ts >= MATCH_THRESHOLD) { termMatched = true; tableMatches.push({ table: tbl, term: term, score: ts }); }
             });
           }
           
@@ -303,7 +310,8 @@ looker.plugins.visualizations.add({
           if (entity.fields && entity.fields.length > 0) {
             entity.fields.forEach(function(field) {
               var fs = smartMatch(field, term, true);
-              if (fs >= 35) {
+              if (fs > 0) termDebug.fieldScores.push({ field: field, score: fs });
+              if (fs >= MATCH_THRESHOLD) {
                 termMatched = true;
                 var existing = fieldMatches.find(function(fm) { return fm.field === field; });
                 if (!existing) fieldMatches.push({ field: field, score: fs, matchedTerms: [term] });
@@ -312,13 +320,25 @@ looker.plugins.visualizations.add({
             });
           }
           
+          debugInfo.push(termDebug);
           if (termMatched) matchedTermsCount++;
         });
+        
+        // Debug: log entities that match with details
+        if (matchedTermsCount > 0 && entity.name.indexOf('hisc_salesforce') !== -1) {
+          console.log('DEBUG Entity:', entity.name, 'Matched:', matchedTermsCount, '/', terms.length);
+          debugInfo.forEach(function(d) {
+            console.log('  Term:', d.term, 'NameScore:', d.nameScore);
+            d.fieldScores.filter(function(f) { return f.score >= MATCH_THRESHOLD; }).forEach(function(f) {
+              console.log('    Field Match:', f.field, 'Score:', f.score);
+            });
+          });
+        }
         
         var matchData = { 
           entity: entity, 
           score: nameScore + fieldMatches.length * 5 + tableMatches.length * 3 + matchedTermsCount * 20, 
-          nameMatch: nameScore >= 35, 
+          nameMatch: nameScore >= MATCH_THRESHOLD, 
           fieldMatches: fieldMatches.map(function(fm) { return fm.field; }), 
           fieldScores: fieldMatches, 
           tableMatches: tableMatches, 
