@@ -84,20 +84,63 @@ looker.plugins.visualizations.add({
     
     function calculateMatchScore(text, searchTerm) {
       if (!text || !searchTerm) return 0;
-      var textLower = text.toLowerCase(), termLower = searchTerm.toLowerCase().trim(), termClean = termLower.replace(/[_\-\s\.]+$/, ''), textNorm = normalize(text), termNorm = normalize(termClean);
-      if (textLower === termLower || textLower === termClean) return 100;
+      var textLower = text.toLowerCase();
+      var termLower = searchTerm.toLowerCase().trim().replace(/^[\s_\-\.]+|[\s_\-\.]+$/g, ''); // Clean both ends
+      var textNorm = normalize(text);
+      var termNorm = normalize(termLower);
+      
+      // Exact match
+      if (textLower === termLower) return 100;
       if (textNorm === termNorm) return 98;
-      if (textLower.indexOf(termLower) !== -1 || textLower.indexOf(termClean) !== -1) return 90;
+      
+      // Contains match - text contains search term (e.g., "hisc_campaign_id" contains "campaign_id")
+      if (textLower.indexOf(termLower) !== -1) return 90;
       if (textNorm.indexOf(termNorm) !== -1) return 88;
-      if (textLower.indexOf(termClean) === 0 || textNorm.indexOf(termNorm) === 0) return 90;
-      var textTokens = tokenize(text), termTokens = tokenize(searchTerm);
-      if (textTokens.some(function(t) { return t.indexOf(termNorm) === 0 || termNorm.indexOf(t) === 0; })) return 85;
-      if (termTokens.length > 0 && termTokens.every(function(tt) { return textTokens.some(function(txtt) { return txtt.indexOf(tt) !== -1 || tt.indexOf(txtt) !== -1; }); })) return 80;
-      var expandedTerms = []; termTokens.forEach(function(tt) { expandedTerms = expandedTerms.concat(expandWithSynonyms(tt)); });
-      if (expandedTerms.some(function(et) { var etNorm = normalize(et); return textNorm.indexOf(etNorm) !== -1 || textTokens.some(function(txtt) { return txtt.indexOf(etNorm) !== -1 || etNorm.indexOf(txtt) !== -1; }); })) return 75;
-      var minDist = Infinity; textTokens.forEach(function(txtt) { termTokens.forEach(function(tt) { if (tt.length >= 3) { var dist = levenshtein(txtt, tt), maxLen = Math.max(txtt.length, tt.length); if (dist / maxLen < minDist) minDist = dist / maxLen; } }); });
+      
+      // Tokenize both
+      var textTokens = tokenize(text);
+      var termTokens = tokenize(searchTerm);
+      
+      // Check if ALL term tokens are found in text tokens
+      // e.g., searching "campaign_id" -> tokens ["campaign", "id"]
+      // text "hisc_campaign_id" -> tokens ["hisc", "campaign", "id"]
+      // ALL term tokens found = match!
+      if (termTokens.length > 0) {
+        var allTokensFound = termTokens.every(function(tt) {
+          return textTokens.some(function(txtt) {
+            return txtt === tt || txtt.indexOf(tt) !== -1 || tt.indexOf(txtt) !== -1;
+          });
+        });
+        if (allTokensFound) return 85;
+      }
+      
+      // Single token partial match
+      if (textTokens.some(function(t) { return t.indexOf(termNorm) !== -1 || termNorm.indexOf(t) !== -1; })) return 80;
+      
+      // Synonym expansion
+      var expandedTerms = []; 
+      termTokens.forEach(function(tt) { expandedTerms = expandedTerms.concat(expandWithSynonyms(tt)); });
+      if (expandedTerms.some(function(et) { 
+        var etNorm = normalize(et); 
+        return textNorm.indexOf(etNorm) !== -1 || textTokens.some(function(txtt) { 
+          return txtt.indexOf(etNorm) !== -1 || etNorm.indexOf(txtt) !== -1; 
+        }); 
+      })) return 75;
+      
+      // Fuzzy match with Levenshtein
+      var minDist = Infinity; 
+      textTokens.forEach(function(txtt) { 
+        termTokens.forEach(function(tt) { 
+          if (tt.length >= 3) { 
+            var dist = levenshtein(txtt, tt);
+            var maxLen = Math.max(txtt.length, tt.length); 
+            if (dist / maxLen < minDist) minDist = dist / maxLen; 
+          } 
+        }); 
+      });
       if (minDist <= 0.25) return 60;
       if (minDist <= 0.4) return 45;
+      
       return 0;
     }
     
@@ -321,15 +364,59 @@ looker.plugins.visualizations.add({
       else statsText = '<span style="color:#64748b;">Click node to trace lineage</span>';
       
       var noResultsHtml = '';
-      if (filterMode === 'search' && visibleEntities.length === 0 && window._partialMatches && window._partialMatches.length > 0) {
+      if (filterMode === 'search' && visibleEntities.length === 0) {
         var terms = searchTags.slice(); if (searchTerm.trim()) terms.push(searchTerm.trim());
-        noResultsHtml = '<div style="padding:20px;background:#1e293b;margin:12px;border-radius:8px;"><div style="color:#f59e0b;font-size:13px;margin-bottom:12px;">⚠️ No assets contain ALL '+terms.length+' fields together</div><div style="color:#94a3b8;font-size:12px;margin-bottom:12px;">Closest matches (partial):</div><div style="display:flex;flex-direction:column;gap:8px;">';
-        window._partialMatches.slice(0, 5).forEach(function(pm) {
-          var cfg = typeConfig[pm.entity.type];
-          var matchedFields = pm.fieldMatches.slice(0, 3).join(', ');
-          noResultsHtml += '<div style="display:flex;align-items:center;gap:10px;padding:10px 12px;background:#0f172a;border-radius:6px;border-left:3px solid '+cfg.color+';"><div style="flex:1;"><div style="color:#e2e8f0;font-size:12px;">'+pm.entity.name+'</div><div style="color:#64748b;font-size:10px;margin-top:2px;">'+pm.entity.type.toUpperCase()+' • has: '+matchedFields+(pm.fieldMatches.length > 3 ? ' +' + (pm.fieldMatches.length - 3) + ' more' : '')+'</div></div><div style="background:#f59e0b25;border:1px solid #f59e0b50;padding:3px 8px;border-radius:4px;font-size:10px;color:#fbbf24;">'+pm.matchedTermsCount+'/'+pm.totalTerms+'</div></div>';
+        
+        // Find which entities have each term
+        var termResults = {};
+        terms.forEach(function(term) {
+          termResults[term] = [];
+          allEntities.forEach(function(entity) {
+            var matched = false;
+            if (smartMatch(entity.name, term, true) >= 35) matched = true;
+            if (!matched && entity.fields) {
+              entity.fields.forEach(function(f) {
+                if (smartMatch(f, term, true) >= 35) matched = true;
+              });
+            }
+            if (matched) termResults[term].push(entity);
+          });
         });
-        noResultsHtml += '</div><div style="color:#64748b;font-size:11px;margin-top:12px;">💡 Tip: These assets have some of your fields. You may need to join data from multiple sources.</div></div>';
+        
+        noResultsHtml = '<div style="padding:20px;background:#1e293b;margin:12px;border-radius:8px;">';
+        noResultsHtml += '<div style="color:#f59e0b;font-size:14px;margin-bottom:16px;">⚠️ No assets contain ALL '+terms.length+' fields together</div>';
+        
+        // Show breakdown per search term
+        noResultsHtml += '<div style="color:#94a3b8;font-size:12px;margin-bottom:8px;">Search breakdown:</div>';
+        noResultsHtml += '<div style="display:flex;flex-direction:column;gap:12px;margin-bottom:16px;">';
+        terms.forEach(function(term) {
+          var count = termResults[term].length;
+          var color = count > 0 ? '#10b981' : '#ef4444';
+          var icon = count > 0 ? '✓' : '✗';
+          var examples = termResults[term].slice(0, 3).map(function(e) { return e.name; }).join(', ');
+          noResultsHtml += '<div style="padding:10px 12px;background:#0f172a;border-radius:6px;border-left:3px solid '+color+';">';
+          noResultsHtml += '<div style="display:flex;align-items:center;gap:8px;"><span style="color:'+color+';">'+icon+'</span><span style="color:#e2e8f0;font-weight:500;">'+term+'</span><span style="color:#64748b;font-size:11px;">→ '+count+' assets</span></div>';
+          if (count > 0) {
+            noResultsHtml += '<div style="color:#64748b;font-size:10px;margin-top:4px;margin-left:20px;">e.g., '+examples+(count > 3 ? ' +' + (count - 3) + ' more' : '')+'</div>';
+          }
+          noResultsHtml += '</div>';
+        });
+        noResultsHtml += '</div>';
+        
+        // Show partial matches if any
+        if (window._partialMatches && window._partialMatches.length > 0) {
+          noResultsHtml += '<div style="color:#94a3b8;font-size:12px;margin-bottom:8px;">Closest matches (have some fields):</div>';
+          noResultsHtml += '<div style="display:flex;flex-direction:column;gap:6px;">';
+          window._partialMatches.slice(0, 5).forEach(function(pm) {
+            var cfg = typeConfig[pm.entity.type];
+            var matchedFields = pm.fieldMatches.slice(0, 4).join(', ');
+            noResultsHtml += '<div style="display:flex;align-items:center;gap:10px;padding:8px 12px;background:#0f172a;border-radius:6px;border-left:3px solid '+cfg.color+';"><div style="flex:1;"><div style="color:#e2e8f0;font-size:12px;">'+pm.entity.name+'</div><div style="color:#64748b;font-size:10px;margin-top:2px;">'+pm.entity.type.toUpperCase()+' • matched: '+matchedFields+'</div></div><div style="background:#f59e0b25;border:1px solid #f59e0b50;padding:3px 8px;border-radius:4px;font-size:10px;color:#fbbf24;">'+pm.matchedTermsCount+'/'+pm.totalTerms+'</div></div>';
+          });
+          noResultsHtml += '</div>';
+        }
+        
+        noResultsHtml += '<div style="color:#64748b;font-size:11px;margin-top:16px;padding-top:12px;border-top:1px solid #334155;">💡 <strong>Tip:</strong> If each field exists in different assets, you may need to join data from multiple sources or create a new combined view/explore.</div>';
+        noResultsHtml += '</div>';
       }
       
       return '<div><div style="padding:10px 20px;border-bottom:1px solid #1e293b;font-size:12px;display:flex;justify-content:space-between;"><div>'+statsText+'</div><div style="color:#64748b;font-size:11px;">'+(filterMode?visibleEntities.length+' of ':'')+allEntities.length+' entities</div></div>'+(noResultsHtml || '<div style="padding:12px;overflow:auto;"><svg width="'+svgWidth+'" height="'+svgHeight+'" style="font-family:system-ui,sans-serif;">'+hdrHtml+edgesHtml+nodesHtml+'</svg></div>')+'</div>';
