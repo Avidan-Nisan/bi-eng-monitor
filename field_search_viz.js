@@ -262,39 +262,33 @@ looker.plugins.visualizations.add({
       }
       else if (searchTags.length > 0 || searchTerm.trim()) { 
         filterMode = 'search'; 
-        if (highlightedEntities.length > 0) {
-          var relevantTableIds = {};
-          searchMatches.forEach(function(m) {
-            var entity = m.entity;
-            if (entity.sqlTables) {
-              entity.sqlTables.forEach(function(tbl) {
-                relevantTableIds['t_' + tbl] = true;
-              });
+        var terms = searchTags.slice();
+        if (searchTerm.trim()) terms.push(searchTerm.trim());
+        
+        // Filter entities: show only those that match at least one search term
+        visibleEntities = allEntities.filter(function(entity) {
+          // Check if entity name matches any term
+          for (var i = 0; i < terms.length; i++) {
+            if (smartMatch(entity.name, terms[i], true) >= 35) {
+              return true;
             }
-            if (entity.sources) {
-              entity.sources.forEach(function(sid) {
-                if (sid.indexOf('t_') === 0) {
-                  relevantTableIds[sid] = true;
+          }
+          
+          // For non-tables, also check fields
+          if (entity.type !== 'table' && entity.fields && entity.fields.length > 0) {
+            for (var i = 0; i < terms.length; i++) {
+              for (var j = 0; j < entity.fields.length; j++) {
+                if (smartMatch(entity.fields[j], terms[i], true) >= 35) {
+                  return true;
                 }
-              });
-            }
-          });
-          
-          var terms = searchTags.slice();
-          if (searchTerm.trim()) terms.push(searchTerm.trim());
-          Object.values(tables).forEach(function(tbl) {
-            terms.forEach(function(term) {
-              if (smartMatch(tbl.name, term, true) >= 35) {
-                relevantTableIds[tbl.id] = true;
               }
-            });
-          });
+            }
+          }
           
-          var allVisibleIds = highlightedEntities.concat(Object.keys(relevantTableIds));
-          visibleEntities = allEntities.filter(function(e) { return allVisibleIds.indexOf(e.id) !== -1; });
-        } else {
-          visibleEntities = [];
-        }
+          return false;
+        });
+        
+        highlightedEntities = visibleEntities.map(function(e) { return e.id; });
       }
       
       var byType = { table: [], view: [], explore: [], dashboard: [] }; 
@@ -392,7 +386,12 @@ looker.plugins.visualizations.add({
       var clearBtn = container.querySelector('#clearAll');
       if (clearBtn) clearBtn.addEventListener('click', function() { searchTerm = ''; searchTags = []; selectedNode = null; upstream = []; downstream = []; render(); });
       container.querySelectorAll('.remove-tag').forEach(function(btn) { btn.addEventListener('click', function(e) { e.stopPropagation(); searchTags.splice(parseInt(btn.parentElement.dataset.idx), 1); render(); }); });
-      container.querySelectorAll('.tab-btn').forEach(function(btn) { btn.addEventListener('click', function() { activeTab = btn.dataset.tab; render(); }); });
+      container.querySelectorAll('.tab-btn').forEach(function(btn) { 
+        btn.addEventListener('click', function() { 
+          activeTab = btn.dataset.tab; 
+          render(); 
+        }); 
+      });
       
       if (activeTab === 'lineage') attachLineageEvents();
       if (activeTab === 'duplicates') {
