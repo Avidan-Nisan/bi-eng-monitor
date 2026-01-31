@@ -18,11 +18,8 @@ looker.plugins.visualizations.add({
     var viewField = fields.find(function(f) { return f.toLowerCase().indexOf('view') !== -1 && f.toLowerCase().indexOf('name') !== -1 && f.toLowerCase().indexOf('count') === -1 && f.toLowerCase().indexOf('extended') === -1 && f.toLowerCase().indexOf('included') === -1; });
     var fieldsField = fields.find(function(f) { return f.toLowerCase().indexOf('sql_table_fields') !== -1 || f.toLowerCase().indexOf('falm_sql_table_fields') !== -1; });
     var tableField = fields.find(function(f) { return f.toLowerCase().indexOf('sql_table') !== -1 && f.toLowerCase().indexOf('fields') === -1 && f.toLowerCase().indexOf('path') === -1; });
-    // New fields for view dependencies
     var extendedViewField = fields.find(function(f) { return f.toLowerCase().indexOf('extended') !== -1 && f.toLowerCase().indexOf('view') !== -1; });
     var includedViewField = fields.find(function(f) { return f.toLowerCase().indexOf('included') !== -1 && f.toLowerCase().indexOf('view') !== -1; });
-    
-    console.log('Fields detected:', { dashField: dashField, expField: expField, viewField: viewField, tableField: tableField, extendedViewField: extendedViewField, includedViewField: includedViewField });
     
     var allRows = data.map(function(row) {
       return { 
@@ -44,7 +41,6 @@ looker.plugins.visualizations.add({
       if (vw && !views[vw]) views[vw] = { id: 'v_'+vw, name: vw, type: 'view', sources: [], fields: [], sqlTables: [] };
       if (exp && !explores[exp]) explores[exp] = { id: 'e_'+exp, name: exp, type: 'explore', sources: [], fields: [], sqlTables: [] };
       if (dash && !dashboards[dash]) dashboards[dash] = { id: 'd_'+dash, name: dash, type: 'dashboard', sources: [], fields: [], sqlTables: [] };
-      // Create extended/included views if they don't exist
       if (extVw && !views[extVw]) views[extVw] = { id: 'v_'+extVw, name: extVw, type: 'view', sources: [], fields: [], sqlTables: [] };
       if (incVw && !views[incVw]) views[incVw] = { id: 'v_'+incVw, name: incVw, type: 'view', sources: [], fields: [], sqlTables: [] };
       
@@ -52,14 +48,12 @@ looker.plugins.visualizations.add({
       if (exp && explores[exp]) { row.fields.forEach(function(f) { if (explores[exp].fields.indexOf(f) === -1) explores[exp].fields.push(f); }); if (tbl && explores[exp].sqlTables.indexOf(tbl) === -1) explores[exp].sqlTables.push(tbl); }
       if (dash && dashboards[dash]) { row.fields.forEach(function(f) { if (dashboards[dash].fields.indexOf(f) === -1) dashboards[dash].fields.push(f); }); if (tbl && dashboards[dash].sqlTables.indexOf(tbl) === -1) dashboards[dash].sqlTables.push(tbl); }
       if (vw && tbl) { if (!viewToTables[vw]) viewToTables[vw] = {}; viewToTables[vw]['t_'+tbl] = true; }
-      // Track view-to-view dependencies (extends/includes)
       if (vw && extVw && vw !== extVw) { if (!viewToViews[vw]) viewToViews[vw] = {}; viewToViews[vw]['v_'+extVw] = true; }
       if (vw && incVw && vw !== incVw) { if (!viewToViews[vw]) viewToViews[vw] = {}; viewToViews[vw]['v_'+incVw] = true; }
       if (exp && vw) { if (!exploreToViews[exp]) exploreToViews[exp] = {}; exploreToViews[exp]['v_'+vw] = true; }
       if (dash && exp) { if (!dashToExplores[dash]) dashToExplores[dash] = {}; dashToExplores[dash]['e_'+exp] = true; }
     });
     
-    // Combine table and view dependencies for views
     Object.keys(views).forEach(function(k) { 
       var tableSources = Object.keys(viewToTables[k] || {});
       var viewSources = Object.keys(viewToViews[k] || {});
@@ -160,15 +154,129 @@ looker.plugins.visualizations.add({
       return r.filter(function(v,i,a) { return a.indexOf(v)===i; }); 
     }
     
+    // Enhanced prefix stripping for field comparison
+    var knownPrefixes = [
+      // Data layer prefixes
+      'dics', 'hics', 'dim', 'fct', 'fact', 'stg', 'raw', 'src', 'tgt', 'tmp', 'temp',
+      // View/table prefixes  
+      'v', 'vw', 'tb', 'tbl', 'f', 'd',
+      // Key prefixes
+      'pk', 'fk', 'sk', 'bk', 'nk',
+      // Business domain prefixes (common 3-4 letter codes)
+      'facm', 'fasg', 'fasm', 'facd', 'falm', 'farm', 'facs', 'fadm',
+      'dicm', 'disg', 'dism', 'dicd', 'dilm', 'dirm', 'dics', 'didm',
+      'hicm', 'hisg', 'hism', 'hicd', 'hilm', 'hirm', 'hics', 'hidm',
+      // Generic business prefixes
+      'crm', 'erp', 'fin', 'hr', 'mkt', 'ops', 'prd', 'sal', 'inv',
+      'cust', 'prod', 'ord', 'pay', 'ship', 'ret', 'ref',
+      // Numbered/versioned prefixes
+      'v1', 'v2', 'v3', 'ver1', 'ver2'
+    ];
+    
+    function stripPrefixes(fieldName) {
+      if (!fieldName) return '';
+      var lower = fieldName.toLowerCase();
+      var tokens = lower.split(/[_\-\.]+/);
+      
+      // Remove known prefixes from the beginning
+      while (tokens.length > 1) {
+        var first = tokens[0];
+        // Check if first token is a known prefix OR matches pattern like 4-letter code
+        var isPrefix = knownPrefixes.indexOf(first) !== -1 || 
+                       /^[a-z]{2,4}$/.test(first) && tokens.length > 2;
+        if (isPrefix) {
+          tokens.shift();
+        } else {
+          break;
+        }
+      }
+      return tokens.join('_');
+    }
+    
+    function getFieldCore(fieldName) {
+      // Get the semantic core of a field name
+      var stripped = stripPrefixes(fieldName);
+      // Also normalize common variations
+      return stripped
+        .replace(/[_\-\s\.]+/g, '')  // Remove separators
+        .replace(/id$/i, '')          // Remove trailing 'id'
+        .replace(/key$/i, '')         // Remove trailing 'key'
+        .replace(/code$/i, '')        // Remove trailing 'code'
+        .replace(/num$/i, '')         // Remove trailing 'num'
+        .replace(/no$/i, '');         // Remove trailing 'no'
+    }
+    
     function fieldsSimilar(f1, f2) {
-      if (!f1 || !f2) return { match: false, score: 0 }; if (f1 === f2) return { match: true, score: 100 };
-      var n1 = normalize(f1), n2 = normalize(f2); if (n1 === n2) return { match: true, score: 95 };
-      if (n1.length > 3 && n2.length > 3 && (n1.indexOf(n2) !== -1 || n2.indexOf(n1) !== -1)) return { match: true, score: 85 };
-      var t1 = tokenize(f1), t2 = tokenize(f2), prefixes = ['dics', 'hics', 'dim', 'fct', 'fact', 'stg', 'raw', 'src', 'tgt', 'tmp', 'temp', 'v', 'vw', 'tb', 'tbl', 'f', 'd', 'pk', 'fk', 'sk', 'bk', 'nk'];
-      var t1c = t1.filter(function(t) { return prefixes.indexOf(t) === -1 && t.length > 1; }), t2c = t2.filter(function(t) { return prefixes.indexOf(t) === -1 && t.length > 1; });
-      if (t1c.length > 0 && t2c.length > 0) { if (t1c.join('') === t2c.join('')) return { match: true, score: 90 }; var common = t1c.filter(function(t) { return t2c.some(function(t2t) { return t === t2t || (t.length > 3 && t2t.length > 3 && (t.indexOf(t2t) !== -1 || t2t.indexOf(t) !== -1)); }); }); if (common.length >= 1 && common.length / Math.max(t1c.length, t2c.length) >= 0.5) return { match: true, score: 80 }; }
-      var maxLen = Math.max(n1.length, n2.length); if (maxLen > 0 && maxLen < 30) { var sim = 1 - levenshtein(n1, n2) / maxLen; if (sim >= 0.7) return { match: true, score: Math.round(sim * 100) }; }
-      if (t1.length > 0 && t2.length > 0 && t1[t1.length-1] === t2[t2.length-1] && t1[t1.length-1].length > 2) return { match: true, score: 60 };
+      if (!f1 || !f2) return { match: false, score: 0 };
+      if (f1 === f2) return { match: true, score: 100, reason: 'exact' };
+      
+      var n1 = normalize(f1), n2 = normalize(f2);
+      if (n1 === n2) return { match: true, score: 98, reason: 'normalized exact' };
+      
+      // Strip prefixes and compare cores
+      var core1 = getFieldCore(f1), core2 = getFieldCore(f2);
+      var stripped1 = stripPrefixes(f1), stripped2 = stripPrefixes(f2);
+      
+      // Core match after stripping prefixes (e.g., facm_gross_revenue vs fasg_gross_revenue)
+      if (core1 === core2 && core1.length >= 3) {
+        return { match: true, score: 95, reason: 'same core: ' + core1 };
+      }
+      
+      // Stripped match (keeping underscores)
+      if (stripped1 === stripped2 && stripped1.length >= 3) {
+        return { match: true, score: 93, reason: 'same after prefix strip' };
+      }
+      
+      // One contains the other after stripping
+      if (core1.length >= 4 && core2.length >= 4) {
+        if (core1.indexOf(core2) !== -1 || core2.indexOf(core1) !== -1) {
+          return { match: true, score: 88, reason: 'core contains' };
+        }
+      }
+      
+      // Token-based comparison on stripped fields
+      var t1 = tokenize(stripped1), t2 = tokenize(stripped2);
+      var t1c = t1.filter(function(t) { return t.length > 1; });
+      var t2c = t2.filter(function(t) { return t.length > 1; });
+      
+      if (t1c.length > 0 && t2c.length > 0) {
+        // Check if tokens match after stripping
+        if (t1c.join('') === t2c.join('')) {
+          return { match: true, score: 90, reason: 'tokens match' };
+        }
+        
+        // Count common tokens
+        var common = t1c.filter(function(t) { 
+          return t2c.some(function(t2t) { 
+            return t === t2t || 
+                   (t.length > 3 && t2t.length > 3 && (t.indexOf(t2t) !== -1 || t2t.indexOf(t) !== -1));
+          }); 
+        });
+        
+        var overlap = common.length / Math.max(t1c.length, t2c.length);
+        if (common.length >= 2 || (common.length >= 1 && overlap >= 0.5)) {
+          return { match: true, score: Math.round(75 + overlap * 15), reason: common.length + ' common tokens' };
+        }
+      }
+      
+      // Levenshtein on cores
+      var maxLen = Math.max(core1.length, core2.length);
+      if (maxLen > 3 && maxLen < 30) {
+        var dist = levenshtein(core1, core2);
+        var sim = 1 - dist / maxLen;
+        if (sim >= 0.75) {
+          return { match: true, score: Math.round(sim * 85), reason: 'fuzzy match ' + Math.round(sim*100) + '%' };
+        }
+      }
+      
+      // Last token match (often the most meaningful part)
+      if (t1.length > 0 && t2.length > 0) {
+        var last1 = t1[t1.length-1], last2 = t2[t2.length-1];
+        if (last1 === last2 && last1.length > 3) {
+          return { match: true, score: 65, reason: 'same suffix: ' + last1 };
+        }
+      }
+      
       return { match: false, score: 0 };
     }
     
@@ -182,7 +290,23 @@ looker.plugins.visualizations.add({
         for (var j = i + 1; j < entities.length; j++) {
           var v1 = entities[i], v2 = entities[j]; if (v1.name === v2.name) continue;
           var pairs = [], m1 = {}, m2 = {};
-          v1.fields.forEach(function(f1) { if (m1[f1]) return; var best = null, bestScore = 0; v2.fields.forEach(function(f2) { if (m2[f2]) return; var r = fieldsSimilar(f1, f2); if (r.match && r.score > bestScore) { bestScore = r.score; best = { f1: f1, f2: f2, score: r.score }; } }); if (best) { pairs.push(best); m1[best.f1] = true; m2[best.f2] = true; } });
+          v1.fields.forEach(function(f1) { 
+            if (m1[f1]) return; 
+            var best = null, bestScore = 0; 
+            v2.fields.forEach(function(f2) { 
+              if (m2[f2]) return; 
+              var r = fieldsSimilar(f1, f2); 
+              if (r.match && r.score > bestScore) { 
+                bestScore = r.score; 
+                best = { f1: f1, f2: f2, score: r.score, reason: r.reason }; 
+              } 
+            }); 
+            if (best) { 
+              pairs.push(best); 
+              m1[best.f1] = true; 
+              m2[best.f2] = true; 
+            } 
+          });
           var sim = pairs.length / Math.min(v1.fields.length, v2.fields.length);
           if (pairs.length >= 1 && sim >= 0.2) duplicates.push({ views: [v1, v2], matchedPairs: pairs, commonCount: pairs.length, similarity: Math.round(sim * 100) });
         }
@@ -192,9 +316,26 @@ looker.plugins.visualizations.add({
     
     function renderDuplicatesTab() {
       var dups = findDuplicates(), vF = Object.values(views).filter(function(v) { return v.fields && v.fields.length > 0; }).length, eF = Object.values(explores).filter(function(e) { return e.fields && e.fields.length > 0; }).length, dF = Object.values(dashboards).filter(function(d) { return d.fields && d.fields.length > 0; }).length, tot = vF + eF + dF;
-      var html = '<div style="padding:20px 24px;border-bottom:1px solid #1e293b;"><div style="color:#e2e8f0;font-size:14px;font-weight:500;">Find Similar Entities</div><div style="color:#64748b;font-size:12px;margin-top:4px;">Comparing '+tot+' entities ('+vF+' views, '+eF+' explores, '+dF+' dashboards) with fuzzy field matching</div></div>';
+      var html = '<div style="padding:20px 24px;border-bottom:1px solid #1e293b;"><div style="color:#e2e8f0;font-size:14px;font-weight:500;">Find Similar Entities</div><div style="color:#64748b;font-size:12px;margin-top:4px;">Comparing '+tot+' entities with semantic field matching (prefix-aware)</div></div>';
       if (dups.length === 0) { html += '<div style="text-align:center;padding:60px 40px;"><div style="font-size:48px;margin-bottom:16px;">🔍</div><div style="color:#e2e8f0;font-size:16px;margin-bottom:8px;">No Similar Entities Found</div><div style="color:#64748b;font-size:13px;">Entities need at least 20% field overlap to be considered similar.</div></div>'; }
-      else { html += '<div style="padding:12px 24px;border-bottom:1px solid #1e293b;background:#f9731615;font-size:13px;color:#f97316;">Found '+dups.length+' pair(s) of similar entities</div><div style="max-height:450px;overflow-y:auto;">'; dups.forEach(function(dup, idx) { var isExp = expandedDuplicates[idx], v1 = dup.views[0], v2 = dup.views[1], c1 = typeConfig[v1.type] ? typeConfig[v1.type].color : '#8b5cf6', c2 = typeConfig[v2.type] ? typeConfig[v2.type].color : '#8b5cf6'; html += '<div class="dup-row" data-idx="'+idx+'" style="border-bottom:1px solid #1e293b;"><div class="dup-header" style="display:flex;align-items:center;gap:12px;padding:14px 16px;cursor:pointer;"><span style="color:#64748b;">'+(isExp?icons.chevronDown:icons.chevronRight)+'</span><div style="flex:1;display:flex;align-items:center;gap:12px;"><div style="flex:1;"><div style="color:'+c1+';font-size:13px;">'+v1.name+'</div><div style="font-size:10px;color:#64748b;margin-top:2px;">'+v1.type.toUpperCase()+' • '+v1.fields.length+' fields</div></div><div style="color:#64748b;font-size:20px;">↔</div><div style="flex:1;"><div style="color:'+c2+';font-size:13px;">'+v2.name+'</div><div style="font-size:10px;color:#64748b;margin-top:2px;">'+v2.type.toUpperCase()+' • '+v2.fields.length+' fields</div></div></div><div style="text-align:center;"><div style="background:#f9731622;border:1px solid #f97316;padding:4px 10px;border-radius:12px;font-size:11px;color:#f97316;font-weight:600;">'+dup.similarity+'%</div><div style="font-size:9px;color:#64748b;margin-top:2px;">'+dup.commonCount+' matches</div></div></div>'; if (isExp) { html += '<div style="padding:0 16px 16px 44px;background:#0c1222;"><div style="font-size:11px;color:#64748b;margin-bottom:8px;">'+dup.matchedPairs.length+' Matched Field Pairs</div><div style="display:flex;flex-direction:column;gap:6px;max-height:200px;overflow-y:auto;">'; dup.matchedPairs.forEach(function(p) { var ex = p.f1 === p.f2, col = ex ? '#10b981' : '#f59e0b'; html += '<div style="display:flex;align-items:center;gap:8px;padding:6px 10px;background:#1e293b;border-radius:6px;"><span style="flex:1;font-size:11px;color:#e2e8f0;font-family:monospace;">'+p.f1+'</span><span style="color:'+col+';font-size:12px;">'+(ex?'=':'≈')+'</span><span style="flex:1;font-size:11px;color:#e2e8f0;font-family:monospace;">'+p.f2+'</span><span style="font-size:9px;color:#64748b;background:#334155;padding:2px 6px;border-radius:4px;">'+p.score+'%</span></div>'; }); html += '</div></div>'; } html += '</div>'; }); html += '</div>'; }
+      else { 
+        html += '<div style="padding:12px 24px;border-bottom:1px solid #1e293b;background:#f9731615;font-size:13px;color:#f97316;">Found '+dups.length+' pair(s) of similar entities</div><div style="max-height:450px;overflow-y:auto;">'; 
+        dups.forEach(function(dup, idx) { 
+          var isExp = expandedDuplicates[idx], v1 = dup.views[0], v2 = dup.views[1], c1 = typeConfig[v1.type] ? typeConfig[v1.type].color : '#8b5cf6', c2 = typeConfig[v2.type] ? typeConfig[v2.type].color : '#8b5cf6'; 
+          html += '<div class="dup-row" data-idx="'+idx+'" style="border-bottom:1px solid #1e293b;"><div class="dup-header" style="display:flex;align-items:center;gap:12px;padding:14px 16px;cursor:pointer;"><span style="color:#64748b;">'+(isExp?icons.chevronDown:icons.chevronRight)+'</span><div style="flex:1;display:flex;align-items:center;gap:12px;"><div style="flex:1;"><div style="color:'+c1+';font-size:13px;">'+v1.name+'</div><div style="font-size:10px;color:#64748b;margin-top:2px;">'+v1.type.toUpperCase()+' • '+v1.fields.length+' fields</div></div><div style="color:#64748b;font-size:20px;">↔</div><div style="flex:1;"><div style="color:'+c2+';font-size:13px;">'+v2.name+'</div><div style="font-size:10px;color:#64748b;margin-top:2px;">'+v2.type.toUpperCase()+' • '+v2.fields.length+' fields</div></div></div><div style="text-align:center;"><div style="background:#f9731622;border:1px solid #f97316;padding:4px 10px;border-radius:12px;font-size:11px;color:#f97316;font-weight:600;">'+dup.similarity+'%</div><div style="font-size:9px;color:#64748b;margin-top:2px;">'+dup.commonCount+' matches</div></div></div>'; 
+          if (isExp) { 
+            html += '<div style="padding:0 16px 16px 44px;background:#0c1222;"><div style="font-size:11px;color:#64748b;margin-bottom:8px;">'+dup.matchedPairs.length+' Matched Field Pairs</div><div style="display:flex;flex-direction:column;gap:6px;max-height:200px;overflow-y:auto;">'; 
+            dup.matchedPairs.forEach(function(p) { 
+              var ex = p.f1 === p.f2, col = ex ? '#10b981' : p.score >= 90 ? '#22d3ee' : '#f59e0b'; 
+              var reasonText = p.reason ? '<span style="font-size:8px;color:#64748b;margin-left:4px;">'+p.reason+'</span>' : '';
+              html += '<div style="display:flex;align-items:center;gap:8px;padding:6px 10px;background:#1e293b;border-radius:6px;"><span style="flex:1;font-size:11px;color:#e2e8f0;font-family:monospace;word-break:break-all;">'+p.f1+'</span><span style="color:'+col+';font-size:12px;flex-shrink:0;">'+(ex?'=':'≈')+'</span><span style="flex:1;font-size:11px;color:#e2e8f0;font-family:monospace;word-break:break-all;">'+p.f2+'</span><span style="font-size:9px;color:#64748b;background:#334155;padding:2px 6px;border-radius:4px;flex-shrink:0;">'+p.score+'%'+reasonText+'</span></div>'; 
+            }); 
+            html += '</div></div>'; 
+          } 
+          html += '</div>'; 
+        }); 
+        html += '</div>'; 
+      }
       return html;
     }
     
@@ -222,17 +363,4 @@ looker.plugins.visualizations.add({
       var logo = '<img src="https://avidan-nisan.github.io/bi-eng-monitor/logo.png" width="40" height="40" style="border-radius:8px;" onerror="this.style.display=\'none\'"/>';
       var tagsHtml = searchTags.map(function(tag, i) { return '<span class="search-tag" data-idx="'+i+'" style="display:inline-flex;align-items:center;gap:6px;background:#10b98125;border:1px solid #10b981;padding:6px 10px 6px 12px;border-radius:8px;font-size:12px;color:#6ee7b7;font-weight:500;"><span style="opacity:0.6;font-size:10px;">'+(i+1)+'.</span> '+tag+'<span class="remove-tag" style="cursor:pointer;opacity:0.7;padding:2px;">'+icons.x+'</span></span>'; }).join('');
       var hasSearch = searchTags.length > 0 || searchTerm.trim();
-      container.innerHTML = '<div style="background:linear-gradient(180deg,#0f172a 0%,#1e293b 100%);min-height:600px;"><div style="padding:14px 24px;border-bottom:1px solid #1e293b;"><div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px;"><div style="display:flex;align-items:center;gap:12px;">'+logo+'<div><div style="font-weight:600;color:#f1f5f9;font-size:16px;">Asset Manager</div><div style="font-size:10px;color:#64748b;">'+allRows.length+' assets</div></div></div><div style="display:flex;border-bottom:2px solid #334155;"><button class="tab-btn" data-tab="lineage" style="display:flex;align-items:center;gap:6px;padding:10px 20px;border:none;cursor:pointer;font-size:12px;font-weight:500;background:transparent;border-bottom:2px solid '+(activeTab==='lineage'?'#10b981':'transparent')+';margin-bottom:-2px;color:'+(activeTab==='lineage'?'#10b981':'#64748b')+';">'+icons.lineage+' Data Lineage</button><button class="tab-btn" data-tab="duplicates" style="display:flex;align-items:center;gap:6px;padding:10px 20px;border:none;cursor:pointer;font-size:12px;font-weight:500;background:transparent;border-bottom:2px solid '+(activeTab==='duplicates'?'#f97316':'transparent')+';margin-bottom:-2px;color:'+(activeTab==='duplicates'?'#f97316':'#64748b')+';">'+icons.duplicate+' Similar Views</button></div></div><div style="background:linear-gradient(135deg,#1e293b,#334155);border:1px solid #475569;border-radius:12px;padding:16px;"><div style="display:flex;align-items:center;gap:10px;margin-bottom:'+(searchTags.length?'12px':'0')+';"><span style="color:#10b981;display:flex;align-items:center;gap:4px;">'+icons.ai+icons.search+'</span><input id="searchInput" type="text" value="'+searchTerm+'" placeholder="Search fields: use comma to separate multiple terms..." autocomplete="off" spellcheck="false" style="flex:1;background:transparent;border:none;color:#e2e8f0;font-size:14px;outline:none;"/>'+(hasSearch||selectedNode?'<span id="clearAll" style="color:#64748b;cursor:pointer;padding:6px;border-radius:6px;background:#334155;">'+icons.x+'</span>':'')+'</div>'+(searchTags.length?'<div style="display:flex;flex-wrap:wrap;gap:8px;">'+tagsHtml+'</div>':'')+'<div style="margin-top:12px;font-size:11px;color:#64748b;">🤖 <span style="color:#10b981;">AI-powered</span>: Use comma for multiple fields. Right-click node to copy name.</div></div></div><div id="tab-content">'+(activeTab==='lineage'?renderLineageTab():renderDuplicatesTab())+'</div><div style="padding:10px 24px;border-top:1px solid #1e293b;display:flex;gap:20px;font-size:10px;color:#64748b;text-transform:uppercase;letter-spacing:0.5px;"><span><span style="color:#06b6d4;">━━</span> Upstream</span><span><span style="color:#f97316;">━━</span> Downstream</span><span><span style="color:#10b981;">━━</span> Match</span></div></div>';
-      var input = container.querySelector('#searchInput'), debounceTimer = null;
-      input.addEventListener('input', function(e) { var val = e.target.value; if (val.indexOf(',') !== -1) { var parts = val.split(','); for (var i = 0; i < parts.length - 1; i++) { var term = parts[i].trim(); if (term && searchTags.indexOf(term) === -1) searchTags.push(term); } searchTerm = parts[parts.length - 1]; render(); return; } searchTerm = val; selectedNode = null; upstream = []; downstream = []; clearTimeout(debounceTimer); debounceTimer = setTimeout(function() { var tc = container.querySelector('#tab-content'); if (tc && activeTab === 'lineage') { tc.innerHTML = renderLineageTab(); attachLineageEvents(); } }, 200); });
-      input.addEventListener('keydown', function(e) { if (e.key === 'Enter' && searchTerm.trim()) { e.preventDefault(); if (searchTags.indexOf(searchTerm.trim()) === -1) searchTags.push(searchTerm.trim()); searchTerm = ''; render(); } else if (e.key === 'Backspace' && !searchTerm && searchTags.length > 0) { searchTags.pop(); render(); } });
-      input.focus(); input.setSelectionRange(input.value.length, input.value.length);
-      var clearBtn = container.querySelector('#clearAll'); if (clearBtn) clearBtn.addEventListener('click', function() { searchTerm = ''; searchTags = []; selectedNode = null; upstream = []; downstream = []; showFieldsPanel = null; render(); });
-      container.querySelectorAll('.remove-tag').forEach(function(btn) { btn.addEventListener('click', function(e) { e.stopPropagation(); searchTags.splice(parseInt(btn.parentElement.dataset.idx), 1); render(); }); });
-      container.querySelectorAll('.tab-btn').forEach(function(btn) { btn.addEventListener('click', function() { activeTab = btn.dataset.tab; render(); }); });
-      if (activeTab === 'lineage') attachLineageEvents();
-      container.querySelectorAll('.dup-header').forEach(function(h) { h.addEventListener('click', function() { var idx = parseInt(h.parentElement.dataset.idx); expandedDuplicates[idx] = !expandedDuplicates[idx]; var tc = container.querySelector('#tab-content'); if (tc) { tc.innerHTML = renderDuplicatesTab(); container.querySelectorAll('.dup-header').forEach(function(h2) { h2.addEventListener('click', function() { expandedDuplicates[parseInt(h2.parentElement.dataset.idx)] = !expandedDuplicates[parseInt(h2.parentElement.dataset.idx)]; tc.innerHTML = renderDuplicatesTab(); }); }); } }); });
-    }
-    render(); done();
-  }
-});
+      container.innerHTML = '<div style="background:linear-gradient(180deg,#0f172a 0%,#1e293b 100%);min-height:600px;"><div style="padding:14px 24px;border-bottom:1px solid #1e293b;"><div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px;"><div style="display:flex;align-items:center;gap:12px;">'+logo+'<div><div style="font-weight:600;color:#f1f5f9;font-size:16px;">Asset Manager</div><div style="font-size:10px;color:#64748b;">'+allRows.length+' assets</div></div></div><div style="display:flex;border-bottom:2px solid #334155;"><button class="tab-btn" data-tab="lineage" style="display:flex;align-items:center;gap:6px;padding:10px 20px;border:none;cursor:pointer;font-size:12px;font-weight:500;background:transparent;border-bottom:2px solid '+(activeTab==='lineage'?'#10b981':'transparent')+';margin-bottom:-2px;color:'+(activeTab==='lineage'?'#10b981':'#64748b')+';">'+icons.lineage+' Data Lineage</button><button class="tab-btn" data-tab="duplicates" style="display:flex;align-items:center;gap:6px;padding:10px 20px;border:none;cursor:pointer;font-size:12px;font-weight:500;background:transparent;border-bottom:2px solid '+(activeTab==='duplicates'?'#f97316':'transparent')+';margin-bottom:-2px;color:'+(activeTab==='duplicates'?'#f97316':'#64748b')+';">'+icons.duplicate+' Similar Views</button></div></div><div style="background:linear-gradient(135deg,#1e293b,#334155);border:1px solid #475569;border-radius:12px;padding:16px;"><div style="display:flex;align-items:center;gap:10px;margin-bottom:'+(searchTags.length?'12px':'0')+';"><span style="color:#10b981;display:flex;align-items:center;gap:4px;">'+icons.ai+icons.search+'</span><input id="searchInput" type="text" value="'+searchTerm+'" placeholder="Search fields: use comma to separate multiple terms..." autocomplete="off" spellcheck="false" style="flex:1;background:transparent;border:none;color:#e2e8f0;font-size:14px;outline:none;"/>'+(hasSearch||selectedNode?'<span id="clearAll" style="color:#64748b;
