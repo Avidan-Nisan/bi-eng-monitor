@@ -217,7 +217,7 @@ looker.plugins.visualizations.add({
     
     function getSearchMatches() {
       var terms = searchTags.slice(); if (searchTerm.trim()) terms.push(searchTerm.trim()); if (terms.length === 0) return [];
-      var matches = [];
+      var matches = [], partialMatches = [];
       
       allEntities.forEach(function(entity) {
         var matchedTermsCount = 0, fieldMatches = [], nameScore = 0, tableMatches = [];
@@ -237,7 +237,7 @@ looker.plugins.visualizations.add({
             });
           }
           
-          // Check fields - look for ANY field that matches this term
+          // Check fields
           if (entity.fields && entity.fields.length > 0) {
             entity.fields.forEach(function(field) {
               var fs = smartMatch(field, term, true);
@@ -253,15 +253,32 @@ looker.plugins.visualizations.add({
           if (termMatched) matchedTermsCount++;
         });
         
-        // Include if ALL search terms found a match somewhere in this entity
+        var matchData = { 
+          entity: entity, 
+          score: nameScore + fieldMatches.length * 5 + tableMatches.length * 3 + matchedTermsCount * 20, 
+          nameMatch: nameScore >= 35, 
+          fieldMatches: fieldMatches.map(function(fm) { return fm.field; }), 
+          fieldScores: fieldMatches, 
+          tableMatches: tableMatches, 
+          totalTerms: terms.length,
+          matchedTermsCount: matchedTermsCount
+        };
+        
+        // AND logic: ALL terms must match
         if (matchedTermsCount === terms.length) {
-          fieldMatches.sort(function(a, b) { return b.score - a.score; });
-          var score = nameScore + fieldMatches.length * 5 + tableMatches.length * 3;
-          matches.push({ entity: entity, score: score, nameMatch: nameScore >= 35, fieldMatches: fieldMatches.map(function(fm) { return fm.field; }), fieldScores: fieldMatches, tableMatches: tableMatches, totalTerms: terms.length });
+          matches.push(matchData);
+        } else if (matchedTermsCount > 0) {
+          partialMatches.push(matchData);
         }
       });
       
-      return matches.sort(function(a, b) { return b.fieldMatches.length !== a.fieldMatches.length ? b.fieldMatches.length - a.fieldMatches.length : b.score - a.score; });
+      // Store partial matches for "no results" suggestions
+      window._partialMatches = partialMatches.sort(function(a, b) { return b.matchedTermsCount - a.matchedTermsCount; }).slice(0, 10);
+      
+      return matches.sort(function(a, b) { 
+        if (b.fieldMatches.length !== a.fieldMatches.length) return b.fieldMatches.length - a.fieldMatches.length;
+        return b.score - a.score; 
+      });
     }
     
     function renderLineageTab() {
@@ -297,11 +314,25 @@ looker.plugins.visualizations.add({
       
       var statsText = '';
       if (selectedNode) statsText = '<span style="color:'+typeConfig[selectedNode.type].color+';">'+selectedNode.name+'</span> <span style="color:#06b6d4;">▲'+upstream.length+'</span> <span style="color:#f97316;">▼'+downstream.length+'</span>';
-      else if ((searchTags.length > 0 || searchTerm.trim()) && highlightedEntities.length > 0) statsText = '<span style="color:#10b981;">'+highlightedEntities.length+' matches</span>';
-      else if (searchTags.length > 0 || searchTerm.trim()) statsText = '<span style="color:#ef4444;">No matches found</span>';
+      else if ((searchTags.length > 0 || searchTerm.trim()) && highlightedEntities.length > 0) {
+        statsText = '<span style="color:#10b981;">'+highlightedEntities.length+' matches</span><span style="color:#64748b;font-size:10px;margin-left:8px;">(contains ALL fields)</span>';
+      }
+      else if (searchTags.length > 0 || searchTerm.trim()) statsText = '<span style="color:#ef4444;">No exact matches</span>';
       else statsText = '<span style="color:#64748b;">Click node to trace lineage</span>';
       
-      return '<div><div style="padding:10px 20px;border-bottom:1px solid #1e293b;font-size:12px;display:flex;justify-content:space-between;"><div>'+statsText+'</div><div style="color:#64748b;font-size:11px;">'+(filterMode?visibleEntities.length+' of ':'')+allEntities.length+' entities</div></div><div style="padding:12px;overflow:auto;"><svg width="'+svgWidth+'" height="'+svgHeight+'" style="font-family:system-ui,sans-serif;">'+hdrHtml+edgesHtml+nodesHtml+'</svg></div></div>';
+      var noResultsHtml = '';
+      if (filterMode === 'search' && visibleEntities.length === 0 && window._partialMatches && window._partialMatches.length > 0) {
+        var terms = searchTags.slice(); if (searchTerm.trim()) terms.push(searchTerm.trim());
+        noResultsHtml = '<div style="padding:20px;background:#1e293b;margin:12px;border-radius:8px;"><div style="color:#f59e0b;font-size:13px;margin-bottom:12px;">⚠️ No assets contain ALL '+terms.length+' fields together</div><div style="color:#94a3b8;font-size:12px;margin-bottom:12px;">Closest matches (partial):</div><div style="display:flex;flex-direction:column;gap:8px;">';
+        window._partialMatches.slice(0, 5).forEach(function(pm) {
+          var cfg = typeConfig[pm.entity.type];
+          var matchedFields = pm.fieldMatches.slice(0, 3).join(', ');
+          noResultsHtml += '<div style="display:flex;align-items:center;gap:10px;padding:10px 12px;background:#0f172a;border-radius:6px;border-left:3px solid '+cfg.color+';"><div style="flex:1;"><div style="color:#e2e8f0;font-size:12px;">'+pm.entity.name+'</div><div style="color:#64748b;font-size:10px;margin-top:2px;">'+pm.entity.type.toUpperCase()+' • has: '+matchedFields+(pm.fieldMatches.length > 3 ? ' +' + (pm.fieldMatches.length - 3) + ' more' : '')+'</div></div><div style="background:#f59e0b25;border:1px solid #f59e0b50;padding:3px 8px;border-radius:4px;font-size:10px;color:#fbbf24;">'+pm.matchedTermsCount+'/'+pm.totalTerms+'</div></div>';
+        });
+        noResultsHtml += '</div><div style="color:#64748b;font-size:11px;margin-top:12px;">💡 Tip: These assets have some of your fields. You may need to join data from multiple sources.</div></div>';
+      }
+      
+      return '<div><div style="padding:10px 20px;border-bottom:1px solid #1e293b;font-size:12px;display:flex;justify-content:space-between;"><div>'+statsText+'</div><div style="color:#64748b;font-size:11px;">'+(filterMode?visibleEntities.length+' of ':'')+allEntities.length+' entities</div></div>'+(noResultsHtml || '<div style="padding:12px;overflow:auto;"><svg width="'+svgWidth+'" height="'+svgHeight+'" style="font-family:system-ui,sans-serif;">'+hdrHtml+edgesHtml+nodesHtml+'</svg></div>')+'</div>';
     }
     
     function attachEvents() {
@@ -314,7 +345,7 @@ looker.plugins.visualizations.add({
       var tagsHtml = searchTags.map(function(tag, i) { return '<span class="search-tag" data-idx="'+i+'" style="display:inline-flex;align-items:center;gap:6px;background:#10b98125;border:1px solid #10b981;padding:6px 10px;border-radius:8px;font-size:12px;color:#6ee7b7;"><span style="opacity:0.6;font-size:10px;">'+(i+1)+'.</span> '+tag+'<span class="remove-tag" style="cursor:pointer;padding:2px;">'+icons.x+'</span></span>'; }).join('');
       var hasSearch = searchTags.length > 0 || searchTerm.trim();
       
-      container.innerHTML = '<div style="background:#0f172a;min-height:600px;"><div style="padding:14px 24px;border-bottom:1px solid #1e293b;"><div style="display:flex;justify-content:space-between;margin-bottom:14px;"><div><div style="font-weight:600;color:#f1f5f9;font-size:16px;">Asset Manager</div><div style="font-size:10px;color:#64748b;">'+allRows.length+' assets</div></div><div style="display:flex;gap:0;"><button class="tab-btn" data-tab="lineage" style="display:flex;align-items:center;gap:6px;padding:10px 20px;border:none;cursor:pointer;font-size:12px;background:'+(activeTab==='lineage'?'#1e293b':'transparent')+';color:'+(activeTab==='lineage'?'#10b981':'#64748b')+';border-radius:8px 0 0 8px;border:1px solid #334155;">'+icons.lineage+' Lineage</button><button class="tab-btn" data-tab="duplicates" style="display:flex;align-items:center;gap:6px;padding:10px 20px;border:none;cursor:pointer;font-size:12px;background:'+(activeTab==='duplicates'?'#1e293b':'transparent')+';color:'+(activeTab==='duplicates'?'#8b5cf6':'#64748b')+';border-radius:0 8px 8px 0;border:1px solid #334155;border-left:none;">'+icons.duplicate+' Similar Views</button></div></div><div style="background:#1e293b;border:1px solid #475569;border-radius:12px;padding:16px;"><div style="display:flex;align-items:center;gap:10px;margin-bottom:'+(searchTags.length?'12px':'0')+';"><span style="color:#10b981;">'+icons.search+'</span><input id="searchInput" type="text" value="'+searchTerm+'" placeholder="Search fields (comma to add multiple)..." autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" style="flex:1;background:transparent;border:none;color:#e2e8f0;font-size:14px;outline:none;"/>'+(hasSearch||selectedNode?'<span id="clearAll" style="color:#64748b;cursor:pointer;padding:6px 10px;border-radius:6px;background:#334155;font-size:11px;">Clear</span>':'')+'</div>'+(searchTags.length?'<div style="display:flex;flex-wrap:wrap;gap:8px;">'+tagsHtml+'</div>':'')+'</div></div><div id="tab-content">'+(activeTab==='lineage'?renderLineageTab():renderDuplicatesTab())+'</div></div>';
+      container.innerHTML = '<div style="background:#0f172a;min-height:600px;"><div style="padding:14px 24px;border-bottom:1px solid #1e293b;"><div style="display:flex;justify-content:space-between;margin-bottom:14px;"><div><div style="font-weight:600;color:#f1f5f9;font-size:16px;">Asset Manager</div><div style="font-size:10px;color:#64748b;">'+allRows.length+' assets</div></div><div style="display:flex;gap:0;"><button class="tab-btn" data-tab="lineage" style="display:flex;align-items:center;gap:6px;padding:10px 20px;border:none;cursor:pointer;font-size:12px;background:'+(activeTab==='lineage'?'#1e293b':'transparent')+';color:'+(activeTab==='lineage'?'#10b981':'#64748b')+';border-radius:8px 0 0 8px;border:1px solid #334155;">'+icons.lineage+' Lineage</button><button class="tab-btn" data-tab="duplicates" style="display:flex;align-items:center;gap:6px;padding:10px 20px;border:none;cursor:pointer;font-size:12px;background:'+(activeTab==='duplicates'?'#1e293b':'transparent')+';color:'+(activeTab==='duplicates'?'#8b5cf6':'#64748b')+';border-radius:0 8px 8px 0;border:1px solid #334155;border-left:none;">'+icons.duplicate+' Similar Views</button></div></div><div style="background:#1e293b;border:1px solid #475569;border-radius:12px;padding:16px;"><div style="display:flex;align-items:center;gap:10px;margin-bottom:'+(searchTags.length?'12px':'0')+';"><span style="color:#10b981;">'+icons.search+'</span><input id="searchInput" type="text" value="'+searchTerm+'" placeholder="Search fields (comma for AND - find assets with ALL fields)..." autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" style="flex:1;background:transparent;border:none;color:#e2e8f0;font-size:14px;outline:none;"/>'+(hasSearch||selectedNode?'<span id="clearAll" style="color:#64748b;cursor:pointer;padding:6px 10px;border-radius:6px;background:#334155;font-size:11px;">Clear</span>':'')+'</div>'+(searchTags.length?'<div style="display:flex;flex-wrap:wrap;gap:8px;">'+tagsHtml+'</div>':'')+'</div></div><div id="tab-content">'+(activeTab==='lineage'?renderLineageTab():renderDuplicatesTab())+'</div></div>';
       
       var input = container.querySelector('#searchInput');
       input.addEventListener('input', function(e) { var val = e.target.value; if (val.indexOf(',') !== -1) { var parts = val.split(','); for (var i = 0; i < parts.length - 1; i++) { var term = parts[i].trim(); if (term && searchTags.indexOf(term) === -1) searchTags.push(term); } searchTerm = parts[parts.length - 1]; render(); return; } searchTerm = val; selectedNode = null; var tc = container.querySelector('#tab-content'); if (tc && activeTab === 'lineage') { tc.innerHTML = renderLineageTab(); attachEvents(); } });
