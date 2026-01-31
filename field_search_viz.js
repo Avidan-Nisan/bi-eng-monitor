@@ -13,26 +13,35 @@ looker.plugins.visualizations.add({
     if (!data || data.length === 0) { container.innerHTML = '<div style="padding:40px;color:#64748b;background:#0f172a;min-height:600px;">No data available</div>'; done(); return; }
     
     var fields = queryResponse.fields.dimension_like.map(function(f) { return f.name; });
+    
+    // Log all available fields for debugging
+    console.log('=== ASSET MANAGER DEBUG ===');
+    console.log('All available fields:', fields);
+    
     var dashField = fields.find(function(f) { return f.toLowerCase().indexOf('dashboard') !== -1 && f.toLowerCase().indexOf('title') !== -1; });
     var expField = fields.find(function(f) { return f.toLowerCase().indexOf('explore') !== -1 && f.toLowerCase().indexOf('name') !== -1; });
     var viewField = fields.find(function(f) { return f.toLowerCase().indexOf('view') !== -1 && f.toLowerCase().indexOf('name') !== -1 && f.toLowerCase().indexOf('count') === -1 && f.toLowerCase().indexOf('extended') === -1 && f.toLowerCase().indexOf('included') === -1; });
-    var fieldsField = fields.find(function(f) { 
-      var fl = f.toLowerCase();
-      return fl.indexOf('falm_sql_table_fields') !== -1 || 
-             fl === 'falm_sql_table_fields' ||
-             fl.indexOf('sql_table_fields') !== -1;
-    });
-    
-    console.log('All available fields:', fields);
-    console.log('Field mappings:', { dashField: dashField, expField: expField, viewField: viewField, fieldsField: fieldsField, tableField: tableField });
-    if (!fieldsField) {
-      console.log('WARNING: fieldsField not found! Looking for falm_sql_table_fields in:', fields);
-    }
     var tableField = fields.find(function(f) { return f.toLowerCase().indexOf('sql_table') !== -1 && f.toLowerCase().indexOf('fields') === -1 && f.toLowerCase().indexOf('path') === -1; });
     var extendedViewField = fields.find(function(f) { return f.toLowerCase().indexOf('extended') !== -1 && f.toLowerCase().indexOf('view') !== -1; });
     var includedViewField = fields.find(function(f) { return f.toLowerCase().indexOf('included') !== -1 && f.toLowerCase().indexOf('view') !== -1; });
     
-    console.log('Field mappings:', { dashField: dashField, expField: expField, viewField: viewField, fieldsField: fieldsField, tableField: tableField });
+    // Find fields field - looking specifically for falm_sql_table_fields
+    var fieldsField = fields.find(function(f) { 
+      var fl = f.toLowerCase();
+      return fl.indexOf('falm_sql_table_fields') !== -1 || fl.indexOf('sql_table_fields') !== -1;
+    });
+    
+    console.log('Field mappings:', { 
+      dashField: dashField, 
+      expField: expField, 
+      viewField: viewField, 
+      fieldsField: fieldsField, 
+      tableField: tableField 
+    });
+    
+    if (!fieldsField) {
+      console.log('WARNING: fieldsField not found! Available fields are:', fields);
+    }
     
     var allRows = data.map(function(row) {
       var fieldsVal = '';
@@ -50,13 +59,13 @@ looker.plugins.visualizations.add({
       };
     });
     
-    // Debug: Check if fields are being captured
+    // Debug field capture
     var rowsWithFields = allRows.filter(function(r) { return r.fields.length > 0; });
     console.log('Rows with fields:', rowsWithFields.length, 'of', allRows.length);
     if (rowsWithFields.length > 0) {
       console.log('Sample row with fields:', rowsWithFields[0]);
     } else if (fieldsField && data.length > 0) {
-      console.log('Sample raw fieldsField value:', data[0][fieldsField]);
+      console.log('fieldsField found but no data. Raw value:', data[0][fieldsField]);
     }
     
     var tables = {}, views = {}, explores = {}, dashboards = {}, viewToTables = {}, viewToViews = {}, exploreToViews = {}, dashToExplores = {};
@@ -87,6 +96,15 @@ looker.plugins.visualizations.add({
     });
     Object.keys(explores).forEach(function(k) { explores[k].sources = Object.keys(exploreToViews[k] || {}); });
     Object.keys(dashboards).forEach(function(k) { dashboards[k].sources = Object.keys(dashToExplores[k] || {}); });
+    
+    // Debug entity field counts
+    var viewsWithFields = Object.values(views).filter(function(v) { return v.fields.length > 0; });
+    var exploresWithFields = Object.values(explores).filter(function(e) { return e.fields.length > 0; });
+    console.log('Views with fields:', viewsWithFields.length);
+    console.log('Explores with fields:', exploresWithFields.length);
+    if (viewsWithFields.length > 0) {
+      console.log('Sample view with fields:', viewsWithFields[0].name, '- fields:', viewsWithFields[0].fields.slice(0,5));
+    }
     
     var allEntities = Object.values(tables).concat(Object.values(views)).concat(Object.values(explores)).concat(Object.values(dashboards));
     var activeTab = 'lineage', searchTerm = '', searchTags = [], selectedNode = null, upstream = [], downstream = [], highlightedEntities = [], showFieldsPanel = null, expandedDuplicates = {};
@@ -149,20 +167,15 @@ looker.plugins.visualizations.add({
       return matches.sort(function(a, b) { return b.fieldMatches.length !== a.fieldMatches.length ? b.fieldMatches.length - a.fieldMatches.length : b.score - a.score; });
     }
     
-    // Get only relevant upstream tables - those that are sources of entities matching via fields
+    // Get only relevant upstream tables - those that are direct sources of matched entities
     function getRelevantUpstreamTables(matches) {
       var relevantTableIds = {};
-      
       matches.forEach(function(m) {
         var entity = m.entity;
-        // Only include tables that are direct sources of this matched entity
         if (entity.sources) {
           entity.sources.forEach(function(sourceId) {
-            // Check if this source is a table (starts with 't_')
             if (sourceId.indexOf('t_') === 0) {
-              // Get the table name from the ID
               var tableName = sourceId.substring(2);
-              // Check if this table is in the entity's sqlTables list
               if (entity.sqlTables && entity.sqlTables.indexOf(tableName) !== -1) {
                 relevantTableIds[sourceId] = true;
               }
@@ -170,14 +183,13 @@ looker.plugins.visualizations.add({
           });
         }
       });
-      
       return Object.keys(relevantTableIds);
     }
     
     function getUpstream(id, depth, visited) { if (depth > 15) return []; if (!visited) visited = {}; if (visited[id]) return []; visited[id] = true; var e = allEntities.find(function(x) { return x.id === id; }); if (!e || !e.sources) return []; var r = []; e.sources.forEach(function(s) { if (!visited[s]) { r.push(s); r = r.concat(getUpstream(s, (depth||0)+1, visited)); } }); return r.filter(function(v,i,a) { return a.indexOf(v)===i; }); }
     function getDownstream(id, depth, visited) { if (depth > 15) return []; if (!visited) visited = {}; if (visited[id]) return []; visited[id] = true; var r = []; allEntities.forEach(function(e) { if (e.sources && e.sources.indexOf(id) !== -1 && !visited[e.id]) { r.push(e.id); r = r.concat(getDownstream(e.id, (depth||0)+1, visited)); } }); return r.filter(function(v,i,a) { return a.indexOf(v)===i; }); }
     
-    // Enhanced prefix list
+    // Enhanced prefix list for semantic field matching
     var prefixes = ['dics','hics','dim','fct','fact','stg','raw','src','tgt','tmp','temp','v','vw','tb','tbl','f','d','pk','fk','sk','bk','nk','facm','fasg','fasm','facd','falm','farm','facs','fadm','dicm','disg','dism','dicd','dilm','dirm','didm','hicm','hisg','hism','hicd','hilm','hirm','hidm','crm','erp','fin','hr','mkt','ops','prd','sal','inv','cust','prod','ord','pay','ship','ret','ref','dica','dicl','dicw','disa','maom'];
     
     function stripPrefix(field) { if (!field) return ''; var tokens = field.toLowerCase().split(/[_\-\.]+/); while (tokens.length > 1 && (prefixes.indexOf(tokens[0]) !== -1 || /^[a-z]{2,4}$/.test(tokens[0]))) tokens.shift(); return tokens.join('_'); }
@@ -202,76 +214,47 @@ looker.plugins.visualizations.add({
     }
     
     function findDuplicates() {
-      // Separate entities by type - only compare within same type
       var viewsList = [], exploresList = [], dashboardsList = [];
       
       Object.values(views).forEach(function(v) { 
-        if (v.fields && v.fields.length > 0) {
-          viewsList.push({ name: v.name, fields: v.fields, sqlTables: v.sqlTables || [], type: 'view' }); 
-        }
+        if (v.fields && v.fields.length > 0) viewsList.push({ name: v.name, fields: v.fields, sqlTables: v.sqlTables || [], type: 'view' }); 
       });
       Object.values(explores).forEach(function(e) { 
-        if (e.fields && e.fields.length > 0) {
-          exploresList.push({ name: e.name, fields: e.fields, sqlTables: e.sqlTables || [], type: 'explore' }); 
-        }
+        if (e.fields && e.fields.length > 0) exploresList.push({ name: e.name, fields: e.fields, sqlTables: e.sqlTables || [], type: 'explore' }); 
       });
       Object.values(dashboards).forEach(function(d) { 
-        if (d.fields && d.fields.length > 0) {
-          dashboardsList.push({ name: d.name, fields: d.fields, sqlTables: d.sqlTables || [], type: 'dashboard' }); 
-        }
+        if (d.fields && d.fields.length > 0) dashboardsList.push({ name: d.name, fields: d.fields, sqlTables: d.sqlTables || [], type: 'dashboard' }); 
       });
       
-      console.log('Entities for similarity: Views=' + viewsList.length + ', Explores=' + exploresList.length + ', Dashboards=' + dashboardsList.length);
+      console.log('Similarity check - Views:', viewsList.length, 'Explores:', exploresList.length, 'Dashboards:', dashboardsList.length);
       
       var duplicates = [];
       
-      // Function to compare within a list
       function compareWithinType(list) {
         for (var i = 0; i < list.length; i++) {
           for (var j = i + 1; j < list.length; j++) {
             var v1 = list[i], v2 = list[j]; 
             if (v1.name === v2.name) continue;
-            
             var pairs = [], m1 = {}, m2 = {};
-            
-            // Field matching with semantic similarity
             v1.fields.forEach(function(f1) { 
               if (m1[f1]) return; 
               var best = null; 
               v2.fields.forEach(function(f2) { 
                 if (m2[f2]) return; 
                 var r = fieldsSimilar(f1, f2); 
-                if (r.match && (!best || r.score > best.score)) {
-                  best = { f1: f1, f2: f2, score: r.score, reason: r.reason }; 
-                }
+                if (r.match && (!best || r.score > best.score)) best = { f1: f1, f2: f2, score: r.score, reason: r.reason }; 
               }); 
-              if (best) { 
-                pairs.push(best); 
-                m1[best.f1] = true; 
-                m2[best.f2] = true; 
-              } 
+              if (best) { pairs.push(best); m1[best.f1] = true; m2[best.f2] = true; } 
             });
-            
-            // Calculate similarity as % of smaller entity's fields
             var minFields = Math.min(v1.fields.length, v2.fields.length);
             var sim = minFields > 0 ? (pairs.length / minFields) * 100 : 0;
-            
-            // Only include if 20% or more fields match
             if (pairs.length >= 1 && sim >= 20) {
-              duplicates.push({ 
-                views: [v1, v2], 
-                matchedPairs: pairs, 
-                commonCount: pairs.length, 
-                similarity: Math.round(sim),
-                v1Total: v1.fields.length,
-                v2Total: v2.fields.length
-              });
+              duplicates.push({ views: [v1, v2], matchedPairs: pairs, commonCount: pairs.length, similarity: Math.round(sim), v1Total: v1.fields.length, v2Total: v2.fields.length });
             }
           }
         }
       }
       
-      // Compare within each type separately
       compareWithinType(viewsList);
       compareWithinType(exploresList);
       compareWithinType(dashboardsList);
@@ -288,14 +271,13 @@ looker.plugins.visualizations.add({
       
       var html = '<div style="padding:20px 24px;border-bottom:1px solid #1e293b;"><div style="color:#e2e8f0;font-size:14px;font-weight:500;">Find Similar Entities</div><div style="color:#64748b;font-size:12px;margin-top:4px;">Comparing within same type: '+vCount+' views, '+eCount+' explores, '+dCount+' dashboards</div><div style="color:#64748b;font-size:11px;margin-top:4px;">Semantic matching: facm_revenue ≈ fasg_revenue (20%+ field overlap required)</div></div>';
       if (dups.length === 0) { 
-        html += '<div style="text-align:center;padding:60px 40px;"><div style="font-size:48px;margin-bottom:16px;">🔍</div><div style="color:#e2e8f0;font-size:16px;margin-bottom:8px;">No Similar Entities Found</div><div style="color:#64748b;font-size:13px;">Entities need 20%+ field overlap within the same type.</div><div style="color:#64748b;font-size:12px;margin-top:8px;">Views with fields: '+vCount+' | Explores with fields: '+eCount+'</div></div>'; 
-      }
-      else { 
+        html += '<div style="text-align:center;padding:60px 40px;"><div style="font-size:48px;margin-bottom:16px;">🔍</div><div style="color:#e2e8f0;font-size:16px;margin-bottom:8px;">No Similar Entities Found</div><div style="color:#64748b;font-size:13px;">Entities need 20%+ field overlap within the same type.</div><div style="color:#f97316;font-size:12px;margin-top:12px;">Views with fields: '+vCount+' | Explores with fields: '+eCount+'</div><div style="color:#64748b;font-size:11px;margin-top:8px;">If counts are 0, check that falm_sql_table_fields column exists in your query</div></div>'; 
+      } else { 
         html += '<div style="padding:12px 24px;border-bottom:1px solid #1e293b;background:#f9731615;font-size:13px;color:#f97316;">Found '+dups.length+' pair(s) of similar entities</div><div style="max-height:450px;overflow-y:auto;">'; 
         dups.forEach(function(dup, idx) { 
           var isExp = expandedDuplicates[idx], v1 = dup.views[0], v2 = dup.views[1];
           var c1 = typeConfig[v1.type] ? typeConfig[v1.type].color : '#8b5cf6';
-          html += '<div class="dup-row" data-idx="'+idx+'" style="border-bottom:1px solid #1e293b;"><div class="dup-header" style="display:flex;align-items:center;gap:12px;padding:14px 16px;cursor:pointer;"><span style="color:#64748b;">'+(isExp?icons.chevronDown:icons.chevronRight)+'</span><div style="flex:1;display:flex;align-items:center;gap:12px;"><div style="flex:1;"><div style="color:'+c1+';font-size:13px;">'+v1.name+'</div><div style="font-size:10px;color:#64748b;margin-top:2px;">'+v1.fields.length+' fields</div></div><div style="color:#64748b;font-size:20px;">↔</div><div style="flex:1;"><div style="color:'+c1+';font-size:13px;">'+v2.name+'</div><div style="font-size:10px;color:#64748b;margin-top:2px;">'+v2.fields.length+' fields</div></div></div><div style="text-align:center;"><div style="background:#f9731622;border:1px solid #f97316;padding:4px 10px;border-radius:12px;font-size:11px;color:#f97316;font-weight:600;">'+dup.similarity+'%</div><div style="font-size:9px;color:#64748b;margin-top:2px;">'+dup.commonCount+' of '+Math.min(v1.fields.length, v2.fields.length)+'</div></div></div>'; 
+          html += '<div class="dup-row" data-idx="'+idx+'" style="border-bottom:1px solid #1e293b;"><div class="dup-header" style="display:flex;align-items:center;gap:12px;padding:14px 16px;cursor:pointer;"><span style="color:#64748b;">'+(isExp?icons.chevronDown:icons.chevronRight)+'</span><div style="flex:1;display:flex;align-items:center;gap:12px;"><div style="flex:1;"><div style="color:'+c1+';font-size:13px;">'+v1.name+'</div><div style="font-size:10px;color:#64748b;margin-top:2px;">'+v1.type.toUpperCase()+' • '+v1.fields.length+' fields</div></div><div style="color:#64748b;font-size:20px;">↔</div><div style="flex:1;"><div style="color:'+c1+';font-size:13px;">'+v2.name+'</div><div style="font-size:10px;color:#64748b;margin-top:2px;">'+v2.type.toUpperCase()+' • '+v2.fields.length+' fields</div></div></div><div style="text-align:center;"><div style="background:#f9731622;border:1px solid #f97316;padding:4px 10px;border-radius:12px;font-size:11px;color:#f97316;font-weight:600;">'+dup.similarity+'%</div><div style="font-size:9px;color:#64748b;margin-top:2px;">'+dup.commonCount+' of '+Math.min(v1.fields.length, v2.fields.length)+'</div></div></div>'; 
           if (isExp) { 
             html += '<div style="padding:0 16px 16px 44px;background:#0c1222;"><div style="font-size:11px;color:#64748b;margin-bottom:8px;">Matched Field Pairs ('+dup.matchedPairs.length+')</div><div style="display:flex;flex-direction:column;gap:6px;max-height:200px;overflow-y:auto;">'; 
             dup.matchedPairs.forEach(function(p) { 
@@ -325,7 +307,6 @@ looker.plugins.visualizations.add({
       else if (searchTags.length > 0 || searchTerm.trim()) { 
         filterMode = 'search'; 
         if (highlightedEntities.length > 0) {
-          // Get only relevant upstream tables (direct sources of matched entities)
           var relevantTableIds = getRelevantUpstreamTables(searchMatches);
           var allVisibleIds = highlightedEntities.concat(relevantTableIds);
           visibleEntities = allEntities.filter(function(e) { return allVisibleIds.indexOf(e.id) !== -1; });
@@ -335,7 +316,6 @@ looker.plugins.visualizations.add({
       }
       var byType = { table: [], view: [], explore: [], dashboard: [] }; visibleEntities.forEach(function(e) { byType[e.type].push(e); }); ['table','view','explore','dashboard'].forEach(function(t) { byType[t].sort(function(a,b) { return a.name.localeCompare(b.name); }); });
       
-      // SMALLER node dimensions
       var nodeW = 200, nodeH = 38, nodeSpacing = 46, padding = 15, svgWidth = Math.max(containerWidth - 30, 1100), colSpacing = (svgWidth - padding * 2 - nodeW) / 3;
       var colX = { table: padding, view: padding + colSpacing, explore: padding + colSpacing * 2, dashboard: padding + colSpacing * 3 }, positions = {}, startY = 65;
       ['table','view','explore','dashboard'].forEach(function(type) { byType[type].forEach(function(e, idx) { positions[e.id] = { x: colX[type], y: startY + idx * nodeSpacing }; }); });
