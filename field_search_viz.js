@@ -195,20 +195,34 @@ looker.plugins.visualizations.add({
       
       var textLower = text.toLowerCase();
       var termLower = searchTerm.toLowerCase().trim();
+      
+      // Remove trailing underscore/separator from search term for matching
+      var termClean = termLower.replace(/[_\-\s\.]+$/, '');
       var textNorm = normalize(text);
-      var termNorm = normalize(searchTerm);
+      var termNorm = normalize(termClean);
       
       // Exact match = 100
-      if (textLower === termLower) return 100;
+      if (textLower === termLower || textLower === termClean) return 100;
       if (textNorm === termNorm) return 98;
       
-      // Contains exact term = 90
+      // Contains exact term = 90 (including with trailing separator)
       if (textLower.indexOf(termLower) !== -1) return 90;
+      if (textLower.indexOf(termClean) !== -1) return 90;
       if (textNorm.indexOf(termNorm) !== -1) return 88;
+      
+      // Check if text starts with search term (prefix match)
+      if (textLower.indexOf(termClean) === 0) return 92;
+      if (textNorm.indexOf(termNorm) === 0) return 90;
       
       // Tokenize and check word matches
       var textTokens = tokenize(text);
       var termTokens = tokenize(searchTerm);
+      
+      // Check if any token starts with search term
+      var tokenStartMatch = textTokens.some(function(txtt) {
+        return txtt.indexOf(termNorm) === 0 || termNorm.indexOf(txtt) === 0;
+      });
+      if (tokenStartMatch) return 85;
       
       // All search tokens found in text tokens
       var allTokensFound = termTokens.every(function(tt) {
@@ -216,7 +230,7 @@ looker.plugins.visualizations.add({
           return txtt.indexOf(tt) !== -1 || tt.indexOf(txtt) !== -1;
         });
       });
-      if (allTokensFound && termTokens.length > 0) return 85;
+      if (allTokensFound && termTokens.length > 0) return 80;
       
       // Check with synonyms
       var expandedTerms = [];
@@ -582,23 +596,27 @@ looker.plugins.visualizations.add({
     
     function renderDuplicatesTab() {
       var duplicates = findDuplicates();
-      var viewCount = Object.keys(views).length;
       var viewsWithFields = Object.values(views).filter(function(v) { return v.fields && v.fields.length > 0; }).length;
+      var exploresWithFields = Object.values(explores).filter(function(e) { return e.fields && e.fields.length > 0; }).length;
+      var dashboardsWithFields = Object.values(dashboards).filter(function(d) { return d.fields && d.fields.length > 0; }).length;
+      var totalWithFields = viewsWithFields + exploresWithFields + dashboardsWithFields;
       
       var html = '<div style="padding:20px 24px;border-bottom:1px solid #1e293b;">'+
-        '<div style="color:#e2e8f0;font-size:14px;font-weight:500;">Find Similar Views</div>'+
-        '<div style="color:#64748b;font-size:12px;margin-top:4px;">Comparing '+viewsWithFields+' views with fields (fuzzy matching: dics_campaign_id ≈ hics_campaign_id)</div></div>';
+        '<div style="color:#e2e8f0;font-size:14px;font-weight:500;">Find Similar Entities</div>'+
+        '<div style="color:#64748b;font-size:12px;margin-top:4px;">Comparing '+totalWithFields+' entities ('+viewsWithFields+' views, '+exploresWithFields+' explores, '+dashboardsWithFields+' dashboards) with fuzzy field matching</div></div>';
       
       if (duplicates.length === 0) {
         html += '<div style="text-align:center;padding:60px 40px;">'+
           '<div style="font-size:48px;margin-bottom:16px;">🔍</div>'+
-          '<div style="color:#e2e8f0;font-size:16px;margin-bottom:8px;">No Similar Views Found</div>'+
-          '<div style="color:#64748b;font-size:13px;margin-bottom:16px;">Views need at least 25% field overlap to be considered similar.</div>'+
+          '<div style="color:#e2e8f0;font-size:16px;margin-bottom:8px;">No Similar Entities Found</div>'+
+          '<div style="color:#64748b;font-size:13px;margin-bottom:16px;">Entities need at least 20% field overlap to be considered similar.</div>'+
           '<div style="color:#475569;font-size:11px;background:#1e293b;padding:12px;border-radius:8px;text-align:left;max-width:400px;margin:0 auto;">'+
             '<div style="margin-bottom:6px;"><strong style="color:#94a3b8;">Debug Info:</strong></div>'+
-            '<div>• Total views: '+viewCount+'</div>'+
             '<div>• Views with fields: '+viewsWithFields+'</div>'+
-            '<div>• Comparisons needed: '+(viewsWithFields > 1 ? (viewsWithFields * (viewsWithFields - 1) / 2) : 0)+'</div>'+
+            '<div>• Explores with fields: '+exploresWithFields+'</div>'+
+            '<div>• Dashboards with fields: '+dashboardsWithFields+'</div>'+
+            '<div>• Total comparisons: '+(totalWithFields > 1 ? (totalWithFields * (totalWithFields - 1) / 2) : 0)+'</div>'+
+            '<div style="margin-top:8px;color:#f59e0b;">Check browser console (F12) for detailed debug info</div>'+
           '</div></div>';
       } else {
         html += '<div style="padding:12px 24px;border-bottom:1px solid #1e293b;background:#f9731615;font-size:13px;color:#f97316;">'+
@@ -608,16 +626,18 @@ looker.plugins.visualizations.add({
         duplicates.forEach(function(dup, idx) {
           var isExp = expandedDuplicates[idx];
           var v1 = dup.views[0], v2 = dup.views[1];
+          var v1Color = typeConfig[v1.type] ? typeConfig[v1.type].color : '#8b5cf6';
+          var v2Color = typeConfig[v2.type] ? typeConfig[v2.type].color : '#8b5cf6';
           
           html += '<div class="dup-row" data-idx="'+idx+'" style="border-bottom:1px solid #1e293b;">'+
             '<div class="dup-header" style="display:flex;align-items:center;gap:12px;padding:14px 16px;cursor:pointer;">'+
               '<span style="color:#64748b;">'+(isExp?icons.chevronDown:icons.chevronRight)+'</span>'+
               '<div style="flex:1;display:flex;align-items:center;gap:12px;">'+
-                '<div style="flex:1;"><div style="color:#8b5cf6;font-size:13px;">'+v1.view+'</div>'+
-                  '<div style="font-size:10px;color:#64748b;margin-top:2px;">'+v1.fields.length+' fields</div></div>'+
+                '<div style="flex:1;"><div style="color:'+v1Color+';font-size:13px;">'+v1.view+'</div>'+
+                  '<div style="font-size:10px;color:#64748b;margin-top:2px;">'+v1.type.toUpperCase()+' • '+v1.fields.length+' fields</div></div>'+
                 '<div style="color:#64748b;font-size:20px;">↔</div>'+
-                '<div style="flex:1;"><div style="color:#8b5cf6;font-size:13px;">'+v2.view+'</div>'+
-                  '<div style="font-size:10px;color:#64748b;margin-top:2px;">'+v2.fields.length+' fields</div></div>'+
+                '<div style="flex:1;"><div style="color:'+v2Color+';font-size:13px;">'+v2.view+'</div>'+
+                  '<div style="font-size:10px;color:#64748b;margin-top:2px;">'+v2.type.toUpperCase()+' • '+v2.fields.length+' fields</div></div>'+
               '</div>'+
               '<div style="text-align:center;">'+
                 '<div style="background:#f9731622;border:1px solid #f97316;padding:4px 10px;border-radius:12px;font-size:11px;color:#f97316;font-weight:600;">'+dup.similarity+'%</div>'+
@@ -679,8 +699,8 @@ looker.plugins.visualizations.add({
         byType[t].sort(function(a,b) { return a.name.localeCompare(b.name); });
       });
       
-      var nodeW = 200, nodeH = 44, nodeSpacing = 52, padding = 30;
-      var svgWidth = Math.max(containerWidth - 50, 1000);
+      var nodeW = 260, nodeH = 44, nodeSpacing = 52, padding = 25;
+      var svgWidth = Math.max(containerWidth - 40, 1150);
       var colSpacing = (svgWidth - padding * 2 - nodeW) / 3;
       var colX = { table: padding, view: padding + colSpacing, explore: padding + colSpacing * 2, dashboard: padding + colSpacing * 3 };
       
@@ -729,8 +749,9 @@ looker.plugins.visualizations.add({
         else if (isDownstream) { borderColor = '#f97316'; borderWidth = 2; glowHtml = '<rect x="-3" y="-3" width="'+(nodeW+6)+'" height="'+(nodeH+6)+'" rx="11" fill="none" stroke="#f97316" stroke-width="1" stroke-opacity="0.4" filter="url(#glow)"/>'; }
         else if (isSearchMatch) { borderColor = '#10b981'; borderWidth = 2; glowHtml = '<rect x="-3" y="-3" width="'+(nodeW+6)+'" height="'+(nodeH+6)+'" rx="11" fill="none" stroke="#10b981" stroke-width="1" stroke-opacity="0.5" filter="url(#glow)"/>'; }
         
-        var nm = entity.name.length > 22 ? entity.name.substring(0,21)+'…' : entity.name;
-        var subText = '<text x="46" y="'+(nodeH/2+12)+'" fill="'+cfg.color+'" font-size="9" opacity="0.7">'+entity.type.toUpperCase()+'</text>';
+        var nm = entity.name.length > 28 ? entity.name.substring(0,27)+'…' : entity.name;
+        var fieldCount = entity.fields ? entity.fields.length : 0;
+        var subText = '<text x="46" y="'+(nodeH/2+12)+'" fill="'+cfg.color+'" font-size="9" opacity="0.7">'+entity.type.toUpperCase()+' • '+fieldCount+' fields</text>';
         
         if (isSearchMatch) {
           var match = searchMatches.find(function(m) { return m.entity.id === entity.id; });
@@ -739,17 +760,17 @@ looker.plugins.visualizations.add({
             if (match.totalTerms > 1) {
               fieldText = match.fieldMatches.length+'/'+match.totalTerms+' terms found';
             }
-            subText = '<text x="46" y="'+(nodeH/2+12)+'" fill="#10b981" font-size="9">'+fieldText+'</text>';
+            subText = '<text x="46" y="'+(nodeH/2+12)+'" fill="#10b981" font-size="9">'+fieldText+' ('+fieldCount+' total)</text>';
           }
         }
         
         var hasFields = entity.fields && entity.fields.length > 0;
-        var fieldsBtn = hasFields ? '<g class="fields-btn" data-id="'+entity.id+'" transform="translate('+(nodeW-26)+',10)" style="cursor:pointer;"><rect width="20" height="20" rx="5" fill="#10b981" fill-opacity="0.3" stroke="#10b981" stroke-width="1"/><g transform="translate(3,3)" fill="#10b981">'+icons.list+'</g></g>' : '';
+        var fieldsBtn = hasFields ? '<g class="fields-btn" data-id="'+entity.id+'" transform="translate('+(nodeW-26)+',12)" style="cursor:pointer;"><rect width="20" height="20" rx="5" fill="#10b981" fill-opacity="0.3" stroke="#10b981" stroke-width="1"/><g transform="translate(3,3)" fill="#10b981">'+icons.list+'</g></g>' : '';
         
-        // Tooltip with full name
-        var tooltipHtml = '<title>'+entity.name+'\n'+entity.type.toUpperCase()+(entity.fields ? '\n'+entity.fields.length+' fields' : '')+(entity.sqlTables && entity.sqlTables.length > 0 ? '\nTables: '+entity.sqlTables.join(', ') : '')+'</title>';
+        // Tooltip with full name - click to copy
+        var tooltipHtml = '<title>'+entity.name+' (right-click to copy)</title>';
         
-        nodesHtml += '<g class="node" data-id="'+entity.id+'" style="cursor:pointer;" transform="translate('+pos.x+','+pos.y+')">'+
+        nodesHtml += '<g class="node" data-id="'+entity.id+'" data-name="'+entity.name.replace(/"/g, '&quot;')+'" style="cursor:pointer;" transform="translate('+pos.x+','+pos.y+')">'+
           tooltipHtml+
           glowHtml+
           '<rect width="'+nodeW+'" height="'+nodeH+'" rx="10" fill="#0f172a" fill-opacity="0.95" stroke="'+borderColor+'" stroke-width="'+borderWidth+'"/>'+
@@ -873,6 +894,23 @@ looker.plugins.visualizations.add({
     
     function attachLineageEvents() {
       container.querySelectorAll('.node').forEach(function(n) {
+        // Right-click to copy name
+        n.addEventListener('contextmenu', function(e) {
+          e.preventDefault();
+          var name = n.dataset.name;
+          if (name && navigator.clipboard) {
+            navigator.clipboard.writeText(name).then(function() {
+              // Show brief feedback
+              var rect = n.querySelector('rect');
+              if (rect) {
+                var origStroke = rect.getAttribute('stroke');
+                rect.setAttribute('stroke', '#10b981');
+                setTimeout(function() { rect.setAttribute('stroke', origStroke); }, 300);
+              }
+            });
+          }
+        });
+        
         n.addEventListener('click', function(e) {
           var id = n.dataset.id;
           var entity = allEntities.find(function(x) { return x.id === id; });
