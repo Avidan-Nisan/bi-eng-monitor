@@ -16,22 +16,34 @@ looker.plugins.visualizations.add({
     var dashField = fields.find(function(f) { return f.toLowerCase().indexOf('dashboard') !== -1 && f.toLowerCase().indexOf('title') !== -1; });
     var expField = fields.find(function(f) { return f.toLowerCase().indexOf('explore') !== -1 && f.toLowerCase().indexOf('name') !== -1; });
     var viewField = fields.find(function(f) { return f.toLowerCase().indexOf('view') !== -1 && f.toLowerCase().indexOf('name') !== -1 && f.toLowerCase().indexOf('count') === -1 && f.toLowerCase().indexOf('extended') === -1 && f.toLowerCase().indexOf('included') === -1; });
-    var fieldsField = fields.find(function(f) { return f.toLowerCase().indexOf('sql_table_fields') !== -1 || f.toLowerCase().indexOf('falm_sql_table_fields') !== -1; });
+    var fieldsField = fields.find(function(f) { return f.toLowerCase().indexOf('sql_table_fields') !== -1 || f.toLowerCase().indexOf('falm_sql_table_fields') !== -1 || f.toLowerCase().indexOf('fields') !== -1; });
     var tableField = fields.find(function(f) { return f.toLowerCase().indexOf('sql_table') !== -1 && f.toLowerCase().indexOf('fields') === -1 && f.toLowerCase().indexOf('path') === -1; });
     var extendedViewField = fields.find(function(f) { return f.toLowerCase().indexOf('extended') !== -1 && f.toLowerCase().indexOf('view') !== -1; });
     var includedViewField = fields.find(function(f) { return f.toLowerCase().indexOf('included') !== -1 && f.toLowerCase().indexOf('view') !== -1; });
     
+    // Debug: log detected fields
+    console.log('Detected field mappings:', { dashField, expField, viewField, fieldsField, tableField });
+    console.log('Sample row:', data[0]);
+    
     var allRows = data.map(function(row) {
+      var fieldsVal = '';
+      if (fieldsField && row[fieldsField]) {
+        fieldsVal = row[fieldsField].value || '';
+      }
       return { 
         dashboard: row[dashField] ? row[dashField].value : '', 
         explore: row[expField] ? row[expField].value : '', 
         view: row[viewField] ? row[viewField].value : '', 
         table: tableField && row[tableField] ? row[tableField].value : '', 
-        fields: fieldsField && row[fieldsField] ? (row[fieldsField].value || '').split('|').filter(function(f) { return f.trim(); }) : [],
+        fields: fieldsVal ? fieldsVal.split('|').filter(function(f) { return f.trim(); }) : [],
         extendedView: extendedViewField && row[extendedViewField] ? row[extendedViewField].value : '',
         includedView: includedViewField && row[includedViewField] ? row[includedViewField].value : ''
       };
     });
+    
+    // Debug: check fields
+    console.log('Sample parsed row:', allRows[0]);
+    console.log('Rows with fields:', allRows.filter(function(r) { return r.fields.length > 0; }).length);
     
     var tables = {}, views = {}, explores = {}, dashboards = {}, viewToTables = {}, viewToViews = {}, exploreToViews = {}, dashToExplores = {};
     
@@ -57,18 +69,21 @@ looker.plugins.visualizations.add({
     Object.keys(explores).forEach(function(k) { explores[k].sources = Object.keys(exploreToViews[k] || {}); });
     Object.keys(dashboards).forEach(function(k) { dashboards[k].sources = Object.keys(dashToExplores[k] || {}); });
     
-    var allEntities = Object.values(tables).concat(Object.values(views)).concat(Object.values(explores)).concat(Object.values(dashboards));
-    var activeTab = 'lineage', searchTerm = '', searchTags = [], selectedNode = null, upstream = [], downstream = [], highlightedEntities = [], showFieldsPanel = null, expandedDuplicates = {};
+    // Debug: check entities with fields
+    var viewsWithFields = Object.values(views).filter(function(v) { return v.fields.length > 0; });
+    console.log('Views with fields:', viewsWithFields.length, viewsWithFields.slice(0,3));
     
-    var icons = { search: '<svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><path d="M21 21l-4.35-4.35"/></svg>', x: '<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>', list: '<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2"><line x1="8" y1="6" x2="21" y2="6"/><line x1="8" y1="12" x2="21" y2="12"/><line x1="8" y1="18" x2="21" y2="18"/><line x1="3" y1="6" x2="3.01" y2="6"/><line x1="3" y1="12" x2="3.01" y2="12"/><line x1="3" y1="18" x2="3.01" y2="18"/></svg>', lineage: '<svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2"><circle cx="5" cy="12" r="2"/><circle cx="19" cy="6" r="2"/><circle cx="19" cy="18" r="2"/><path d="M7 12h4l4-6h2M11 12l4 6h2"/></svg>', duplicate: '<svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2"><rect x="8" y="8" width="12" height="12" rx="2"/><path d="M4 16V6a2 2 0 012-2h10"/></svg>', chevronDown: '<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 12 15 18 9"/></svg>', chevronRight: '<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2"><polyline points="9 18 15 12 9 6"/></svg>', ai: '<svg viewBox="0 0 24 24" width="14" height="14" fill="currentColor"><path d="M12 2a2 2 0 012 2c0 .74-.4 1.39-1 1.73V7h1a7 7 0 017 7h1a1 1 0 011 1v3a1 1 0 01-1 1h-1v1a2 2 0 01-2 2H5a2 2 0 01-2-2v-1H2a1 1 0 01-1-1v-3a1 1 0 011-1h1a7 7 0 017-7h1V5.73c-.6-.34-1-.99-1-1.73a2 2 0 012-2M7.5 13A2.5 2.5 0 005 15.5 2.5 2.5 0 007.5 18a2.5 2.5 0 002.5-2.5A2.5 2.5 0 007.5 13m9 0a2.5 2.5 0 00-2.5 2.5 2.5 2.5 0 002.5 2.5 2.5 2.5 0 002.5-2.5 2.5 2.5 0 00-2.5-2.5z"/></svg>' };
-    var typeIcons = { table: '<svg viewBox="0 0 24 24" width="14" height="14" fill="currentColor"><rect x="3" y="3" width="18" height="4" rx="1"/><rect x="3" y="9" width="8" height="3"/><rect x="13" y="9" width="8" height="3"/><rect x="3" y="14" width="8" height="3"/><rect x="13" y="14" width="8" height="3"/></svg>', view: '<svg viewBox="0 0 24 24" width="14" height="14" fill="currentColor"><circle cx="12" cy="12" r="3"/><path d="M12 5C7 5 2.7 8.4 1 12c1.7 3.6 6 7 11 7s9.3-3.4 11-7c-1.7-3.6-6-7-11-7zm0 12c-2.8 0-5-2.2-5-5s2.2-5 5-5 5 2.2 5 5-2.2 5-5 5z"/></svg>', explore: '<svg viewBox="0 0 24 24" width="14" height="14" fill="currentColor"><circle cx="10" cy="10" r="6" fill="none" stroke="currentColor" stroke-width="2.5"/><line x1="14.5" y1="14.5" x2="20" y2="20" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"/></svg>', dashboard: '<svg viewBox="0 0 24 24" width="14" height="14" fill="currentColor"><rect x="2" y="2" width="9" height="6" rx="1"/><rect x="13" y="2" width="9" height="9" rx="1"/><rect x="2" y="10" width="9" height="12" rx="1"/><rect x="13" y="13" width="9" height="9" rx="1"/></svg>' };
+    var allEntities = Object.values(tables).concat(Object.values(views)).concat(Object.values(explores)).concat(Object.values(dashboards));
+    var activeTab = 'lineage', searchTerm = '', searchTags = [], selectedNode = null, upstream = [], downstream = [], highlightedEntities = [], expandedDuplicates = {};
+    
+    var icons = { search: '<svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><path d="M21 21l-4.35-4.35"/></svg>', x: '<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>', lineage: '<svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2"><circle cx="5" cy="12" r="2"/><circle cx="19" cy="6" r="2"/><circle cx="19" cy="18" r="2"/><path d="M7 12h4l4-6h2M11 12l4 6h2"/></svg>', duplicate: '<svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2"><rect x="8" y="8" width="12" height="12" rx="2"/><path d="M4 16V6a2 2 0 012-2h10"/></svg>', chevronDown: '<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 12 15 18 9"/></svg>', chevronRight: '<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2"><polyline points="9 18 15 12 9 6"/></svg>' };
+    var typeIcons = { table: '<svg viewBox="0 0 24 24" width="12" height="12" fill="currentColor"><rect x="3" y="3" width="18" height="4" rx="1"/><rect x="3" y="9" width="8" height="3"/><rect x="13" y="9" width="8" height="3"/><rect x="3" y="14" width="8" height="3"/><rect x="13" y="14" width="8" height="3"/></svg>', view: '<svg viewBox="0 0 24 24" width="12" height="12" fill="currentColor"><circle cx="12" cy="12" r="3"/><path d="M12 5C7 5 2.7 8.4 1 12c1.7 3.6 6 7 11 7s9.3-3.4 11-7c-1.7-3.6-6-7-11-7z"/></svg>', explore: '<svg viewBox="0 0 24 24" width="12" height="12" fill="currentColor"><circle cx="10" cy="10" r="6" fill="none" stroke="currentColor" stroke-width="2.5"/><line x1="14.5" y1="14.5" x2="20" y2="20" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"/></svg>', dashboard: '<svg viewBox="0 0 24 24" width="12" height="12" fill="currentColor"><rect x="2" y="2" width="9" height="6" rx="1"/><rect x="13" y="2" width="9" height="9" rx="1"/><rect x="2" y="10" width="9" height="12" rx="1"/><rect x="13" y="13" width="9" height="9" rx="1"/></svg>' };
     var typeConfig = { table: { color: '#06b6d4', label: 'SQL Tables' }, view: { color: '#8b5cf6', label: 'Views' }, explore: { color: '#ec4899', label: 'Explores' }, dashboard: { color: '#f97316', label: 'Dashboards' } };
 
     function normalize(s) { return s ? s.toLowerCase().replace(/[_\-\s\.]+/g, '') : ''; }
     function tokenize(s) { if (!s) return []; return s.toLowerCase().split(/[_\-\s\.]+/).filter(function(t) { return t.length > 0; }); }
     
-    // Enhanced prefix list for semantic matching
-    var prefixes = ['dics','hics','dim','fct','fact','stg','raw','src','tgt','tmp','temp','v','vw','tb','tbl','f','d','pk','fk','sk','bk','nk','facm','fasg','fasm','facd','falm','farm','facs','fadm','dicm','disg','dism','dicd','dilm','dirm','didm','hicm','hisg','hism','hicd','hilm','hirm','hidm','crm','erp','fin','hr','mkt','ops','prd','sal','inv','cust','prod','ord','pay','ship','ret','ref'];
+    var prefixes = ['dics','hics','dim','fct','fact','stg','raw','src','tgt','tmp','temp','v','vw','tb','tbl','f','d','pk','fk','sk','bk','nk','facm','fasg','fasm','facd','falm','farm','facs','fadm','dicm','disg','dism','dicd','dilm','dirm','didm','hicm','hisg','hism','hicd','hilm','hirm','hidm','crm','erp','fin','hr','mkt','ops','prd','sal','inv','cust','prod','ord','pay','ship','ret','ref','dica','dicl','dicw','disa'];
     
     function stripPrefix(field) {
       if (!field) return '';
@@ -127,7 +142,8 @@ looker.plugins.visualizations.add({
     }
     
     function getUpstream(id, depth, visited) { 
-      if (depth > 15 || !visited) visited = visited || {};
+      if (depth > 15) return [];
+      visited = visited || {};
       if (visited[id]) return [];
       visited[id] = true;
       var e = allEntities.find(function(x) { return x.id === id; }); 
@@ -138,7 +154,8 @@ looker.plugins.visualizations.add({
     }
     
     function getDownstream(id, depth, visited) { 
-      if (depth > 15 || !visited) visited = visited || {};
+      if (depth > 15) return [];
+      visited = visited || {};
       if (visited[id]) return [];
       visited[id] = true;
       var r = []; 
@@ -148,45 +165,72 @@ looker.plugins.visualizations.add({
     
     function findDuplicates() {
       var entities = [];
-      Object.values(views).forEach(function(v) { if (v.fields && v.fields.length > 0) entities.push({ name: v.name, fields: v.fields, type: 'view' }); });
-      Object.values(explores).forEach(function(e) { if (e.fields && e.fields.length > 0) entities.push({ name: e.name, fields: e.fields, type: 'explore' }); });
-      Object.values(dashboards).forEach(function(d) { if (d.fields && d.fields.length > 0) entities.push({ name: d.name, fields: d.fields, type: 'dashboard' }); });
+      // Include all entities that have fields OR sqlTables (for comparison by table name similarity)
+      Object.values(views).forEach(function(v) { if (v.fields.length > 0 || v.sqlTables.length > 0) entities.push({ name: v.name, fields: v.fields, sqlTables: v.sqlTables, type: 'view' }); });
+      Object.values(explores).forEach(function(e) { if (e.fields.length > 0 || e.sqlTables.length > 0) entities.push({ name: e.name, fields: e.fields, sqlTables: e.sqlTables, type: 'explore' }); });
+      Object.values(dashboards).forEach(function(d) { if (d.fields.length > 0 || d.sqlTables.length > 0) entities.push({ name: d.name, fields: d.fields, sqlTables: d.sqlTables, type: 'dashboard' }); });
+      
+      console.log('Entities for duplicate check:', entities.length, entities.slice(0,3));
+      
       var duplicates = [];
       for (var i = 0; i < entities.length; i++) {
         for (var j = i + 1; j < entities.length; j++) {
-          var v1 = entities[i], v2 = entities[j]; if (v1.name === v2.name) continue;
+          var v1 = entities[i], v2 = entities[j]; 
+          if (v1.name === v2.name) continue;
+          
           var pairs = [], m1 = {}, m2 = {};
-          v1.fields.forEach(function(f1) { 
-            if (m1[f1]) return; 
-            var best = null; 
-            v2.fields.forEach(function(f2) { 
-              if (m2[f2]) return; 
-              var r = fieldsSimilar(f1, f2); 
-              if (r.match && (!best || r.score > best.score)) best = { f1: f1, f2: f2, score: r.score, reason: r.reason }; 
-            }); 
-            if (best) { pairs.push(best); m1[best.f1] = true; m2[best.f2] = true; } 
-          });
-          var sim = pairs.length / Math.min(v1.fields.length, v2.fields.length);
-          if (pairs.length >= 1 && sim >= 0.2) duplicates.push({ views: [v1, v2], matchedPairs: pairs, commonCount: pairs.length, similarity: Math.round(sim * 100) });
+          
+          // Compare fields if both have fields
+          if (v1.fields.length > 0 && v2.fields.length > 0) {
+            v1.fields.forEach(function(f1) { 
+              if (m1[f1]) return; 
+              var best = null; 
+              v2.fields.forEach(function(f2) { 
+                if (m2[f2]) return; 
+                var r = fieldsSimilar(f1, f2); 
+                if (r.match && (!best || r.score > best.score)) best = { f1: f1, f2: f2, score: r.score, reason: r.reason }; 
+              }); 
+              if (best) { pairs.push(best); m1[best.f1] = true; m2[best.f2] = true; } 
+            });
+          }
+          
+          // Also compare by SQL tables if no field matches but same tables
+          if (pairs.length === 0 && v1.sqlTables && v2.sqlTables) {
+            var commonTables = v1.sqlTables.filter(function(t) { return v2.sqlTables.indexOf(t) !== -1; });
+            if (commonTables.length > 0) {
+              commonTables.forEach(function(t) {
+                pairs.push({ f1: 'SQL: ' + t, f2: 'SQL: ' + t, score: 100, reason: 'same table' });
+              });
+            }
+          }
+          
+          var minFields = Math.min(v1.fields.length || 1, v2.fields.length || 1);
+          var sim = pairs.length / minFields;
+          if (pairs.length >= 1 && sim >= 0.2) {
+            duplicates.push({ views: [v1, v2], matchedPairs: pairs, commonCount: pairs.length, similarity: Math.round(sim * 100) });
+          }
         }
       }
+      console.log('Found duplicates:', duplicates.length);
       return duplicates.sort(function(a, b) { return b.similarity - a.similarity; });
     }
     
     function renderDuplicatesTab() {
       var dups = findDuplicates();
-      var html = '<div style="padding:20px 24px;border-bottom:1px solid #1e293b;"><div style="color:#e2e8f0;font-size:14px;font-weight:500;">Find Similar Entities</div><div style="color:#64748b;font-size:12px;margin-top:4px;">Semantic field matching (prefix-aware: facm_revenue ≈ fasg_revenue)</div></div>';
-      if (dups.length === 0) { html += '<div style="text-align:center;padding:60px 40px;"><div style="font-size:48px;margin-bottom:16px;">🔍</div><div style="color:#e2e8f0;font-size:16px;">No Similar Entities Found</div></div>'; }
-      else { 
+      var entCount = Object.values(views).length + Object.values(explores).length + Object.values(dashboards).length;
+      var html = '<div style="padding:20px 24px;border-bottom:1px solid #1e293b;"><div style="color:#e2e8f0;font-size:14px;font-weight:500;">Find Similar Entities</div><div style="color:#64748b;font-size:12px;margin-top:4px;">Comparing '+entCount+' entities by fields and SQL tables</div></div>';
+      if (dups.length === 0) { 
+        html += '<div style="text-align:center;padding:60px 40px;"><div style="font-size:48px;margin-bottom:16px;">🔍</div><div style="color:#e2e8f0;font-size:16px;">No Similar Entities Found</div><div style="color:#64748b;font-size:12px;margin-top:8px;">Check console for debug info (F12)</div></div>'; 
+      } else { 
         html += '<div style="padding:12px 24px;border-bottom:1px solid #1e293b;background:#f9731615;font-size:13px;color:#f97316;">Found '+dups.length+' similar pair(s)</div><div style="max-height:450px;overflow-y:auto;">'; 
         dups.forEach(function(dup, idx) { 
           var isExp = expandedDuplicates[idx], v1 = dup.views[0], v2 = dup.views[1], c1 = typeConfig[v1.type].color, c2 = typeConfig[v2.type].color; 
-          html += '<div class="dup-row" data-idx="'+idx+'" style="border-bottom:1px solid #1e293b;"><div class="dup-header" style="display:flex;align-items:center;gap:12px;padding:14px 16px;cursor:pointer;"><span style="color:#64748b;">'+(isExp?icons.chevronDown:icons.chevronRight)+'</span><div style="flex:1;display:flex;align-items:center;gap:12px;"><div style="flex:1;"><div style="color:'+c1+';font-size:13px;">'+v1.name+'</div><div style="font-size:10px;color:#64748b;">'+v1.type.toUpperCase()+' • '+v1.fields.length+' fields</div></div><div style="color:#64748b;">↔</div><div style="flex:1;"><div style="color:'+c2+';font-size:13px;">'+v2.name+'</div><div style="font-size:10px;color:#64748b;">'+v2.type.toUpperCase()+' • '+v2.fields.length+' fields</div></div></div><div style="text-align:center;"><div style="background:#f9731622;border:1px solid #f97316;padding:4px 10px;border-radius:12px;font-size:11px;color:#f97316;font-weight:600;">'+dup.similarity+'%</div><div style="font-size:9px;color:#64748b;">'+dup.commonCount+' matches</div></div></div>'; 
+          html += '<div class="dup-row" data-idx="'+idx+'" style="border-bottom:1px solid #1e293b;"><div class="dup-header" style="display:flex;align-items:center;gap:12px;padding:14px 16px;cursor:pointer;"><span style="color:#64748b;">'+(isExp?icons.chevronDown:icons.chevronRight)+'</span><div style="flex:1;display:flex;align-items:center;gap:12px;"><div style="flex:1;"><div style="color:'+c1+';font-size:13px;">'+v1.name+'</div><div style="font-size:10px;color:#64748b;">'+v1.type.toUpperCase()+' • '+(v1.fields.length||0)+' fields</div></div><div style="color:#64748b;">↔</div><div style="flex:1;"><div style="color:'+c2+';font-size:13px;">'+v2.name+'</div><div style="font-size:10px;color:#64748b;">'+v2.type.toUpperCase()+' • '+(v2.fields.length||0)+' fields</div></div></div><div style="text-align:center;"><div style="background:#f9731622;border:1px solid #f97316;padding:4px 10px;border-radius:12px;font-size:11px;color:#f97316;font-weight:600;">'+dup.similarity+'%</div><div style="font-size:9px;color:#64748b;">'+dup.commonCount+' matches</div></div></div>'; 
           if (isExp) { 
             html += '<div style="padding:0 16px 16px 44px;background:#0c1222;"><div style="display:flex;flex-direction:column;gap:6px;max-height:200px;overflow-y:auto;">'; 
             dup.matchedPairs.forEach(function(p) { 
               var col = p.f1 === p.f2 ? '#10b981' : p.score >= 90 ? '#22d3ee' : '#f59e0b'; 
-              html += '<div style="display:flex;align-items:center;gap:8px;padding:6px 10px;background:#1e293b;border-radius:6px;"><span style="flex:1;font-size:11px;color:#e2e8f0;font-family:monospace;">'+p.f1+'</span><span style="color:'+col+';">'+(p.f1===p.f2?'=':'≈')+'</span><span style="flex:1;font-size:11px;color:#e2e8f0;font-family:monospace;">'+p.f2+'</span><span style="font-size:9px;color:#64748b;background:#334155;padding:2px 6px;border-radius:4px;">'+p.score+'% '+p.reason+'</span></div>'; 
+              html += '<div style="display:flex;align-items:center;gap:8px;padding:6px 10px;background:#1e293b;border-radius:6px;"><span style="flex:1;font-size:11px;color:#e2e8f0;font-family:monospace;">'+p.f1+'</span><span style="color:'+col+';">'+(p.f1===p.f2?'=':'≈')+'</span><span style="flex:1;font-size:11px;color:#e2e8f0;font-family:monospace;">'+p.f2+'</span><span style="font-size:9px;color:#64748b;background:#334155;padding:2px 6px;border-radius:4px;">'+p.score+'%</span></div>'; 
             }); 
             html += '</div></div>'; 
           } 
@@ -203,21 +247,67 @@ looker.plugins.visualizations.add({
       if (selectedNode) { filterMode = 'lineage'; upstream = getUpstream(selectedNode.id, 0); downstream = getDownstream(selectedNode.id, 0); var ids = [selectedNode.id].concat(upstream).concat(downstream); visibleEntities = allEntities.filter(function(e) { return ids.indexOf(e.id) !== -1; }); }
       else if (searchTags.length > 0 || searchTerm.trim()) { filterMode = 'search'; visibleEntities = highlightedEntities.length > 0 ? allEntities.filter(function(e) { return highlightedEntities.indexOf(e.id) !== -1; }) : []; }
       var byType = { table: [], view: [], explore: [], dashboard: [] }; visibleEntities.forEach(function(e) { byType[e.type].push(e); });
-      var nodeW = 280, nodeH = 46, nodeSpacing = 54, padding = 20, svgWidth = Math.max(containerWidth - 30, 1250), colSpacing = (svgWidth - padding * 2 - nodeW) / 3;
-      var colX = { table: padding, view: padding + colSpacing, explore: padding + colSpacing * 2, dashboard: padding + colSpacing * 3 }, positions = {}, startY = 75;
+      
+      // SMALLER BOXES for better spread
+      var nodeW = 180, nodeH = 36, nodeSpacing = 44, padding = 15;
+      var svgWidth = Math.max(containerWidth - 20, 1000);
+      var colSpacing = (svgWidth - padding * 2 - nodeW) / 3;
+      var colX = { table: padding, view: padding + colSpacing, explore: padding + colSpacing * 2, dashboard: padding + colSpacing * 3 };
+      var positions = {}, startY = 60;
       ['table','view','explore','dashboard'].forEach(function(type) { byType[type].forEach(function(e, idx) { positions[e.id] = { x: colX[type], y: startY + idx * nodeSpacing }; }); });
-      var maxCount = Math.max(byType.table.length||1, byType.view.length||1, byType.explore.length||1, byType.dashboard.length||1), svgHeight = Math.max(maxCount * nodeSpacing + 110, 350);
-      var edgesHtml = ''; visibleEntities.forEach(function(e) { (e.sources||[]).forEach(function(s) { var f = positions[s], t = positions[e.id]; if (!f || !t) return; var stroke = '#334155', op = 0.25, sw = 1.5; if (selectedNode) { if (s===selectedNode.id || downstream.indexOf(e.id)!==-1) { stroke='#f97316'; op=0.9; sw=2.5; } else if (e.id===selectedNode.id || upstream.indexOf(s)!==-1) { stroke='#06b6d4'; op=0.9; sw=2.5; } } else if (filterMode === 'search') { stroke='#10b981'; op=0.6; sw=2; } var x1=f.x+nodeW, y1=f.y+nodeH/2, x2=t.x, y2=t.y+nodeH/2, mx=(x1+x2)/2; edgesHtml += '<path d="M'+x1+' '+y1+' C'+mx+' '+y1+','+mx+' '+y2+','+x2+' '+y2+'" fill="none" stroke="'+stroke+'" stroke-width="'+sw+'" stroke-opacity="'+op+'"/>'; }); });
-      var nodesHtml = ''; visibleEntities.forEach(function(entity) { var pos = positions[entity.id], cfg = typeConfig[entity.type], isSel = selectedNode && selectedNode.id === entity.id, isUp = selectedNode && upstream.indexOf(entity.id) !== -1, isDown = selectedNode && downstream.indexOf(entity.id) !== -1, isMatch = highlightedEntities.indexOf(entity.id) !== -1 && !selectedNode; var borderColor = isSel ? '#ffffff' : isUp ? '#06b6d4' : isDown ? '#f97316' : isMatch ? '#10b981' : cfg.color, borderWidth = (isSel||isUp||isDown||isMatch) ? 2 : 1; var nm = entity.name.length > 32 ? entity.name.substring(0,31)+'…' : entity.name, fc = entity.fields ? entity.fields.length : 0; nodesHtml += '<g class="node" data-id="'+entity.id+'" data-name="'+entity.name.replace(/"/g,'&quot;')+'" style="cursor:pointer;" transform="translate('+pos.x+','+pos.y+')"><rect width="'+nodeW+'" height="'+nodeH+'" rx="10" fill="#0f172a" stroke="'+borderColor+'" stroke-width="'+borderWidth+'"/><rect x="1" y="1" width="40" height="'+(nodeH-2)+'" rx="9" fill="'+cfg.color+'" fill-opacity="0.15"/><g transform="translate(13,'+(nodeH/2-7)+')" fill="'+cfg.color+'">'+typeIcons[entity.type]+'</g><text x="48" y="'+(nodeH/2)+'" fill="#e2e8f0" font-size="11" font-weight="500">'+nm+'</text><text x="48" y="'+(nodeH/2+12)+'" fill="'+cfg.color+'" font-size="9" opacity="0.7">'+entity.type.toUpperCase()+' • '+fc+' fields</text></g>'; });
-      var hdrHtml = ''; ['table','view','explore','dashboard'].forEach(function(type) { var cfg = typeConfig[type]; hdrHtml += '<text x="'+(colX[type]+nodeW/2)+'" y="28" text-anchor="middle" fill="'+cfg.color+'" font-size="10" font-weight="600">'+cfg.label.toUpperCase()+'</text><text x="'+(colX[type]+nodeW/2)+'" y="42" text-anchor="middle" fill="#475569" font-size="9">'+byType[type].length+' items</text>'; });
+      var maxCount = Math.max(byType.table.length||1, byType.view.length||1, byType.explore.length||1, byType.dashboard.length||1);
+      var svgHeight = Math.max(maxCount * nodeSpacing + 80, 300);
+      
+      var edgesHtml = ''; 
+      visibleEntities.forEach(function(e) { 
+        (e.sources||[]).forEach(function(s) { 
+          var f = positions[s], t = positions[e.id]; 
+          if (!f || !t) return; 
+          var stroke = '#334155', op = 0.3, sw = 1.5; 
+          if (selectedNode) { 
+            if (s===selectedNode.id || downstream.indexOf(e.id)!==-1) { stroke='#f97316'; op=0.9; sw=2; } 
+            else if (e.id===selectedNode.id || upstream.indexOf(s)!==-1) { stroke='#06b6d4'; op=0.9; sw=2; } 
+          } else if (filterMode === 'search') { stroke='#10b981'; op=0.7; sw=2; } 
+          var x1=f.x+nodeW, y1=f.y+nodeH/2, x2=t.x, y2=t.y+nodeH/2, mx=(x1+x2)/2; 
+          edgesHtml += '<path d="M'+x1+' '+y1+' C'+mx+' '+y1+','+mx+' '+y2+','+x2+' '+y2+'" fill="none" stroke="'+stroke+'" stroke-width="'+sw+'" stroke-opacity="'+op+'"/>'; 
+        }); 
+      });
+      
+      var nodesHtml = ''; 
+      visibleEntities.forEach(function(entity) { 
+        var pos = positions[entity.id], cfg = typeConfig[entity.type];
+        var isSel = selectedNode && selectedNode.id === entity.id;
+        var isUp = selectedNode && upstream.indexOf(entity.id) !== -1;
+        var isDown = selectedNode && downstream.indexOf(entity.id) !== -1;
+        var isMatch = highlightedEntities.indexOf(entity.id) !== -1 && !selectedNode;
+        var borderColor = isSel ? '#ffffff' : isUp ? '#06b6d4' : isDown ? '#f97316' : isMatch ? '#10b981' : cfg.color;
+        var borderWidth = (isSel||isUp||isDown||isMatch) ? 2 : 1;
+        var nm = entity.name.length > 22 ? entity.name.substring(0,21)+'…' : entity.name;
+        var fc = entity.fields ? entity.fields.length : 0;
+        nodesHtml += '<g class="node" data-id="'+entity.id+'" data-name="'+entity.name.replace(/"/g,'&quot;')+'" style="cursor:pointer;" transform="translate('+pos.x+','+pos.y+')">';
+        nodesHtml += '<rect width="'+nodeW+'" height="'+nodeH+'" rx="8" fill="#0f172a" stroke="'+borderColor+'" stroke-width="'+borderWidth+'"/>';
+        nodesHtml += '<rect x="1" y="1" width="28" height="'+(nodeH-2)+'" rx="7" fill="'+cfg.color+'" fill-opacity="0.15"/>';
+        nodesHtml += '<g transform="translate(8,'+(nodeH/2-6)+')" fill="'+cfg.color+'">'+typeIcons[entity.type]+'</g>';
+        nodesHtml += '<text x="34" y="'+(nodeH/2+1)+'" fill="#e2e8f0" font-size="10" font-weight="500" dominant-baseline="middle">'+nm+'</text>';
+        nodesHtml += '<text x="'+(nodeW-6)+'" y="'+(nodeH/2+1)+'" fill="'+cfg.color+'" font-size="8" text-anchor="end" dominant-baseline="middle">'+fc+'</text>';
+        nodesHtml += '</g>';
+      });
+      
+      var hdrHtml = ''; 
+      ['table','view','explore','dashboard'].forEach(function(type) { 
+        var cfg = typeConfig[type]; 
+        hdrHtml += '<text x="'+(colX[type]+nodeW/2)+'" y="20" text-anchor="middle" fill="'+cfg.color+'" font-size="9" font-weight="600">'+cfg.label.toUpperCase()+'</text>';
+        hdrHtml += '<text x="'+(colX[type]+nodeW/2)+'" y="32" text-anchor="middle" fill="#475569" font-size="8">'+byType[type].length+' items</text>'; 
+      });
+      
       var statsText = selectedNode ? '<span style="color:'+typeConfig[selectedNode.type].color+';">'+selectedNode.name+'</span> <span style="color:#06b6d4;">▲'+upstream.length+'</span> <span style="color:#f97316;">▼'+downstream.length+'</span>' : highlightedEntities.length > 0 ? '<span style="color:#10b981;">'+highlightedEntities.length+' matches</span>' : '<span style="color:#64748b;">Click node to trace lineage</span>';
-      return '<div style="position:relative;"><div style="padding:12px 24px;border-bottom:1px solid #1e293b;font-size:12px;">'+statsText+'</div><div style="padding:15px;overflow:auto;"><svg width="'+svgWidth+'" height="'+svgHeight+'" style="font-family:system-ui,sans-serif;">'+hdrHtml+edgesHtml+nodesHtml+'</svg></div></div>';
+      return '<div style="position:relative;"><div style="padding:10px 20px;border-bottom:1px solid #1e293b;font-size:12px;display:flex;justify-content:space-between;"><div>'+statsText+'</div><div style="color:#64748b;font-size:11px;">'+(filterMode?visibleEntities.length+' of ':'')+allEntities.length+' entities</div></div><div style="padding:10px;overflow:auto;"><svg width="'+svgWidth+'" height="'+svgHeight+'" style="font-family:system-ui,sans-serif;">'+hdrHtml+edgesHtml+nodesHtml+'</svg></div></div>';
     }
     
     function render() {
-      var tagsHtml = searchTags.map(function(tag, i) { return '<span class="search-tag" data-idx="'+i+'" style="display:inline-flex;align-items:center;gap:6px;background:#10b98125;border:1px solid #10b981;padding:6px 10px;border-radius:8px;font-size:12px;color:#6ee7b7;">'+tag+'<span class="remove-tag" style="cursor:pointer;">'+icons.x+'</span></span>'; }).join('');
+      var tagsHtml = searchTags.map(function(tag, i) { return '<span class="search-tag" data-idx="'+i+'" style="display:inline-flex;align-items:center;gap:6px;background:#10b98125;border:1px solid #10b981;padding:4px 8px;border-radius:6px;font-size:11px;color:#6ee7b7;">'+tag+'<span class="remove-tag" style="cursor:pointer;">'+icons.x+'</span></span>'; }).join('');
       var hasSearch = searchTags.length > 0 || searchTerm.trim();
-      container.innerHTML = '<div style="background:linear-gradient(180deg,#0f172a 0%,#1e293b 100%);min-height:600px;"><div style="padding:14px 24px;border-bottom:1px solid #1e293b;"><div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px;"><div style="display:flex;align-items:center;gap:12px;"><div style="font-weight:600;color:#f1f5f9;font-size:16px;">Asset Manager</div></div><div style="display:flex;"><button class="tab-btn" data-tab="lineage" style="padding:10px 20px;border:none;cursor:pointer;font-size:12px;background:transparent;border-bottom:2px solid '+(activeTab==='lineage'?'#10b981':'transparent')+';color:'+(activeTab==='lineage'?'#10b981':'#64748b')+';">'+icons.lineage+' Data Lineage</button><button class="tab-btn" data-tab="duplicates" style="padding:10px 20px;border:none;cursor:pointer;font-size:12px;background:transparent;border-bottom:2px solid '+(activeTab==='duplicates'?'#f97316':'transparent')+';color:'+(activeTab==='duplicates'?'#f97316':'#64748b')+';">'+icons.duplicate+' Similar Views</button></div></div><div style="background:#1e293b;border:1px solid #475569;border-radius:12px;padding:16px;"><div style="display:flex;align-items:center;gap:10px;margin-bottom:'+(searchTags.length?'12px':'0')+';"><span style="color:#10b981;">'+icons.search+'</span><input id="searchInput" type="text" value="'+searchTerm+'" placeholder="Search fields (comma to add multiple)..." style="flex:1;background:transparent;border:none;color:#e2e8f0;font-size:14px;outline:none;"/>'+(hasSearch||selectedNode?'<span id="clearAll" style="color:#64748b;cursor:pointer;padding:6px;border-radius:6px;background:#334155;">'+icons.x+'</span>':'')+'</div>'+(searchTags.length?'<div style="display:flex;flex-wrap:wrap;gap:8px;">'+tagsHtml+'</div>':'')+'</div></div><div id="tab-content">'+(activeTab==='lineage'?renderLineageTab():renderDuplicatesTab())+'</div></div>';
+      container.innerHTML = '<div style="background:linear-gradient(180deg,#0f172a 0%,#1e293b 100%);min-height:600px;"><div style="padding:12px 20px;border-bottom:1px solid #1e293b;"><div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;"><div style="font-weight:600;color:#f1f5f9;font-size:15px;">Asset Manager <span style="font-size:11px;color:#64748b;font-weight:400;">'+allRows.length+' assets</span></div><div style="display:flex;"><button class="tab-btn" data-tab="lineage" style="display:flex;align-items:center;gap:4px;padding:8px 16px;border:none;cursor:pointer;font-size:11px;background:transparent;border-bottom:2px solid '+(activeTab==='lineage'?'#10b981':'transparent')+';color:'+(activeTab==='lineage'?'#10b981':'#64748b')+';">'+icons.lineage+' Lineage</button><button class="tab-btn" data-tab="duplicates" style="display:flex;align-items:center;gap:4px;padding:8px 16px;border:none;cursor:pointer;font-size:11px;background:transparent;border-bottom:2px solid '+(activeTab==='duplicates'?'#f97316':'transparent')+';color:'+(activeTab==='duplicates'?'#f97316':'#64748b')+';">'+icons.duplicate+' Similar</button></div></div><div style="background:#1e293b;border:1px solid #475569;border-radius:10px;padding:12px;"><div style="display:flex;align-items:center;gap:8px;margin-bottom:'+(searchTags.length?'10px':'0')+';"><span style="color:#10b981;">'+icons.search+'</span><input id="searchInput" type="text" value="'+searchTerm+'" placeholder="Search (comma for multiple)..." style="flex:1;background:transparent;border:none;color:#e2e8f0;font-size:13px;outline:none;"/>'+(hasSearch||selectedNode?'<span id="clearAll" style="color:#64748b;cursor:pointer;padding:4px 8px;border-radius:4px;background:#334155;font-size:11px;">Clear</span>':'')+'</div>'+(searchTags.length?'<div style="display:flex;flex-wrap:wrap;gap:6px;">'+tagsHtml+'</div>':'')+'<div style="margin-top:8px;font-size:10px;color:#64748b;">🤖 Semantic: facm_revenue ≈ fasg_revenue</div></div></div><div id="tab-content">'+(activeTab==='lineage'?renderLineageTab():renderDuplicatesTab())+'</div></div>';
       
       var input = container.querySelector('#searchInput');
       input.addEventListener('input', function(e) { 
@@ -247,7 +337,18 @@ looker.plugins.visualizations.add({
           var idx = parseInt(h.parentElement.dataset.idx); 
           expandedDuplicates[idx] = !expandedDuplicates[idx]; 
           container.querySelector('#tab-content').innerHTML = renderDuplicatesTab(); 
-          container.querySelectorAll('.dup-header').forEach(function(h2) { h2.addEventListener('click', arguments.callee); }); 
+          attachDupEvents();
+        }); 
+      });
+    }
+    
+    function attachDupEvents() {
+      container.querySelectorAll('.dup-header').forEach(function(h) { 
+        h.addEventListener('click', function() { 
+          var idx = parseInt(h.parentElement.dataset.idx); 
+          expandedDuplicates[idx] = !expandedDuplicates[idx]; 
+          container.querySelector('#tab-content').innerHTML = renderDuplicatesTab(); 
+          attachDupEvents();
         }); 
       });
     }
