@@ -234,14 +234,21 @@ looker.plugins.visualizations.add({
     function findDuplicates() {
       var viewsList = [], exploresList = [], dashboardsList = [];
       
+      // Include entities that have fields OR sqlTables
       Object.values(views).forEach(function(v) { 
-        if (v.fields && v.fields.length > 0) viewsList.push({ name: v.name, fields: v.fields, sqlTables: v.sqlTables || [], type: 'view' }); 
+        if ((v.fields && v.fields.length > 0) || (v.sqlTables && v.sqlTables.length > 0)) {
+          viewsList.push({ name: v.name, fields: v.fields || [], sqlTables: v.sqlTables || [], type: 'view' }); 
+        }
       });
       Object.values(explores).forEach(function(e) { 
-        if (e.fields && e.fields.length > 0) exploresList.push({ name: e.name, fields: e.fields, sqlTables: e.sqlTables || [], type: 'explore' }); 
+        if ((e.fields && e.fields.length > 0) || (e.sqlTables && e.sqlTables.length > 0)) {
+          exploresList.push({ name: e.name, fields: e.fields || [], sqlTables: e.sqlTables || [], type: 'explore' }); 
+        }
       });
       Object.values(dashboards).forEach(function(d) { 
-        if (d.fields && d.fields.length > 0) dashboardsList.push({ name: d.name, fields: d.fields, sqlTables: d.sqlTables || [], type: 'dashboard' }); 
+        if ((d.fields && d.fields.length > 0) || (d.sqlTables && d.sqlTables.length > 0)) {
+          dashboardsList.push({ name: d.name, fields: d.fields || [], sqlTables: d.sqlTables || [], type: 'dashboard' }); 
+        }
       });
       
       console.log('Similarity check - Views:', viewsList.length, 'Explores:', exploresList.length, 'Dashboards:', dashboardsList.length);
@@ -253,21 +260,58 @@ looker.plugins.visualizations.add({
           for (var j = i + 1; j < list.length; j++) {
             var v1 = list[i], v2 = list[j]; 
             if (v1.name === v2.name) continue;
+            
             var pairs = [], m1 = {}, m2 = {};
-            v1.fields.forEach(function(f1) { 
-              if (m1[f1]) return; 
-              var best = null; 
-              v2.fields.forEach(function(f2) { 
-                if (m2[f2]) return; 
-                var r = fieldsSimilar(f1, f2); 
-                if (r.match && (!best || r.score > best.score)) best = { f1: f1, f2: f2, score: r.score, reason: r.reason }; 
-              }); 
-              if (best) { pairs.push(best); m1[best.f1] = true; m2[best.f2] = true; } 
-            });
-            var minFields = Math.min(v1.fields.length, v2.fields.length);
-            var sim = minFields > 0 ? (pairs.length / minFields) * 100 : 0;
+            
+            // First try field matching if both have fields
+            if (v1.fields.length > 0 && v2.fields.length > 0) {
+              v1.fields.forEach(function(f1) { 
+                if (m1[f1]) return; 
+                var best = null; 
+                v2.fields.forEach(function(f2) { 
+                  if (m2[f2]) return; 
+                  var r = fieldsSimilar(f1, f2); 
+                  if (r.match && (!best || r.score > best.score)) best = { f1: f1, f2: f2, score: r.score, reason: r.reason }; 
+                }); 
+                if (best) { pairs.push(best); m1[best.f1] = true; m2[best.f2] = true; } 
+              });
+            }
+            
+            // If no field matches, compare by SQL tables
+            if (pairs.length === 0 && v1.sqlTables.length > 0 && v2.sqlTables.length > 0) {
+              var commonTables = v1.sqlTables.filter(function(t) { 
+                return v2.sqlTables.some(function(t2) {
+                  // Exact match or similar table names
+                  if (t === t2) return true;
+                  var r = fieldsSimilar(t, t2);
+                  return r.match && r.score >= 80;
+                });
+              });
+              commonTables.forEach(function(t) {
+                var matchedT2 = v2.sqlTables.find(function(t2) {
+                  if (t === t2) return true;
+                  var r = fieldsSimilar(t, t2);
+                  return r.match && r.score >= 80;
+                });
+                pairs.push({ f1: t, f2: matchedT2 || t, score: t === matchedT2 ? 100 : 90, reason: 'same SQL table' });
+              });
+            }
+            
+            // Calculate similarity
+            var total1 = v1.fields.length > 0 ? v1.fields.length : v1.sqlTables.length;
+            var total2 = v2.fields.length > 0 ? v2.fields.length : v2.sqlTables.length;
+            var minTotal = Math.min(total1, total2);
+            var sim = minTotal > 0 ? (pairs.length / minTotal) * 100 : 0;
+            
             if (pairs.length >= 1 && sim >= 20) {
-              duplicates.push({ views: [v1, v2], matchedPairs: pairs, commonCount: pairs.length, similarity: Math.round(sim), v1Total: v1.fields.length, v2Total: v2.fields.length });
+              duplicates.push({ 
+                views: [v1, v2], 
+                matchedPairs: pairs, 
+                commonCount: pairs.length, 
+                similarity: Math.round(sim),
+                v1Total: total1,
+                v2Total: total2
+              });
             }
           }
         }
@@ -287,15 +331,15 @@ looker.plugins.visualizations.add({
       var eCount = Object.values(explores).filter(function(e) { return e.fields && e.fields.length > 0; }).length;
       var dCount = Object.values(dashboards).filter(function(d) { return d.fields && d.fields.length > 0; }).length;
       
-      var html = '<div style="padding:20px 24px;border-bottom:1px solid #1e293b;"><div style="color:#e2e8f0;font-size:14px;font-weight:500;">Find Similar Entities</div><div style="color:#64748b;font-size:12px;margin-top:4px;">Comparing within same type: '+vCount+' views, '+eCount+' explores, '+dCount+' dashboards</div><div style="color:#64748b;font-size:11px;margin-top:4px;">Semantic matching: facm_revenue ≈ fasg_revenue (20%+ field overlap required)</div></div>';
+      var html = '<div style="padding:20px 24px;border-bottom:1px solid #1e293b;"><div style="color:#e2e8f0;font-size:14px;font-weight:500;">Find Similar Entities</div><div style="color:#64748b;font-size:12px;margin-top:4px;">Comparing within same type: '+viewsList.length+' views, '+exploresList.length+' explores, '+dashboardsList.length+' dashboards</div><div style="color:#64748b;font-size:11px;margin-top:4px;">Matching by SQL tables (20%+ overlap required)</div></div>';
       if (dups.length === 0) { 
-        html += '<div style="text-align:center;padding:60px 40px;"><div style="font-size:48px;margin-bottom:16px;">🔍</div><div style="color:#e2e8f0;font-size:16px;margin-bottom:8px;">No Similar Entities Found</div><div style="color:#64748b;font-size:13px;">Entities need 20%+ field overlap within the same type.</div><div style="color:#f97316;font-size:12px;margin-top:12px;">Views with fields: '+vCount+' | Explores with fields: '+eCount+'</div><div style="color:#64748b;font-size:11px;margin-top:8px;">If counts are 0, check that falm_sql_table_fields column exists in your query</div></div>'; 
+        html += '<div style="text-align:center;padding:60px 40px;"><div style="font-size:48px;margin-bottom:16px;">🔍</div><div style="color:#e2e8f0;font-size:16px;margin-bottom:8px;">No Similar Entities Found</div><div style="color:#64748b;font-size:13px;">Entities need 20%+ SQL table overlap within the same type.</div></div>'; 
       } else { 
         html += '<div style="padding:12px 24px;border-bottom:1px solid #1e293b;background:#f9731615;font-size:13px;color:#f97316;">Found '+dups.length+' pair(s) of similar entities</div><div style="max-height:450px;overflow-y:auto;">'; 
         dups.forEach(function(dup, idx) { 
           var isExp = expandedDuplicates[idx], v1 = dup.views[0], v2 = dup.views[1];
           var c1 = typeConfig[v1.type] ? typeConfig[v1.type].color : '#8b5cf6';
-          html += '<div class="dup-row" data-idx="'+idx+'" style="border-bottom:1px solid #1e293b;"><div class="dup-header" style="display:flex;align-items:center;gap:12px;padding:14px 16px;cursor:pointer;"><span style="color:#64748b;">'+(isExp?icons.chevronDown:icons.chevronRight)+'</span><div style="flex:1;display:flex;align-items:center;gap:12px;"><div style="flex:1;"><div style="color:'+c1+';font-size:13px;">'+v1.name+'</div><div style="font-size:10px;color:#64748b;margin-top:2px;">'+v1.type.toUpperCase()+' • '+v1.fields.length+' fields</div></div><div style="color:#64748b;font-size:20px;">↔</div><div style="flex:1;"><div style="color:'+c1+';font-size:13px;">'+v2.name+'</div><div style="font-size:10px;color:#64748b;margin-top:2px;">'+v2.type.toUpperCase()+' • '+v2.fields.length+' fields</div></div></div><div style="text-align:center;"><div style="background:#f9731622;border:1px solid #f97316;padding:4px 10px;border-radius:12px;font-size:11px;color:#f97316;font-weight:600;">'+dup.similarity+'%</div><div style="font-size:9px;color:#64748b;margin-top:2px;">'+dup.commonCount+' of '+Math.min(v1.fields.length, v2.fields.length)+'</div></div></div>'; 
+          html += '<div class="dup-row" data-idx="'+idx+'" style="border-bottom:1px solid #1e293b;"><div class="dup-header" style="display:flex;align-items:center;gap:12px;padding:14px 16px;cursor:pointer;"><span style="color:#64748b;">'+(isExp?icons.chevronDown:icons.chevronRight)+'</span><div style="flex:1;display:flex;align-items:center;gap:12px;"><div style="flex:1;"><div style="color:'+c1+';font-size:13px;">'+v1.name+'</div><div style="font-size:10px;color:#64748b;margin-top:2px;">'+v1.type.toUpperCase()+'</div></div><div style="color:#64748b;font-size:20px;">↔</div><div style="flex:1;"><div style="color:'+c1+';font-size:13px;">'+v2.name+'</div><div style="font-size:10px;color:#64748b;margin-top:2px;">'+v2.type.toUpperCase()+'</div></div></div><div style="text-align:center;"><div style="background:#f9731622;border:1px solid #f97316;padding:4px 10px;border-radius:12px;font-size:11px;color:#f97316;font-weight:600;">'+dup.similarity+'%</div><div style="font-size:9px;color:#64748b;margin-top:2px;">'+dup.commonCount+' matches</div></div></div>'; 
           if (isExp) { 
             html += '<div style="padding:0 16px 16px 44px;background:#0c1222;"><div style="font-size:11px;color:#64748b;margin-bottom:8px;">Matched Field Pairs ('+dup.matchedPairs.length+')</div><div style="display:flex;flex-direction:column;gap:6px;max-height:200px;overflow-y:auto;">'; 
             dup.matchedPairs.forEach(function(p) { 
@@ -325,9 +369,8 @@ looker.plugins.visualizations.add({
       else if (searchTags.length > 0 || searchTerm.trim()) { 
         filterMode = 'search'; 
         if (highlightedEntities.length > 0) {
-          var relevantTableIds = getRelevantUpstreamTables(searchMatches);
-          var allVisibleIds = highlightedEntities.concat(relevantTableIds);
-          visibleEntities = allEntities.filter(function(e) { return allVisibleIds.indexOf(e.id) !== -1; });
+          // Only show matched entities - no upstream tables unless they also match
+          visibleEntities = allEntities.filter(function(e) { return highlightedEntities.indexOf(e.id) !== -1; });
         } else {
           visibleEntities = [];
         }
@@ -339,7 +382,7 @@ looker.plugins.visualizations.add({
       ['table','view','explore','dashboard'].forEach(function(type) { byType[type].forEach(function(e, idx) { positions[e.id] = { x: colX[type], y: startY + idx * nodeSpacing }; }); });
       var maxCount = Math.max(byType.table.length||1, byType.view.length||1, byType.explore.length||1, byType.dashboard.length||1), svgHeight = Math.max(maxCount * nodeSpacing + 100, 350);
       var edgesHtml = ''; visibleEntities.forEach(function(e) { (e.sources||[]).forEach(function(s) { var f = positions[s], t = positions[e.id]; if (!f || !t) return; var stroke = '#334155', op = 0.25, sw = 1.5; if (selectedNode) { var isUp = upstream.indexOf(s)!==-1 && (upstream.indexOf(e.id)!==-1 || e.id===selectedNode.id), isDown = downstream.indexOf(e.id)!==-1 && (downstream.indexOf(s)!==-1 || s===selectedNode.id); if (s===selectedNode.id || isDown) { stroke='#f97316'; op=0.9; sw=2.5; } else if (e.id===selectedNode.id || isUp) { stroke='#06b6d4'; op=0.9; sw=2.5; } } else if (filterMode === 'search') { stroke='#10b981'; op=0.6; sw=2; } var x1=f.x+nodeW, y1=f.y+nodeH/2, x2=t.x, y2=t.y+nodeH/2, mx=(x1+x2)/2; edgesHtml += '<path d="M'+x1+' '+y1+' C'+mx+' '+y1+','+mx+' '+y2+','+x2+' '+y2+'" fill="none" stroke="'+stroke+'" stroke-width="'+sw+'" stroke-opacity="'+op+'"/>'; }); });
-      var nodesHtml = ''; visibleEntities.forEach(function(entity) { var pos = positions[entity.id], cfg = typeConfig[entity.type], isSel = selectedNode && selectedNode.id === entity.id, isUp = selectedNode && upstream.indexOf(entity.id) !== -1, isDown = selectedNode && downstream.indexOf(entity.id) !== -1, isMatch = highlightedEntities.indexOf(entity.id) !== -1 && !selectedNode; var borderColor = cfg.color, borderWidth = 1; if (isSel) { borderColor = '#ffffff'; borderWidth = 2; } else if (isUp) { borderColor = '#06b6d4'; borderWidth = 2; } else if (isDown) { borderColor = '#f97316'; borderWidth = 2; } else if (isMatch) { borderColor = '#10b981'; borderWidth = 2; } var nm = entity.name.length > 26 ? entity.name.substring(0,25)+'…' : entity.name, fc = entity.fields ? entity.fields.length : 0; nodesHtml += '<g class="node" data-id="'+entity.id+'" data-name="'+entity.name.replace(/"/g,'&quot;')+'" style="cursor:pointer;" transform="translate('+pos.x+','+pos.y+')"><rect width="'+nodeW+'" height="'+nodeH+'" rx="8" fill="#0f172a" fill-opacity="0.95" stroke="'+borderColor+'" stroke-width="'+borderWidth+'"/><rect x="1" y="1" width="32" height="'+(nodeH-2)+'" rx="7" fill="'+cfg.color+'" fill-opacity="0.15"/><g transform="translate(9,'+(nodeH/2-7)+')" fill="'+cfg.color+'">'+typeIcons[entity.type]+'</g><text x="40" y="'+(nodeH/2-2)+'" fill="#e2e8f0" font-size="10" font-weight="500">'+nm+'</text><text x="40" y="'+(nodeH/2+10)+'" fill="'+cfg.color+'" font-size="8" opacity="0.8">'+entity.type.toUpperCase()+' • '+fc+' fields</text></g>'; });
+      var nodesHtml = ''; visibleEntities.forEach(function(entity) { var pos = positions[entity.id], cfg = typeConfig[entity.type], isSel = selectedNode && selectedNode.id === entity.id, isUp = selectedNode && upstream.indexOf(entity.id) !== -1, isDown = selectedNode && downstream.indexOf(entity.id) !== -1, isMatch = highlightedEntities.indexOf(entity.id) !== -1 && !selectedNode; var borderColor = cfg.color, borderWidth = 1; if (isSel) { borderColor = '#ffffff'; borderWidth = 2; } else if (isUp) { borderColor = '#06b6d4'; borderWidth = 2; } else if (isDown) { borderColor = '#f97316'; borderWidth = 2; } else if (isMatch) { borderColor = '#10b981'; borderWidth = 2; } var nm = entity.name.length > 26 ? entity.name.substring(0,25)+'…' : entity.name; nodesHtml += '<g class="node" data-id="'+entity.id+'" data-name="'+entity.name.replace(/"/g,'&quot;')+'" style="cursor:pointer;" transform="translate('+pos.x+','+pos.y+')"><rect width="'+nodeW+'" height="'+nodeH+'" rx="8" fill="#0f172a" fill-opacity="0.95" stroke="'+borderColor+'" stroke-width="'+borderWidth+'"/><rect x="1" y="1" width="32" height="'+(nodeH-2)+'" rx="7" fill="'+cfg.color+'" fill-opacity="0.15"/><g transform="translate(9,'+(nodeH/2-7)+')" fill="'+cfg.color+'">'+typeIcons[entity.type]+'</g><text x="40" y="'+(nodeH/2+4)+'" fill="#e2e8f0" font-size="10" font-weight="500">'+nm+'</text></g>'; });
       var hdrHtml = ''; ['table','view','explore','dashboard'].forEach(function(type) { var cfg = typeConfig[type]; hdrHtml += '<text x="'+(colX[type]+nodeW/2)+'" y="22" text-anchor="middle" fill="'+cfg.color+'" font-size="9" font-weight="600" letter-spacing="0.5">'+cfg.label.toUpperCase()+'</text><text x="'+(colX[type]+nodeW/2)+'" y="36" text-anchor="middle" fill="#475569" font-size="8">'+byType[type].length+' items</text>'; });
       var statsText = ''; if (selectedNode) statsText = '<span style="color:'+typeConfig[selectedNode.type].color+';font-weight:500;">'+selectedNode.name+'</span><span style="color:#06b6d4;margin-left:14px;">▲ '+upstream.length+'</span><span style="color:#f97316;margin-left:10px;">▼ '+downstream.length+'</span>'; else if ((searchTags.length > 0 || searchTerm.trim()) && highlightedEntities.length > 0) statsText = '<span style="color:#10b981;font-weight:500;">'+highlightedEntities.length+' matches</span>'; else if (searchTags.length > 0 || searchTerm.trim()) statsText = '<span style="color:#ef4444;">No matches found</span>'; else statsText = '<span style="color:#64748b;">Click node to trace lineage</span>';
       return '<div style="position:relative;"><div style="padding:10px 20px;border-bottom:1px solid #1e293b;font-size:12px;display:flex;justify-content:space-between;align-items:center;"><div>'+statsText+'</div><div style="color:#64748b;font-size:11px;">'+(filterMode?visibleEntities.length+' of ':'')+allEntities.length+' entities</div></div><div style="padding:12px;overflow:auto;"><svg width="'+svgWidth+'" height="'+svgHeight+'" style="font-family:system-ui,sans-serif;">'+hdrHtml+edgesHtml+nodesHtml+'</svg></div></div>';
