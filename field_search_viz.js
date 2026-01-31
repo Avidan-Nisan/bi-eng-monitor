@@ -125,6 +125,17 @@ looker.plugins.visualizations.add({
       return matches.sort(function(a, b) { return b.fieldMatches.length !== a.fieldMatches.length ? b.fieldMatches.length - a.fieldMatches.length : b.score - a.score; });
     }
     
+    // Get all upstream entities (including tables) for matched entities
+    function getMatchedWithUpstream(matches) {
+      var matchedIds = matches.map(function(m) { return m.entity.id; });
+      var allIds = matchedIds.slice();
+      matches.forEach(function(m) {
+        var up = getUpstream(m.entity.id, 0);
+        up.forEach(function(uid) { if (allIds.indexOf(uid) === -1) allIds.push(uid); });
+      });
+      return allIds;
+    }
+    
     function getUpstream(id, depth, visited) { if (depth > 15) return []; if (!visited) visited = {}; if (visited[id]) return []; visited[id] = true; var e = allEntities.find(function(x) { return x.id === id; }); if (!e || !e.sources) return []; var r = []; e.sources.forEach(function(s) { if (!visited[s]) { r.push(s); r = r.concat(getUpstream(s, (depth||0)+1, visited)); } }); return r.filter(function(v,i,a) { return a.indexOf(v)===i; }); }
     function getDownstream(id, depth, visited) { if (depth > 15) return []; if (!visited) visited = {}; if (visited[id]) return []; visited[id] = true; var r = []; allEntities.forEach(function(e) { if (e.sources && e.sources.indexOf(id) !== -1 && !visited[e.id]) { r.push(e.id); r = r.concat(getDownstream(e.id, (depth||0)+1, visited)); } }); return r.filter(function(v,i,a) { return a.indexOf(v)===i; }); }
     
@@ -199,10 +210,26 @@ looker.plugins.visualizations.add({
     }
     
     function renderLineageTab() {
-      var searchMatches = getSearchMatches(); highlightedEntities = searchMatches.map(function(m) { return m.entity.id; });
+      var searchMatches = getSearchMatches(); 
+      highlightedEntities = searchMatches.map(function(m) { return m.entity.id; });
       var visibleEntities = allEntities, filterMode = '';
-      if (selectedNode) { filterMode = 'lineage'; upstream = getUpstream(selectedNode.id, 0); downstream = getDownstream(selectedNode.id, 0); var ids = [selectedNode.id].concat(upstream).concat(downstream); visibleEntities = allEntities.filter(function(e) { return ids.indexOf(e.id) !== -1; }); }
-      else if (searchTags.length > 0 || searchTerm.trim()) { filterMode = 'search'; visibleEntities = highlightedEntities.length > 0 ? allEntities.filter(function(e) { return highlightedEntities.indexOf(e.id) !== -1; }) : []; }
+      if (selectedNode) { 
+        filterMode = 'lineage'; 
+        upstream = getUpstream(selectedNode.id, 0); 
+        downstream = getDownstream(selectedNode.id, 0); 
+        var ids = [selectedNode.id].concat(upstream).concat(downstream); 
+        visibleEntities = allEntities.filter(function(e) { return ids.indexOf(e.id) !== -1; }); 
+      }
+      else if (searchTags.length > 0 || searchTerm.trim()) { 
+        filterMode = 'search'; 
+        if (highlightedEntities.length > 0) {
+          // Include upstream tables for all matched entities
+          var allMatchedIds = getMatchedWithUpstream(searchMatches);
+          visibleEntities = allEntities.filter(function(e) { return allMatchedIds.indexOf(e.id) !== -1; });
+        } else {
+          visibleEntities = [];
+        }
+      }
       var byType = { table: [], view: [], explore: [], dashboard: [] }; visibleEntities.forEach(function(e) { byType[e.type].push(e); }); ['table','view','explore','dashboard'].forEach(function(t) { byType[t].sort(function(a,b) { return a.name.localeCompare(b.name); }); });
       
       // SMALLER node dimensions
