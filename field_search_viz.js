@@ -85,66 +85,85 @@ looker.plugins.visualizations.add({
     function calculateMatchScore(text, searchTerm) {
       if (!text || !searchTerm) return 0;
       var textLower = text.toLowerCase();
-      var termLower = searchTerm.toLowerCase().trim().replace(/^[\s_\-\.]+|[\s_\-\.]+$/g, ''); // Clean both ends
+      var termLower = searchTerm.toLowerCase().trim().replace(/^[\s_\-\.]+|[\s_\-\.]+$/g, '');
       var textNorm = normalize(text);
       var termNorm = normalize(termLower);
+      
+      // Minimum term length for matching
+      if (termNorm.length < 2) return 0;
       
       // Exact match
       if (textLower === termLower) return 100;
       if (textNorm === termNorm) return 98;
       
-      // Contains match - text contains search term (e.g., "hisc_campaign_id" contains "campaign_id")
-      if (textLower.indexOf(termLower) !== -1) return 90;
-      if (textNorm.indexOf(termNorm) !== -1) return 88;
-      
-      // Tokenize both
+      // Contains match - but term must be substantial part or token boundary
+      // Check if term appears as a complete token/word in text
       var textTokens = tokenize(text);
       var termTokens = tokenize(searchTerm);
       
-      // Check if ALL term tokens are found in text tokens
-      // e.g., searching "campaign_id" -> tokens ["campaign", "id"]
-      // text "hisc_campaign_id" -> tokens ["hisc", "campaign", "id"]
-      // ALL term tokens found = match!
+      // Best: exact token match (e.g., "campaign" in ["hisc", "campaign", "id"])
+      var hasExactTokenMatch = termTokens.every(function(tt) {
+        return textTokens.some(function(txtt) { return txtt === tt; });
+      });
+      if (hasExactTokenMatch) return 95;
+      
+      // Good: term is substring at token boundary (e.g., "campaign_id" in "hisc_campaign_id")
+      if (textLower.indexOf(termLower) !== -1) return 90;
+      if (textNorm.indexOf(termNorm) !== -1) return 88;
+      
+      // Check if ALL term tokens are found as exact tokens in text
       if (termTokens.length > 0) {
-        var allTokensFound = termTokens.every(function(tt) {
-          return textTokens.some(function(txtt) {
-            return txtt === tt || txtt.indexOf(tt) !== -1 || tt.indexOf(txtt) !== -1;
-          });
+        var allExactTokens = termTokens.every(function(tt) {
+          return textTokens.indexOf(tt) !== -1;
         });
-        if (allTokensFound) return 85;
+        if (allExactTokens) return 85;
       }
       
-      // Single token partial match
-      if (textTokens.some(function(t) { return t.indexOf(termNorm) !== -1 || termNorm.indexOf(t) !== -1; })) return 80;
+      // Partial token match - but be stricter: token must START with search term
+      // This prevents "research" from matching "rev"
+      var hasTokenStartMatch = termTokens.every(function(tt) {
+        if (tt.length < 3) return false; // Skip very short tokens
+        return textTokens.some(function(txtt) {
+          return txtt.indexOf(tt) === 0 || tt.indexOf(txtt) === 0;
+        });
+      });
+      if (hasTokenStartMatch) return 75;
       
-      // Synonym expansion
+      // Synonym expansion - but require exact token match for synonyms
       var expandedTerms = []; 
-      termTokens.forEach(function(tt) { expandedTerms = expandedTerms.concat(expandWithSynonyms(tt)); });
-      if (expandedTerms.some(function(et) { 
-        var etNorm = normalize(et); 
-        return textNorm.indexOf(etNorm) !== -1 || textTokens.some(function(txtt) { 
-          return txtt.indexOf(etNorm) !== -1 || etNorm.indexOf(txtt) !== -1; 
-        }); 
-      })) return 75;
+      termTokens.forEach(function(tt) { 
+        if (tt.length >= 3) { // Only expand tokens with 3+ chars
+          expandedTerms = expandedTerms.concat(expandWithSynonyms(tt)); 
+        }
+      });
+      var hasSynonymMatch = expandedTerms.some(function(et) { 
+        return textTokens.indexOf(et.toLowerCase()) !== -1;
+      });
+      if (hasSynonymMatch) return 70;
       
-      // Fuzzy match with Levenshtein
+      // Fuzzy match with Levenshtein - only for longer tokens
       var minDist = Infinity; 
       textTokens.forEach(function(txtt) { 
+        if (txtt.length < 4) return; // Skip short tokens
         termTokens.forEach(function(tt) { 
-          if (tt.length >= 3) { 
+          if (tt.length >= 4) { // Only fuzzy match 4+ char tokens
             var dist = levenshtein(txtt, tt);
             var maxLen = Math.max(txtt.length, tt.length); 
-            if (dist / maxLen < minDist) minDist = dist / maxLen; 
+            var ratio = dist / maxLen;
+            if (ratio < minDist) minDist = ratio; 
           } 
         }); 
       });
-      if (minDist <= 0.25) return 60;
-      if (minDist <= 0.4) return 45;
+      if (minDist <= 0.2) return 55; // Very close fuzzy match
+      if (minDist <= 0.3) return 40; // Moderate fuzzy match
       
       return 0;
     }
     
-    function smartMatch(text, searchTerm, returnScore) { var score = calculateMatchScore(text, searchTerm); return returnScore ? score : score >= 35; }
+    function smartMatch(text, searchTerm, returnScore) { 
+      var score = calculateMatchScore(text, searchTerm); 
+      return returnScore ? score : score >= 40; // Raised threshold from 35 to 40
+    }
     // === END SEARCH AGENT ===
     
     function getUpstream(id, depth, visited) { if (depth > 15) return []; if (!visited) visited = {}; if (visited[id]) return []; visited[id] = true; var e = allEntities.find(function(x) { return x.id === id; }); if (!e || !e.sources) return []; var r = []; e.sources.forEach(function(s) { if (!visited[s]) { r.push(s); r = r.concat(getUpstream(s, (depth||0)+1, visited)); } }); return r.filter(function(v,i,a) { return a.indexOf(v)===i; }); }
