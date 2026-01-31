@@ -152,84 +152,113 @@ looker.plugins.visualizations.add({
       aiError = null;
       render();
       
-      var viewsData = Object.values(views).map(function(v) {
-        return { name: v.name, type: 'view', sqlTables: v.sqlTables || [] };
-      }).filter(function(v) { return v.sqlTables.length > 0; });
-      
-      var exploresData = Object.values(explores).map(function(e) {
-        return { name: e.name, type: 'explore', sqlTables: e.sqlTables || [] };
-      }).filter(function(e) { return e.sqlTables.length > 0; });
-      
-      var prompt = 'Analyze these Looker views and explores to find similar ones based on their SQL tables. Two entities are similar if they share 20% or more of their SQL tables.\n\n';
-      prompt += 'VIEWS:\n' + JSON.stringify(viewsData.slice(0, 50), null, 2) + '\n\n';
-      prompt += 'EXPLORES:\n' + JSON.stringify(exploresData.slice(0, 50), null, 2) + '\n\n';
-      prompt += 'Return ONLY a JSON array of similar pairs. Each pair should have: entity1 (name), entity2 (name), type (view/explore), sharedTables (array), similarity (percentage 0-100). Only include pairs with 20%+ similarity. Compare views with views and explores with explores only. Format: [{"entity1":"name1","entity2":"name2","type":"view","sharedTables":["t1"],"similarity":50}]';
-      
-      fetch("https://api.anthropic.com/v1/messages", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          model: "claude-sonnet-4-20250514",
-          max_tokens: 2000,
-          messages: [{ role: "user", content: prompt }]
-        })
-      })
-      .then(function(response) { return response.json(); })
-      .then(function(data) {
-        aiLoading = false;
+      // Do local comparison instead of API call
+      setTimeout(function() {
         try {
-          var text = data.content[0].text;
-          var jsonMatch = text.match(/\[[\s\S]*\]/);
-          if (jsonMatch) {
-            var results = JSON.parse(jsonMatch[0]);
-            aiSimilarResults = results.map(function(r) {
-              return {
-                views: [
-                  { name: r.entity1, type: r.type, sqlTables: r.sharedTables },
-                  { name: r.entity2, type: r.type, sqlTables: r.sharedTables }
-                ],
-                matchedPairs: r.sharedTables.map(function(t) {
-                  return { f1: t, f2: t, score: 100, reason: 'shared table' };
-                }),
-                commonCount: r.sharedTables.length,
-                similarity: r.similarity
-              };
-            });
-          } else {
-            aiSimilarResults = [];
+          var results = [];
+          
+          // Compare views with views
+          var viewsList = Object.values(views).filter(function(v) { 
+            return v.sqlTables && v.sqlTables.length > 0; 
+          });
+          
+          for (var i = 0; i < viewsList.length; i++) {
+            for (var j = i + 1; j < viewsList.length; j++) {
+              var v1 = viewsList[i];
+              var v2 = viewsList[j];
+              
+              // Find shared tables
+              var sharedTables = v1.sqlTables.filter(function(t) {
+                return v2.sqlTables.indexOf(t) !== -1;
+              });
+              
+              // Calculate similarity based on smaller set
+              var minTables = Math.min(v1.sqlTables.length, v2.sqlTables.length);
+              var similarity = minTables > 0 ? Math.round((sharedTables.length / minTables) * 100) : 0;
+              
+              if (sharedTables.length >= 1 && similarity >= 20) {
+                results.push({
+                  views: [
+                    { name: v1.name, type: 'view', sqlTables: sharedTables },
+                    { name: v2.name, type: 'view', sqlTables: sharedTables }
+                  ],
+                  matchedPairs: sharedTables.map(function(t) {
+                    return { f1: t, f2: t, score: 100, reason: 'shared table' };
+                  }),
+                  commonCount: sharedTables.length,
+                  similarity: similarity
+                });
+              }
+            }
           }
+          
+          // Compare explores with explores
+          var exploresList = Object.values(explores).filter(function(e) { 
+            return e.sqlTables && e.sqlTables.length > 0; 
+          });
+          
+          for (var i = 0; i < exploresList.length; i++) {
+            for (var j = i + 1; j < exploresList.length; j++) {
+              var e1 = exploresList[i];
+              var e2 = exploresList[j];
+              
+              var sharedTables = e1.sqlTables.filter(function(t) {
+                return e2.sqlTables.indexOf(t) !== -1;
+              });
+              
+              var minTables = Math.min(e1.sqlTables.length, e2.sqlTables.length);
+              var similarity = minTables > 0 ? Math.round((sharedTables.length / minTables) * 100) : 0;
+              
+              if (sharedTables.length >= 1 && similarity >= 20) {
+                results.push({
+                  views: [
+                    { name: e1.name, type: 'explore', sqlTables: sharedTables },
+                    { name: e2.name, type: 'explore', sqlTables: sharedTables }
+                  ],
+                  matchedPairs: sharedTables.map(function(t) {
+                    return { f1: t, f2: t, score: 100, reason: 'shared table' };
+                  }),
+                  commonCount: sharedTables.length,
+                  similarity: similarity
+                });
+              }
+            }
+          }
+          
+          // Sort by similarity
+          results.sort(function(a, b) { return b.similarity - a.similarity; });
+          
+          aiSimilarResults = results;
+          aiLoading = false;
+          render();
+          
         } catch(e) {
-          console.error('AI parse error:', e);
+          console.error('Analysis error:', e);
           aiSimilarResults = [];
-          aiError = 'Failed to parse AI response';
+          aiError = 'Analysis failed: ' + e.message;
+          aiLoading = false;
+          render();
         }
-        render();
-      })
-      .catch(function(err) {
-        aiLoading = false;
-        aiError = 'API error: ' + err.message;
-        console.error('AI API error:', err);
-        render();
-      });
+      }, 100);
     }
     
     function renderDuplicatesTab() {
       var viewsCount = Object.values(views).filter(function(v) { return v.sqlTables && v.sqlTables.length > 0; }).length;
       var exploresCount = Object.values(explores).filter(function(e) { return e.sqlTables && e.sqlTables.length > 0; }).length;
       
-      var html = '<div style="padding:20px 24px;border-bottom:1px solid #1e293b;"><div style="display:flex;justify-content:space-between;align-items:center;"><div><div style="color:#e2e8f0;font-size:14px;font-weight:500;">🤖 AI-Powered Similar Views</div><div style="color:#64748b;font-size:12px;margin-top:4px;">'+viewsCount+' views, '+exploresCount+' explores analyzed</div></div>'+(aiSimilarResults ? '<button id="analyzeBtn" style="background:linear-gradient(135deg,#8b5cf6,#ec4899);border:none;padding:8px 16px;border-radius:8px;color:white;font-weight:500;cursor:pointer;font-size:11px;">🔄 Re-analyze</button>' : '')+'</div></div>';
+      var html = '<div style="padding:20px 24px;border-bottom:1px solid #1e293b;"><div style="display:flex;justify-content:space-between;align-items:center;"><div><div style="color:#e2e8f0;font-size:14px;font-weight:500;">Similar Views Analysis</div><div style="color:#64748b;font-size:12px;margin-top:4px;">'+viewsCount+' views, '+exploresCount+' explores with SQL tables</div></div>'+(aiSimilarResults ? '<button id="analyzeBtn" style="background:linear-gradient(135deg,#8b5cf6,#ec4899);border:none;padding:8px 16px;border-radius:8px;color:white;font-weight:500;cursor:pointer;font-size:11px;">🔄 Refresh</button>' : '')+'</div></div>';
       
       if (aiLoading) {
-        html += '<div style="text-align:center;padding:60px 40px;"><div style="font-size:48px;margin-bottom:16px;">🤖</div><div style="color:#e2e8f0;font-size:16px;margin-bottom:8px;">AI is analyzing your views...</div><div style="color:#64748b;font-size:13px;">This may take a few seconds</div></div>';
+        html += '<div style="text-align:center;padding:60px 40px;"><div style="font-size:48px;margin-bottom:16px;">⏳</div><div style="color:#e2e8f0;font-size:16px;margin-bottom:8px;">Analyzing views...</div><div style="color:#64748b;font-size:13px;">Comparing SQL tables</div></div>';
       } else if (aiError) {
-        html += '<div style="text-align:center;padding:60px 40px;"><div style="font-size:48px;margin-bottom:16px;">⚠️</div><div style="color:#ef4444;font-size:16px;margin-bottom:8px;">'+aiError+'</div><div style="color:#64748b;font-size:13px;">Click "Re-analyze" to try again</div></div>';
+        html += '<div style="text-align:center;padding:60px 40px;"><div style="font-size:48px;margin-bottom:16px;">⚠️</div><div style="color:#ef4444;font-size:16px;margin-bottom:8px;">'+aiError+'</div><div style="color:#64748b;font-size:13px;">Click "Refresh" to try again</div></div>';
       } else if (!aiSimilarResults) {
-        html += '<div style="text-align:center;padding:60px 40px;"><div style="font-size:48px;margin-bottom:16px;">🤖</div><div style="color:#e2e8f0;font-size:16px;margin-bottom:8px;">AI analysis starting automatically...</div><div style="color:#64748b;font-size:13px;">Comparing views based on shared SQL tables</div></div>';
+        html += '<div style="text-align:center;padding:60px 40px;"><div style="font-size:48px;margin-bottom:16px;">🔍</div><div style="color:#e2e8f0;font-size:16px;margin-bottom:8px;">Analyzing automatically...</div><div style="color:#64748b;font-size:13px;">Finding views that share SQL tables</div></div>';
       } else if (aiSimilarResults.length === 0) {
-        html += '<div style="text-align:center;padding:60px 40px;"><div style="font-size:48px;margin-bottom:16px;">✅</div><div style="color:#e2e8f0;font-size:16px;margin-bottom:8px;">No Similar Entities Found</div><div style="color:#64748b;font-size:13px;">AI found no views with 20%+ shared SQL tables</div></div>';
+        html += '<div style="text-align:center;padding:60px 40px;"><div style="font-size:48px;margin-bottom:16px;">✅</div><div style="color:#e2e8f0;font-size:16px;margin-bottom:8px;">No Similar Views Found</div><div style="color:#64748b;font-size:13px;">No views share 20%+ of their SQL tables</div></div>';
       } else {
         var dups = aiSimilarResults;
-        html += '<div style="padding:12px 24px;border-bottom:1px solid #1e293b;background:#8b5cf615;font-size:13px;color:#a78bfa;">🤖 AI found '+dups.length+' pair(s) of similar entities</div><div style="max-height:400px;overflow-y:auto;">';
+        html += '<div style="padding:12px 24px;border-bottom:1px solid #1e293b;background:#8b5cf615;font-size:13px;color:#a78bfa;">Found '+dups.length+' pair(s) of similar views</div><div style="max-height:400px;overflow-y:auto;">';
         dups.forEach(function(dup, idx) {
           var isExp = expandedDuplicates[idx], v1 = dup.views[0], v2 = dup.views[1];
           var c1 = typeConfig[v1.type] ? typeConfig[v1.type].color : '#8b5cf6';
@@ -265,27 +294,34 @@ looker.plugins.visualizations.add({
         var terms = searchTags.slice();
         if (searchTerm.trim()) terms.push(searchTerm.trim());
         
-        // Filter entities: show only those that match at least one search term
+        // Filter entities: show only those that match ALL search terms
         visibleEntities = allEntities.filter(function(entity) {
-          // Check if entity name matches any term
-          for (var i = 0; i < terms.length; i++) {
-            if (smartMatch(entity.name, terms[i], true) >= 35) {
-              return true;
-            }
-          }
+          var matchedTermsCount = 0;
           
-          // For non-tables, also check fields
-          if (entity.type !== 'table' && entity.fields && entity.fields.length > 0) {
-            for (var i = 0; i < terms.length; i++) {
+          for (var i = 0; i < terms.length; i++) {
+            var termMatched = false;
+            var term = terms[i];
+            
+            // Check entity name
+            if (smartMatch(entity.name, term, true) >= 35) {
+              termMatched = true;
+            }
+            
+            // Check fields (for views, explores, dashboards)
+            if (!termMatched && entity.fields && entity.fields.length > 0) {
               for (var j = 0; j < entity.fields.length; j++) {
-                if (smartMatch(entity.fields[j], terms[i], true) >= 35) {
-                  return true;
+                if (smartMatch(entity.fields[j], term, true) >= 35) {
+                  termMatched = true;
+                  break;
                 }
               }
             }
+            
+            if (termMatched) matchedTermsCount++;
           }
           
-          return false;
+          // Must match ALL terms
+          return matchedTermsCount === terms.length;
         });
         
         highlightedEntities = visibleEntities.map(function(e) { return e.id; });
@@ -394,10 +430,15 @@ looker.plugins.visualizations.add({
       });
       
       if (activeTab === 'lineage') attachLineageEvents();
-      if (activeTab === 'duplicates') {
-        var analyzeBtn = container.querySelector('#analyzeBtn');
-        if (analyzeBtn) analyzeBtn.addEventListener('click', function() { if (!aiLoading) analyzeWithAI(); });
+      
+      // Handle Similar Views tab
+      var analyzeBtn = container.querySelector('#analyzeBtn');
+      if (analyzeBtn) {
+        analyzeBtn.addEventListener('click', function() { 
+          if (!aiLoading) analyzeWithAI(); 
+        });
       }
+      
       container.querySelectorAll('.dup-header').forEach(function(h) {
         h.addEventListener('click', function() {
           var idx = parseInt(h.parentElement.dataset.idx);
@@ -405,9 +446,16 @@ looker.plugins.visualizations.add({
           var tc = container.querySelector('#tab-content');
           if (tc) {
             tc.innerHTML = renderDuplicatesTab();
-            container.querySelectorAll('.dup-header').forEach(function(h2) { h2.addEventListener('click', arguments.callee); });
-            var analyzeBtn2 = container.querySelector('#analyzeBtn');
-            if (analyzeBtn2) analyzeBtn2.addEventListener('click', function() { if (!aiLoading) analyzeWithAI(); });
+            // Re-attach events
+            var newAnalyzeBtn = container.querySelector('#analyzeBtn');
+            if (newAnalyzeBtn) {
+              newAnalyzeBtn.addEventListener('click', function() { 
+                if (!aiLoading) analyzeWithAI(); 
+              });
+            }
+            container.querySelectorAll('.dup-header').forEach(function(h2) { 
+              h2.addEventListener('click', arguments.callee); 
+            });
           }
         });
       });
