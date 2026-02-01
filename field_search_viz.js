@@ -268,7 +268,10 @@ looker.plugins.visualizations.add({
       var terms = searchTags.slice(); if (searchTerm.trim()) terms.push(searchTerm.trim()); if (terms.length === 0) return [];
       var matches = [], partialMatches = [];
       
-      var MATCH_THRESHOLD = 70; // Lowered threshold to catch more matches
+      var MATCH_THRESHOLD = 70;
+      
+      // Debug: log first search
+      var debugOnce = true;
       
       allEntities.forEach(function(entity) {
         var matchedTermsCount = 0, fieldMatches = [], nameScore = 0, tableMatches = [];
@@ -290,6 +293,29 @@ looker.plugins.visualizations.add({
           
           // Check fields
           if (entity.fields && entity.fields.length > 0) {
+            // Debug: log one entity's fields
+            if (debugOnce && entity.name === 'facp_campaign_performance_h') {
+              console.log('DEBUG - Entity:', entity.name);
+              console.log('DEBUG - Number of fields:', entity.fields.length);
+              console.log('DEBUG - First 5 fields:', entity.fields.slice(0, 5));
+              console.log('DEBUG - Search term:', term);
+              // Test match on a specific field
+              var testField = entity.fields.find(function(f) { return f.toLowerCase().indexOf('campaign_name') !== -1; });
+              if (testField) {
+                console.log('DEBUG - Found field with campaign_name:', testField);
+                console.log('DEBUG - Match score:', calculateMatchScore(testField, term));
+              } else {
+                console.log('DEBUG - No field contains campaign_name');
+                // Check what fields look like
+                entity.fields.forEach(function(f) {
+                  if (f.toLowerCase().indexOf('campaign') !== -1) {
+                    console.log('DEBUG - Field with "campaign":', f, 'Score:', calculateMatchScore(f, term));
+                  }
+                });
+              }
+              debugOnce = false;
+            }
+            
             entity.fields.forEach(function(field) {
               var fs = smartMatch(field, term, true);
               if (fs >= MATCH_THRESHOLD) {
@@ -325,6 +351,8 @@ looker.plugins.visualizations.add({
       
       // Store partial matches for "no results" suggestions
       window._partialMatches = partialMatches.sort(function(a, b) { return b.matchedTermsCount - a.matchedTermsCount; }).slice(0, 10);
+      
+      console.log('DEBUG - Total matches:', matches.length, 'Partial:', partialMatches.length);
       
       return matches.sort(function(a, b) { 
         if (b.fieldMatches.length !== a.fieldMatches.length) return b.fieldMatches.length - a.fieldMatches.length;
