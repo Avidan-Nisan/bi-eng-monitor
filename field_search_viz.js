@@ -17,11 +17,22 @@ looker.plugins.visualizations.add({
     var expField = fields.find(function(f) { return f.toLowerCase().indexOf('explore') !== -1 && f.toLowerCase().indexOf('name') !== -1; });
     var viewField = fields.find(function(f) { return f.toLowerCase().indexOf('view') !== -1 && f.toLowerCase().indexOf('name') !== -1 && f.toLowerCase().indexOf('count') === -1 && f.toLowerCase().indexOf('extended') === -1 && f.toLowerCase().indexOf('included') === -1; });
     var tableField = fields.find(function(f) { return f.toLowerCase().indexOf('sql_table') !== -1 && f.toLowerCase().indexOf('fields') === -1 && f.toLowerCase().indexOf('path') === -1; });
-    var fieldsField = fields.find(function(f) { var fl = f.toLowerCase(); return fl.indexOf('sql_table_fields') !== -1; });
+    var fieldsField = fields.find(function(f) { var fl = f.toLowerCase(); return fl.indexOf('table_fields') !== -1 || fl.indexOf('fields') !== -1; });
+    
+    // Fallback: use second column if fieldsField not found
+    if (!fieldsField && fields.length >= 2) fieldsField = fields[1];
+    
+    console.log('fieldsField detected:', fieldsField);
     
     var allRows = data.map(function(row) {
-      var fieldsVal = fieldsField && row[fieldsField] ? row[fieldsField].value || '' : '';
-      return { 
+      var fieldsRaw = fieldsField && row[fieldsField] ? row[fieldsField] : null;
+      var fieldsVal = '';
+      if (fieldsRaw) {
+        if (typeof fieldsRaw === 'string') fieldsVal = fieldsRaw;
+        else if (fieldsRaw.value) fieldsVal = fieldsRaw.value;
+        else if (fieldsRaw.rendered) fieldsVal = fieldsRaw.rendered;
+      }
+      return {
         dashboard: row[dashField] ? row[dashField].value : '', 
         explore: row[expField] ? row[expField].value : '', 
         view: row[viewField] ? row[viewField].value : '', 
@@ -29,6 +40,8 @@ looker.plugins.visualizations.add({
         fields: fieldsVal ? fieldsVal.split('|').filter(function(f) { return f.trim(); }) : []
       };
     });
+    
+    console.log('Sample row fields:', allRows[0] ? allRows[0].fields.slice(0,5) : 'no rows');
     
     var tables = {}, views = {}, explores = {}, dashboards = {}, viewToTables = {}, exploreToViews = {}, dashToExplores = {};
     
