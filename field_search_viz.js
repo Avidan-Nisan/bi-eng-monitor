@@ -20,8 +20,9 @@ looker.plugins.visualizations.add({
     
     allFieldNames.forEach(function(name) {
       var n = name.toLowerCase();
-      if (n.indexOf('sql_table') !== -1 && n.indexOf('field') === -1) tableField = name;
-      if (n.indexOf('field') !== -1 || n.indexOf('sql_table_fields') !== -1) fieldsField = name;
+      // Order matters - check most specific patterns first
+      if (n.indexOf('sql_table_fields') !== -1 || n.indexOf('table_fields') !== -1) fieldsField = name;
+      else if (n.indexOf('sql_table') !== -1) tableField = name;
       if (n.indexOf('view') !== -1 && n.indexOf('name') !== -1) viewField = name;
       if (n.indexOf('explore') !== -1 && n.indexOf('name') !== -1) expField = name;
       if (n.indexOf('dashboard') !== -1 && n.indexOf('title') !== -1) dashField = name;
