@@ -12,59 +12,77 @@ looker.plugins.visualizations.add({
     var containerWidth = element.offsetWidth || 1200;
     if (!data || data.length === 0) { container.innerHTML = '<div style="padding:40px;color:#64748b;background:#0f172a;min-height:600px;">No data available</div>'; done(); return; }
     
-    var fields = queryResponse.fields.dimension_like.map(function(f) { return f.name; });
-    var dashField = fields.find(function(f) { return f.toLowerCase().indexOf('dashboard') !== -1 && f.toLowerCase().indexOf('title') !== -1; });
-    var expField = fields.find(function(f) { return f.toLowerCase().indexOf('explore') !== -1 && f.toLowerCase().indexOf('name') !== -1; });
-    var viewField = fields.find(function(f) { return f.toLowerCase().indexOf('view') !== -1 && f.toLowerCase().indexOf('name') !== -1 && f.toLowerCase().indexOf('count') === -1 && f.toLowerCase().indexOf('extended') === -1 && f.toLowerCase().indexOf('included') === -1; });
-    var tableField = fields.find(function(f) { return f.toLowerCase().indexOf('sql_table') !== -1 && f.toLowerCase().indexOf('fields') === -1 && f.toLowerCase().indexOf('path') === -1; });
-    var fieldsField = fields.find(function(f) { var fl = f.toLowerCase(); return fl.indexOf('table_fields') !== -1 || fl.indexOf('fields') !== -1; });
+    // Get all field names
+    var allFieldNames = queryResponse.fields.dimension_like.map(function(f) { return f.name; });
     
-    // Fallback: use second column if fieldsField not found
-    if (!fieldsField && fields.length >= 2) fieldsField = fields[1];
+    // Find columns - be very flexible with matching
+    var tableField = null, fieldsField = null, viewField = null, expField = null, dashField = null;
     
-    console.log('fieldsField detected:', fieldsField);
-    
-    var allRows = data.map(function(row) {
-      var fieldsRaw = fieldsField && row[fieldsField] ? row[fieldsField] : null;
-      var fieldsVal = '';
-      if (fieldsRaw) {
-        if (typeof fieldsRaw === 'string') fieldsVal = fieldsRaw;
-        else if (fieldsRaw.value) fieldsVal = fieldsRaw.value;
-        else if (fieldsRaw.rendered) fieldsVal = fieldsRaw.rendered;
-      }
-      return {
-        dashboard: row[dashField] ? row[dashField].value : '', 
-        explore: row[expField] ? row[expField].value : '', 
-        view: row[viewField] ? row[viewField].value : '', 
-        table: tableField && row[tableField] ? row[tableField].value : '', 
-        fields: fieldsVal ? fieldsVal.split('|').filter(function(f) { return f.trim(); }) : []
-      };
+    allFieldNames.forEach(function(name) {
+      var n = name.toLowerCase();
+      if (n.indexOf('sql_table') !== -1 && n.indexOf('field') === -1) tableField = name;
+      if (n.indexOf('field') !== -1 || n.indexOf('sql_table_fields') !== -1) fieldsField = name;
+      if (n.indexOf('view') !== -1 && n.indexOf('name') !== -1) viewField = name;
+      if (n.indexOf('explore') !== -1 && n.indexOf('name') !== -1) expField = name;
+      if (n.indexOf('dashboard') !== -1 && n.indexOf('title') !== -1) dashField = name;
     });
     
-    console.log('Sample row fields:', allRows[0] ? allRows[0].fields.slice(0,5) : 'no rows');
+    // Build entities from data
+    var tables = {}, views = {}, explores = {}, dashboards = {};
+    var viewToTables = {}, exploreToViews = {}, dashToExplores = {};
     
-    var tables = {}, views = {}, explores = {}, dashboards = {}, viewToTables = {}, exploreToViews = {}, dashToExplores = {};
-    
-    allRows.forEach(function(row) {
-      var tbl = row.table, vw = row.view, exp = row.explore, dash = row.dashboard;
-      if (tbl && !tables[tbl]) tables[tbl] = { id: 't_'+tbl, name: tbl, type: 'table', sources: [], fields: [], sqlTables: [] };
+    data.forEach(function(row) {
+      // Get values safely
+      var tbl = tableField && row[tableField] ? (row[tableField].value || row[tableField]) : '';
+      var vw = viewField && row[viewField] ? (row[viewField].value || row[viewField]) : '';
+      var exp = expField && row[expField] ? (row[expField].value || row[expField]) : '';
+      var dash = dashField && row[dashField] ? (row[dashField].value || row[dashField]) : '';
+      
+      // Get fields - handle different data formats
+      var fieldsRaw = fieldsField && row[fieldsField] ? row[fieldsField] : null;
+      var fieldsStr = '';
+      if (fieldsRaw) {
+        if (typeof fieldsRaw === 'string') fieldsStr = fieldsRaw;
+        else if (fieldsRaw.value) fieldsStr = fieldsRaw.value;
+      }
+      var fieldsList = fieldsStr ? fieldsStr.split('|').map(function(f) { return f.trim(); }).filter(Boolean) : [];
+      
+      // Create entities
+      if (tbl && !tables[tbl]) tables[tbl] = { id: 't_'+tbl, name: tbl, type: 'table', sources: [], fields: [], sqlTables: [tbl] };
       if (vw && !views[vw]) views[vw] = { id: 'v_'+vw, name: vw, type: 'view', sources: [], fields: [], sqlTables: [] };
       if (exp && !explores[exp]) explores[exp] = { id: 'e_'+exp, name: exp, type: 'explore', sources: [], fields: [], sqlTables: [] };
       if (dash && !dashboards[dash]) dashboards[dash] = { id: 'd_'+dash, name: dash, type: 'dashboard', sources: [], fields: [], sqlTables: [] };
       
-      if (vw && views[vw]) { row.fields.forEach(function(f) { if (views[vw].fields.indexOf(f) === -1) views[vw].fields.push(f); }); if (tbl && views[vw].sqlTables.indexOf(tbl) === -1) views[vw].sqlTables.push(tbl); }
-      if (exp && explores[exp]) { row.fields.forEach(function(f) { if (explores[exp].fields.indexOf(f) === -1) explores[exp].fields.push(f); }); if (tbl && explores[exp].sqlTables.indexOf(tbl) === -1) explores[exp].sqlTables.push(tbl); }
-      if (dash && dashboards[dash]) { row.fields.forEach(function(f) { if (dashboards[dash].fields.indexOf(f) === -1) dashboards[dash].fields.push(f); }); if (tbl && dashboards[dash].sqlTables.indexOf(tbl) === -1) dashboards[dash].sqlTables.push(tbl); }
+      // Add fields to entities
+      if (vw && views[vw]) {
+        fieldsList.forEach(function(f) { if (views[vw].fields.indexOf(f) === -1) views[vw].fields.push(f); });
+        if (tbl && views[vw].sqlTables.indexOf(tbl) === -1) views[vw].sqlTables.push(tbl);
+      }
+      if (exp && explores[exp]) {
+        fieldsList.forEach(function(f) { if (explores[exp].fields.indexOf(f) === -1) explores[exp].fields.push(f); });
+        if (tbl && explores[exp].sqlTables.indexOf(tbl) === -1) explores[exp].sqlTables.push(tbl);
+      }
+      if (dash && dashboards[dash]) {
+        fieldsList.forEach(function(f) { if (dashboards[dash].fields.indexOf(f) === -1) dashboards[dash].fields.push(f); });
+        if (tbl && dashboards[dash].sqlTables.indexOf(tbl) === -1) dashboards[dash].sqlTables.push(tbl);
+      }
+      
+      // Build relationships
       if (vw && tbl) { if (!viewToTables[vw]) viewToTables[vw] = {}; viewToTables[vw]['t_'+tbl] = true; }
       if (exp && vw) { if (!exploreToViews[exp]) exploreToViews[exp] = {}; exploreToViews[exp]['v_'+vw] = true; }
       if (dash && exp) { if (!dashToExplores[dash]) dashToExplores[dash] = {}; dashToExplores[dash]['e_'+exp] = true; }
     });
     
+    // Set sources
     Object.keys(views).forEach(function(k) { views[k].sources = Object.keys(viewToTables[k] || {}); });
     Object.keys(explores).forEach(function(k) { explores[k].sources = Object.keys(exploreToViews[k] || {}); });
     Object.keys(dashboards).forEach(function(k) { dashboards[k].sources = Object.keys(dashToExplores[k] || {}); });
     
     var allEntities = Object.values(tables).concat(Object.values(views)).concat(Object.values(explores)).concat(Object.values(dashboards));
+    
+    // Count entities with fields for debugging display
+    var entitiesWithFields = allEntities.filter(function(e) { return e.fields.length > 0; }).length;
+    
     var activeTab = 'lineage', searchTerm = '', searchTags = [], selectedNode = null, upstream = [], downstream = [], highlightedEntities = [], expandedDuplicates = {};
     var similarResults = null, analysisLoading = false;
     
@@ -72,22 +90,15 @@ looker.plugins.visualizations.add({
     var typeIcons = { table: '<svg viewBox="0 0 24 24" width="14" height="14" fill="currentColor"><rect x="3" y="3" width="18" height="4" rx="1"/><rect x="3" y="9" width="8" height="3"/><rect x="13" y="9" width="8" height="3"/><rect x="3" y="14" width="8" height="3"/><rect x="13" y="14" width="8" height="3"/></svg>', view: '<svg viewBox="0 0 24 24" width="14" height="14" fill="currentColor"><circle cx="12" cy="12" r="3"/><path d="M12 5C7 5 2.7 8.4 1 12c1.7 3.6 6 7 11 7s9.3-3.4 11-7c-1.7-3.6-6-7-11-7z"/></svg>', explore: '<svg viewBox="0 0 24 24" width="14" height="14" fill="currentColor"><circle cx="10" cy="10" r="6" fill="none" stroke="currentColor" stroke-width="2.5"/><line x1="14.5" y1="14.5" x2="20" y2="20" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"/></svg>', dashboard: '<svg viewBox="0 0 24 24" width="14" height="14" fill="currentColor"><rect x="2" y="2" width="9" height="6" rx="1"/><rect x="13" y="2" width="9" height="9" rx="1"/><rect x="2" y="10" width="9" height="12" rx="1"/><rect x="13" y="13" width="9" height="9" rx="1"/></svg>' };
     var typeConfig = { table: { color: '#06b6d4', label: 'SQL Tables' }, view: { color: '#8b5cf6', label: 'Views' }, explore: { color: '#ec4899', label: 'Explores' }, dashboard: { color: '#f97316', label: 'Dashboards' } };
 
-    // SIMPLE SEARCH: normalize and check if field contains search term
+    // SIMPLE SEARCH: normalize by removing separators, then check contains
     function normalize(str) { return str ? str.toLowerCase().replace(/[_\-\s\.]+/g, '') : ''; }
     
     function fieldMatches(field, term) {
       if (!field || !term) return false;
-      var fieldLower = field.toLowerCase();
-      var termLower = term.toLowerCase().trim();
-      var fieldNorm = normalize(field);
-      var termNorm = normalize(term);
-      
-      // Direct contains: "facp_campaign_name" contains "campaign_name"
-      if (fieldLower.indexOf(termLower) !== -1) return true;
-      
-      // Normalized contains: "facpcampaignname" contains "campaignname"
-      if (fieldNorm.indexOf(termNorm) !== -1) return true;
-      
+      // Check direct contains (case insensitive)
+      if (field.toLowerCase().indexOf(term.toLowerCase()) !== -1) return true;
+      // Check normalized contains
+      if (normalize(field).indexOf(normalize(term)) !== -1) return true;
       return false;
     }
     
@@ -120,7 +131,6 @@ looker.plugins.visualizations.add({
     function renderDuplicatesTab() {
       var viewsCount = Object.values(views).filter(function(v) { return v.fields && v.fields.length > 0; }).length;
       var html = '<div style="padding:16px 24px;border-bottom:1px solid #1e293b;display:flex;justify-content:space-between;align-items:center;"><div style="color:#94a3b8;font-size:13px;">Analyzing <span style="color:#e2e8f0;font-weight:500;">'+viewsCount+'</span> views</div>'+(similarResults ? '<button id="refreshBtn" style="background:transparent;border:1px solid #475569;padding:6px 12px;border-radius:6px;color:#94a3b8;cursor:pointer;font-size:11px;">↻ Refresh</button>' : '')+'</div>';
-      
       if (analysisLoading) { html += '<div style="text-align:center;padding:80px 40px;color:#8b5cf6;font-size:14px;">Analyzing...</div>'; }
       else if (!similarResults || similarResults.length === 0) { html += '<div style="text-align:center;padding:80px 40px;color:#10b981;font-size:14px;">✓ No similar views found</div>'; }
       else {
@@ -240,7 +250,7 @@ looker.plugins.visualizations.add({
         noResultsHtml += '</div>';
       }
       
-      return '<div><div style="padding:10px 20px;border-bottom:1px solid #1e293b;font-size:12px;display:flex;justify-content:space-between;"><div>'+statsText+'</div><div style="color:#64748b;font-size:11px;">'+(filterMode?visibleEntities.length+' of ':'')+allEntities.length+' entities</div></div>'+(noResultsHtml || '<div style="padding:12px;overflow:auto;"><svg width="'+svgWidth+'" height="'+svgHeight+'" style="font-family:system-ui,sans-serif;">'+hdrHtml+edgesHtml+nodesHtml+'</svg></div>')+'</div>';
+      return '<div><div style="padding:10px 20px;border-bottom:1px solid #1e293b;font-size:12px;display:flex;justify-content:space-between;"><div>'+statsText+'</div><div style="color:#64748b;font-size:11px;">'+(filterMode?visibleEntities.length+' of ':'')+allEntities.length+' entities | '+entitiesWithFields+' with fields</div></div>'+(noResultsHtml || '<div style="padding:12px;overflow:auto;"><svg width="'+svgWidth+'" height="'+svgHeight+'" style="font-family:system-ui,sans-serif;">'+hdrHtml+edgesHtml+nodesHtml+'</svg></div>')+'</div>';
     }
     
     function attachEvents() {
@@ -253,7 +263,7 @@ looker.plugins.visualizations.add({
       var tagsHtml = searchTags.map(function(tag, i) { return '<span class="search-tag" data-idx="'+i+'" style="display:inline-flex;align-items:center;gap:6px;background:#10b98125;border:1px solid #10b981;padding:6px 10px;border-radius:8px;font-size:12px;color:#6ee7b7;"><span style="opacity:0.6;font-size:10px;">'+(i+1)+'.</span> '+tag+'<span class="remove-tag" style="cursor:pointer;padding:2px;">'+icons.x+'</span></span>'; }).join('');
       var hasSearch = searchTags.length > 0 || searchTerm.trim();
       
-      container.innerHTML = '<div style="background:#0f172a;min-height:600px;"><div style="padding:14px 24px;border-bottom:1px solid #1e293b;"><div style="display:flex;justify-content:space-between;margin-bottom:14px;"><div><div style="font-weight:600;color:#f1f5f9;font-size:16px;">Asset Manager</div><div style="font-size:10px;color:#64748b;">'+allRows.length+' assets</div></div><div style="display:flex;gap:0;"><button class="tab-btn" data-tab="lineage" style="display:flex;align-items:center;gap:6px;padding:10px 20px;border:none;cursor:pointer;font-size:12px;background:'+(activeTab==='lineage'?'#1e293b':'transparent')+';color:'+(activeTab==='lineage'?'#10b981':'#64748b')+';border-radius:8px 0 0 8px;border:1px solid #334155;">'+icons.lineage+' Lineage</button><button class="tab-btn" data-tab="duplicates" style="display:flex;align-items:center;gap:6px;padding:10px 20px;border:none;cursor:pointer;font-size:12px;background:'+(activeTab==='duplicates'?'#1e293b':'transparent')+';color:'+(activeTab==='duplicates'?'#8b5cf6':'#64748b')+';border-radius:0 8px 8px 0;border:1px solid #334155;border-left:none;">'+icons.duplicate+' Similar Views</button></div></div><div style="background:#1e293b;border:1px solid #475569;border-radius:12px;padding:16px;"><div style="display:flex;align-items:center;gap:10px;margin-bottom:'+(searchTags.length?'12px':'0')+';"><span style="color:#10b981;">'+icons.search+'</span><input id="searchInput" type="text" value="'+searchTerm+'" placeholder="Search fields (comma for AND)..." autocomplete="off" style="flex:1;background:transparent;border:none;color:#e2e8f0;font-size:14px;outline:none;"/>'+(hasSearch||selectedNode?'<span id="clearAll" style="color:#64748b;cursor:pointer;padding:6px 10px;border-radius:6px;background:#334155;font-size:11px;">Clear</span>':'')+'</div>'+(searchTags.length?'<div style="display:flex;flex-wrap:wrap;gap:8px;">'+tagsHtml+'</div>':'')+'</div></div><div id="tab-content">'+(activeTab==='lineage'?renderLineageTab():renderDuplicatesTab())+'</div></div>';
+      container.innerHTML = '<div style="background:#0f172a;min-height:600px;"><div style="padding:14px 24px;border-bottom:1px solid #1e293b;"><div style="display:flex;justify-content:space-between;margin-bottom:14px;"><div><div style="font-weight:600;color:#f1f5f9;font-size:16px;">Asset Manager</div><div style="font-size:10px;color:#64748b;">'+data.length+' rows</div></div><div style="display:flex;gap:0;"><button class="tab-btn" data-tab="lineage" style="display:flex;align-items:center;gap:6px;padding:10px 20px;border:none;cursor:pointer;font-size:12px;background:'+(activeTab==='lineage'?'#1e293b':'transparent')+';color:'+(activeTab==='lineage'?'#10b981':'#64748b')+';border-radius:8px 0 0 8px;border:1px solid #334155;">'+icons.lineage+' Lineage</button><button class="tab-btn" data-tab="duplicates" style="display:flex;align-items:center;gap:6px;padding:10px 20px;border:none;cursor:pointer;font-size:12px;background:'+(activeTab==='duplicates'?'#1e293b':'transparent')+';color:'+(activeTab==='duplicates'?'#8b5cf6':'#64748b')+';border-radius:0 8px 8px 0;border:1px solid #334155;border-left:none;">'+icons.duplicate+' Similar Views</button></div></div><div style="background:#1e293b;border:1px solid #475569;border-radius:12px;padding:16px;"><div style="display:flex;align-items:center;gap:10px;margin-bottom:'+(searchTags.length?'12px':'0')+';"><span style="color:#10b981;">'+icons.search+'</span><input id="searchInput" type="text" value="'+searchTerm+'" placeholder="Search fields (comma for AND)..." autocomplete="off" style="flex:1;background:transparent;border:none;color:#e2e8f0;font-size:14px;outline:none;"/>'+(hasSearch||selectedNode?'<span id="clearAll" style="color:#64748b;cursor:pointer;padding:6px 10px;border-radius:6px;background:#334155;font-size:11px;">Clear</span>':'')+'</div>'+(searchTags.length?'<div style="display:flex;flex-wrap:wrap;gap:8px;">'+tagsHtml+'</div>':'')+'</div></div><div id="tab-content">'+(activeTab==='lineage'?renderLineageTab():renderDuplicatesTab())+'</div></div>';
       
       var input = container.querySelector('#searchInput');
       input.addEventListener('input', function(e) { var val = e.target.value; if (val.indexOf(',') !== -1) { var parts = val.split(','); for (var i = 0; i < parts.length - 1; i++) { var term = parts[i].trim(); if (term && searchTags.indexOf(term) === -1) searchTags.push(term); } searchTerm = parts[parts.length - 1]; render(); return; } searchTerm = val; selectedNode = null; var tc = container.querySelector('#tab-content'); if (tc && activeTab === 'lineage') { tc.innerHTML = renderLineageTab(); attachEvents(); } });
