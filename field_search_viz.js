@@ -92,40 +92,51 @@ looker.plugins.visualizations.add({
       // Minimum term length for matching
       if (termNorm.length < 2) return 0;
       
-      // Exact match
+      // 1. Exact match: "campaign_name" === "campaign_name"
       if (textLower === termLower) return 100;
+      
+      // 2. Normalized exact match: "campaignname" === "campaignname"
       if (textNorm === termNorm) return 98;
       
-      // Contains match - text contains the EXACT search term as substring
+      // 3. Text contains exact search term: "hics_campaign_name" contains "campaign_name"
       if (textLower.indexOf(termLower) !== -1) return 95;
       
-      // Tokenize both
-      var textTokens = tokenize(text);
+      // 4. Normalized contains: "hicscampaignname" contains "campaignname"
+      if (textNorm.indexOf(termNorm) !== -1) return 90;
+      
+      // 5. For single-token searches, check token match
       var termTokens = tokenize(searchTerm);
+      var textTokens = tokenize(text);
       
-      // All term tokens found as EXACT tokens in text
-      var hasExactTokenMatch = termTokens.length > 0 && termTokens.every(function(tt) {
-        return textTokens.indexOf(tt) !== -1;
-      });
-      if (hasExactTokenMatch) return 90;
-      
-      // Normalized contains (ignoring separators)
-      if (textNorm.indexOf(termNorm) !== -1) return 85;
-      
-      // Synonym expansion - require EXACT token match for synonyms
-      var expandedTerms = []; 
-      termTokens.forEach(function(tt) { 
-        if (tt.length >= 3) {
-          expandedTerms = expandedTerms.concat(expandWithSynonyms(tt)); 
+      // Single token search (e.g., "campaign" or "facp")
+      if (termTokens.length === 1) {
+        var singleToken = termTokens[0];
+        
+        // Exact token match: "campaign" in ["hics", "campaign", "name"]
+        if (textTokens.indexOf(singleToken) !== -1) return 85;
+        
+        // Token starts with search: field token starts with search term
+        // e.g., searching "camp" matches "campaign"
+        if (singleToken.length >= 3) {
+          var startsWithMatch = textTokens.some(function(tt) {
+            return tt.indexOf(singleToken) === 0;
+          });
+          if (startsWithMatch) return 75;
         }
-      });
-      var hasSynonymMatch = expandedTerms.some(function(et) { 
-        return textTokens.indexOf(et.toLowerCase()) !== -1;
-      });
-      if (hasSynonymMatch) return 75;
+        
+        // Synonym match for single tokens
+        if (singleToken.length >= 3) {
+          var expandedTerms = expandWithSynonyms(singleToken);
+          var hasSynonymMatch = expandedTerms.some(function(et) { 
+            return textTokens.indexOf(et.toLowerCase()) !== -1;
+          });
+          if (hasSynonymMatch) return 70;
+        }
+      }
       
-      // NO FUZZY MATCHING - it causes too many false positives
-      // facp_ should NOT match facs_, gross_revenue should NOT match research
+      // For multi-token searches, we already checked contains above
+      // If we get here with multi-token, it means the exact phrase wasn't found
+      // So we return 0 - we don't want partial matches like "campaign" without "name"
       
       return 0;
     }
