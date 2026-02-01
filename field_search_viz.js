@@ -18,14 +18,23 @@ looker.plugins.visualizations.add({
     // Find columns - be very flexible with matching
     var tableField = null, fieldsField = null, viewField = null, expField = null, dashField = null;
     
+    // Find columns by checking each field name
     allFieldNames.forEach(function(name) {
       var n = name.toLowerCase();
-      // Order matters - check most specific patterns first
-      if (n.indexOf('sql_table_fields') !== -1 || n.indexOf('table_fields') !== -1) fieldsField = name;
-      else if (n.indexOf('sql_table') !== -1) tableField = name;
-      if (n.indexOf('view') !== -1 && n.indexOf('name') !== -1) viewField = name;
-      if (n.indexOf('explore') !== -1 && n.indexOf('name') !== -1) expField = name;
-      if (n.indexOf('dashboard') !== -1 && n.indexOf('title') !== -1) dashField = name;
+      if (n.indexOf('sql_table_fields') !== -1 || n.indexOf('table_fields') !== -1) {
+        fieldsField = name;
+      } else if (n.indexOf('sql_table') !== -1) {
+        tableField = name;
+      }
+      if (n.indexOf('view') !== -1 && n.indexOf('name') !== -1 && !viewField) {
+        viewField = name;
+      }
+      if (n.indexOf('explore') !== -1 && n.indexOf('name') !== -1 && !expField) {
+        expField = name;
+      }
+      if (n.indexOf('dashboard') !== -1 && n.indexOf('title') !== -1 && !dashField) {
+        dashField = name;
+      }
     });
     
     // Build entities from data
@@ -111,9 +120,11 @@ looker.plugins.visualizations.add({
       analysisLoading = true; render();
       setTimeout(function() {
         var results = [];
-        var viewsList = Object.values(views).filter(function(v) { return v.fields && v.fields.length > 0; });
-        for (var i = 0; i < viewsList.length; i++) {
-          for (var j = i + 1; j < viewsList.length; j++) {
+        var viewsList = Object.values(views).filter(function(v) { return v.fields && v.fields.length > 0; }).slice(0, 200);
+        var maxComparisons = 10000, comparisons = 0;
+        for (var i = 0; i < viewsList.length && comparisons < maxComparisons; i++) {
+          for (var j = i + 1; j < viewsList.length && comparisons < maxComparisons; j++) {
+            comparisons++;
             var v1 = viewsList[i], v2 = viewsList[j];
             var sharedTables = v1.sqlTables.filter(function(t) { return v2.sqlTables.indexOf(t) !== -1; });
             var exactFields = v1.fields.filter(function(f) { return v2.fields.indexOf(f) !== -1; });
