@@ -21,11 +21,16 @@ looker.plugins.visualizations.add({
     var extendedViewField = fields.find(function(f) { return f.toLowerCase().indexOf('extended') !== -1 && f.toLowerCase().indexOf('view') !== -1; });
     var includedViewField = fields.find(function(f) { return f.toLowerCase().indexOf('included') !== -1 && f.toLowerCase().indexOf('view') !== -1; });
     
-    // Find the fields column - look for sql_table_fields or table_fields
-    var fieldsField = fields.find(function(f) { 
-      var fl = f.toLowerCase(); 
-      return fl.indexOf('sql_table_fields') !== -1 || fl.indexOf('table_fields') !== -1;
-    });
+    // Find the fields column - look for any column containing 'table_fields'
+    var fieldsField = null;
+    for (var i = 0; i < fields.length; i++) {
+      if (fields[i].toLowerCase().indexOf('table_fields') !== -1) {
+        fieldsField = fields[i];
+        break;
+      }
+    }
+    
+    
     
     var allRows = data.map(function(row) {
       var fieldsVal = fieldsField && row[fieldsField] ? row[fieldsField].value || '' : '';
@@ -305,9 +310,28 @@ looker.plugins.visualizations.add({
       container.innerHTML = '<div style="background:#0f172a;min-height:600px;"><div style="padding:14px 24px;border-bottom:1px solid #1e293b;"><div style="display:flex;justify-content:space-between;margin-bottom:14px;"><div><div style="font-weight:600;color:#f1f5f9;font-size:16px;">Asset Manager</div><div style="font-size:10px;color:#64748b;">'+allRows.length+' assets</div></div><div style="display:flex;gap:0;"><button class="tab-btn" data-tab="lineage" style="display:flex;align-items:center;gap:6px;padding:10px 20px;border:none;cursor:pointer;font-size:12px;background:'+(activeTab==='lineage'?'#1e293b':'transparent')+';color:'+(activeTab==='lineage'?'#10b981':'#64748b')+';border-radius:8px 0 0 8px;border:1px solid #334155;">'+icons.lineage+' Lineage</button><button class="tab-btn" data-tab="duplicates" style="display:flex;align-items:center;gap:6px;padding:10px 20px;border:none;cursor:pointer;font-size:12px;background:'+(activeTab==='duplicates'?'#1e293b':'transparent')+';color:'+(activeTab==='duplicates'?'#8b5cf6':'#64748b')+';border-radius:0 8px 8px 0;border:1px solid #334155;border-left:none;">'+icons.duplicate+' Similar Views</button></div></div><div style="background:#1e293b;border:1px solid #475569;border-radius:12px;padding:16px;"><div style="display:flex;align-items:center;gap:10px;margin-bottom:'+(searchTags.length?'12px':'0')+';"><span style="color:#10b981;">'+icons.search+'</span><input id="searchInput" type="text" value="'+searchTerm+'" placeholder="Search fields (comma for AND - find assets with ALL fields)..." autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" style="flex:1;background:transparent;border:none;color:#e2e8f0;font-size:14px;outline:none;"/>'+(hasSearch||selectedNode?'<span id="clearAll" style="color:#64748b;cursor:pointer;padding:6px 10px;border-radius:6px;background:#334155;font-size:11px;">Clear</span>':'')+'</div>'+(searchTags.length?'<div style="display:flex;flex-wrap:wrap;gap:8px;">'+tagsHtml+'</div>':'')+'</div></div><div id="tab-content">'+(activeTab==='lineage'?renderLineageTab():renderDuplicatesTab())+'</div></div>';
       
       var input = container.querySelector('#searchInput');
-      input.addEventListener('input', function(e) { var val = e.target.value; if (val.indexOf(',') !== -1) { var parts = val.split(','); for (var i = 0; i < parts.length - 1; i++) { var term = parts[i].trim(); if (term && searchTags.indexOf(term) === -1) searchTags.push(term); } searchTerm = parts[parts.length - 1]; render(); return; } searchTerm = val; selectedNode = null; var tc = container.querySelector('#tab-content'); if (tc && activeTab === 'lineage') { tc.innerHTML = renderLineageTab(); attachEvents(); } });
+      input.addEventListener('input', function(e) { 
+        var val = e.target.value; 
+        if (val.indexOf(',') !== -1) { 
+          var parts = val.split(','); 
+          for (var i = 0; i < parts.length - 1; i++) { 
+            var term = parts[i].trim(); 
+            if (term && searchTags.indexOf(term) === -1) searchTags.push(term); 
+          } 
+          searchTerm = parts[parts.length - 1]; 
+          render(); 
+          return; 
+        } 
+        searchTerm = val; 
+        selectedNode = null; 
+        var tc = container.querySelector('#tab-content'); 
+        if (tc && activeTab === 'lineage') { 
+          tc.innerHTML = renderLineageTab(); 
+          attachEvents(); 
+        } 
+      });
       input.addEventListener('keydown', function(e) { if (e.key === 'Enter' && searchTerm.trim()) { if (searchTags.indexOf(searchTerm.trim()) === -1) searchTags.push(searchTerm.trim()); searchTerm = ''; render(); } else if (e.key === 'Backspace' && !searchTerm && searchTags.length > 0) { searchTags.pop(); render(); } });
-      input.focus();
+      // Don't auto-focus to avoid potential issues
       
       var clearBtn = container.querySelector('#clearAll'); if (clearBtn) clearBtn.addEventListener('click', function() { searchTerm = ''; searchTags = []; selectedNode = null; render(); });
       container.querySelectorAll('.remove-tag').forEach(function(btn) { btn.addEventListener('click', function(e) { e.stopPropagation(); searchTags.splice(parseInt(btn.parentElement.dataset.idx), 1); render(); }); });
