@@ -104,19 +104,29 @@ looker.plugins.visualizations.add({
       // 4. Normalized contains: "hicscampaignname" contains "campaignname"
       if (textNorm.indexOf(termNorm) !== -1) return 90;
       
-      // 5. For single-token searches, check token match
+      // Tokenize for further checks
       var termTokens = tokenize(searchTerm);
       var textTokens = tokenize(text);
       
-      // Single token search (e.g., "campaign" or "facp")
+      // 5. All search tokens found as exact tokens in text
+      // e.g., search "campaign_name" → ["campaign", "name"]
+      // field "hics_campaign_name" → ["hics", "campaign", "name"]
+      // Both "campaign" AND "name" are in field tokens = MATCH
+      if (termTokens.length > 0) {
+        var allTokensFound = termTokens.every(function(tt) {
+          return textTokens.indexOf(tt) !== -1;
+        });
+        if (allTokensFound) return 85;
+      }
+      
+      // 6. For single-token searches only, allow partial matches
       if (termTokens.length === 1) {
         var singleToken = termTokens[0];
         
         // Exact token match: "campaign" in ["hics", "campaign", "name"]
-        if (textTokens.indexOf(singleToken) !== -1) return 85;
+        if (textTokens.indexOf(singleToken) !== -1) return 80;
         
-        // Token starts with search: field token starts with search term
-        // e.g., searching "camp" matches "campaign"
+        // Token starts with search term (for prefixes like "facp")
         if (singleToken.length >= 3) {
           var startsWithMatch = textTokens.some(function(tt) {
             return tt.indexOf(singleToken) === 0;
@@ -134,16 +144,12 @@ looker.plugins.visualizations.add({
         }
       }
       
-      // For multi-token searches, we already checked contains above
-      // If we get here with multi-token, it means the exact phrase wasn't found
-      // So we return 0 - we don't want partial matches like "campaign" without "name"
-      
       return 0;
     }
     
     function smartMatch(text, searchTerm, returnScore) { 
       var score = calculateMatchScore(text, searchTerm); 
-      return returnScore ? score : score >= 40; // Raised threshold from 35 to 40
+      return returnScore ? score : score >= 70;
     }
     // === END SEARCH AGENT ===
     
@@ -262,7 +268,7 @@ looker.plugins.visualizations.add({
       var terms = searchTags.slice(); if (searchTerm.trim()) terms.push(searchTerm.trim()); if (terms.length === 0) return [];
       var matches = [], partialMatches = [];
       
-      var MATCH_THRESHOLD = 40;
+      var MATCH_THRESHOLD = 70; // Lowered threshold to catch more matches
       
       allEntities.forEach(function(entity) {
         var matchedTermsCount = 0, fieldMatches = [], nameScore = 0, tableMatches = [];
