@@ -96,66 +96,36 @@ looker.plugins.visualizations.add({
       if (textLower === termLower) return 100;
       if (textNorm === termNorm) return 98;
       
-      // Contains match - but term must be substantial part or token boundary
-      // Check if term appears as a complete token/word in text
+      // Contains match - text contains the EXACT search term as substring
+      if (textLower.indexOf(termLower) !== -1) return 95;
+      
+      // Tokenize both
       var textTokens = tokenize(text);
       var termTokens = tokenize(searchTerm);
       
-      // Best: exact token match (e.g., "campaign" in ["hisc", "campaign", "id"])
-      var hasExactTokenMatch = termTokens.every(function(tt) {
-        return textTokens.some(function(txtt) { return txtt === tt; });
+      // All term tokens found as EXACT tokens in text
+      var hasExactTokenMatch = termTokens.length > 0 && termTokens.every(function(tt) {
+        return textTokens.indexOf(tt) !== -1;
       });
-      if (hasExactTokenMatch) return 95;
+      if (hasExactTokenMatch) return 90;
       
-      // Good: term is substring at token boundary (e.g., "campaign_id" in "hisc_campaign_id")
-      if (textLower.indexOf(termLower) !== -1) return 90;
-      if (textNorm.indexOf(termNorm) !== -1) return 88;
+      // Normalized contains (ignoring separators)
+      if (textNorm.indexOf(termNorm) !== -1) return 85;
       
-      // Check if ALL term tokens are found as exact tokens in text
-      if (termTokens.length > 0) {
-        var allExactTokens = termTokens.every(function(tt) {
-          return textTokens.indexOf(tt) !== -1;
-        });
-        if (allExactTokens) return 85;
-      }
-      
-      // Partial token match - but be stricter: token must START with search term
-      // This prevents "research" from matching "rev"
-      var hasTokenStartMatch = termTokens.every(function(tt) {
-        if (tt.length < 3) return false; // Skip very short tokens
-        return textTokens.some(function(txtt) {
-          return txtt.indexOf(tt) === 0 || tt.indexOf(txtt) === 0;
-        });
-      });
-      if (hasTokenStartMatch) return 75;
-      
-      // Synonym expansion - but require exact token match for synonyms
+      // Synonym expansion - require EXACT token match for synonyms
       var expandedTerms = []; 
       termTokens.forEach(function(tt) { 
-        if (tt.length >= 3) { // Only expand tokens with 3+ chars
+        if (tt.length >= 3) {
           expandedTerms = expandedTerms.concat(expandWithSynonyms(tt)); 
         }
       });
       var hasSynonymMatch = expandedTerms.some(function(et) { 
         return textTokens.indexOf(et.toLowerCase()) !== -1;
       });
-      if (hasSynonymMatch) return 70;
+      if (hasSynonymMatch) return 75;
       
-      // Fuzzy match with Levenshtein - only for longer tokens
-      var minDist = Infinity; 
-      textTokens.forEach(function(txtt) { 
-        if (txtt.length < 4) return; // Skip short tokens
-        termTokens.forEach(function(tt) { 
-          if (tt.length >= 4) { // Only fuzzy match 4+ char tokens
-            var dist = levenshtein(txtt, tt);
-            var maxLen = Math.max(txtt.length, tt.length); 
-            var ratio = dist / maxLen;
-            if (ratio < minDist) minDist = ratio; 
-          } 
-        }); 
-      });
-      if (minDist <= 0.2) return 55; // Very close fuzzy match
-      if (minDist <= 0.3) return 40; // Moderate fuzzy match
+      // NO FUZZY MATCHING - it causes too many false positives
+      // facp_ should NOT match facs_, gross_revenue should NOT match research
       
       return 0;
     }
@@ -281,27 +251,22 @@ looker.plugins.visualizations.add({
       var terms = searchTags.slice(); if (searchTerm.trim()) terms.push(searchTerm.trim()); if (terms.length === 0) return [];
       var matches = [], partialMatches = [];
       
-      // Use consistent threshold
       var MATCH_THRESHOLD = 40;
       
       allEntities.forEach(function(entity) {
         var matchedTermsCount = 0, fieldMatches = [], nameScore = 0, tableMatches = [];
-        var debugInfo = []; // For debugging
         
         terms.forEach(function(term) {
           var termMatched = false;
-          var termDebug = { term: term, nameScore: 0, fieldScores: [], tableScores: [] };
           
           // Check entity name
           var ns = smartMatch(entity.name, term, true);
-          termDebug.nameScore = ns;
           if (ns >= MATCH_THRESHOLD) { termMatched = true; nameScore = Math.max(nameScore, ns); }
           
           // Check SQL tables
           if (entity.sqlTables && entity.sqlTables.length > 0) {
             entity.sqlTables.forEach(function(tbl) {
               var ts = smartMatch(tbl, term, true);
-              termDebug.tableScores.push({ table: tbl, score: ts });
               if (ts >= MATCH_THRESHOLD) { termMatched = true; tableMatches.push({ table: tbl, term: term, score: ts }); }
             });
           }
@@ -310,7 +275,6 @@ looker.plugins.visualizations.add({
           if (entity.fields && entity.fields.length > 0) {
             entity.fields.forEach(function(field) {
               var fs = smartMatch(field, term, true);
-              if (fs > 0) termDebug.fieldScores.push({ field: field, score: fs });
               if (fs >= MATCH_THRESHOLD) {
                 termMatched = true;
                 var existing = fieldMatches.find(function(fm) { return fm.field === field; });
@@ -320,20 +284,8 @@ looker.plugins.visualizations.add({
             });
           }
           
-          debugInfo.push(termDebug);
           if (termMatched) matchedTermsCount++;
         });
-        
-        // Debug: log entities that match with details
-        if (matchedTermsCount > 0 && entity.name.indexOf('hisc_salesforce') !== -1) {
-          console.log('DEBUG Entity:', entity.name, 'Matched:', matchedTermsCount, '/', terms.length);
-          debugInfo.forEach(function(d) {
-            console.log('  Term:', d.term, 'NameScore:', d.nameScore);
-            d.fieldScores.filter(function(f) { return f.score >= MATCH_THRESHOLD; }).forEach(function(f) {
-              console.log('    Field Match:', f.field, 'Score:', f.score);
-            });
-          });
-        }
         
         var matchData = { 
           entity: entity, 
