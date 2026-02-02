@@ -24,7 +24,13 @@ looker.plugins.visualizations.add({
     var fieldsField = null;
     for (var i = 0; i < fields.length; i++) {
       var fl = fields[i].toLowerCase();
-      if (fl.indexOf('falm_sql_table_fields') !== -1 || fl.indexOf('sql_table_fields') !== -1) { fieldsField = fields[i]; break; }
+      if (fl.indexOf('sql_table_fields') !== -1) { fieldsField = fields[i]; break; }
+    }
+    console.log('FIELDS COLUMN:', fieldsField);
+    console.log('ALL COLUMNS:', fields);
+    if (fieldsField && data[0] && data[0][fieldsField]) {
+      var sample = data[0][fieldsField].value || data[0][fieldsField];
+      console.log('SAMPLE VALUE (first 200 chars):', String(sample).substring(0, 200));
     }
     
     var allRows = data.map(function(row) {
