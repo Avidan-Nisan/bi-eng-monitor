@@ -10,7 +10,11 @@ looker.plugins.visualizations.add({
   updateAsync: function(data, element, config, queryResponse, details, done) {
     var container = element.querySelector('#asset-manager-container');
     var containerWidth = element.offsetWidth || 1200;
-    if (!data || data.length === 0) { container.innerHTML = '<div style="padding:40px;color:#64748b;background:#0f172a;min-height:600px;">No data available</div>'; done(); return; }
+    if (!data || data.length === 0) { 
+      container.innerHTML = '<div style="padding:40px;color:#64748b;background:#0f172a;min-height:600px;">No data available</div>'; 
+      done(); 
+      return; 
+    }
     
     var fields = queryResponse.fields.dimension_like.map(function(f) { return f.name; });
     
@@ -60,13 +64,20 @@ looker.plugins.visualizations.add({
       };
     });
     
-    // ============ KEY FIX: PREFIX-BASED FIELD ASSIGNMENT FOR TABLES ============
+    // ============================================================
+    // KEY FIX: PREFIX-BASED FIELD ASSIGNMENT FOR TABLES
+    // Tables only get fields where field prefix matches table prefix
+    // e.g., dima_marketer only gets dima_* fields
+    // ============================================================
     
     // Extract prefix from table name (e.g., "dima_marketer" -> "dima")
     function getTablePrefix(tableName) {
       if (!tableName) return null;
       var name = tableName.toLowerCase();
+      // Special tables that don't follow prefix pattern
       if (name === '[looker_derived_fields]') return null;
+      if (name.indexOf('template_') === 0) return null;
+      if (name.indexOf('off_platform_') === 0) return null;
       var idx = name.indexOf('_');
       return idx > 0 ? name.substring(0, idx) : null;
     }
@@ -83,7 +94,9 @@ looker.plugins.visualizations.add({
     function fieldBelongsToTable(field, tableName) {
       var tablePrefix = getTablePrefix(tableName);
       var fieldPrefix = getFieldPrefix(field);
-      if (!tablePrefix || !fieldPrefix) return false;
+      // If table has no clear prefix, don't assign any fields based on prefix
+      if (!tablePrefix) return false;
+      if (!fieldPrefix) return false;
       return tablePrefix === fieldPrefix;
     }
     
@@ -95,7 +108,7 @@ looker.plugins.visualizations.add({
       }
     });
     
-    // Collect ALL fields that appear in data for each table
+    // Collect ALL fields that appear in data for each table (from row associations)
     var tableFieldsFromData = {};
     allRows.forEach(function(row) {
       if (row.table) {
@@ -107,34 +120,46 @@ looker.plugins.visualizations.add({
     });
     
     // FOR TABLES: Filter to only keep fields where prefix matches table prefix
+    // This ensures dima_marketer only has dima_* fields, not dics_* fields
     var tableOwnFields = {};
     allTablesList.forEach(function(tbl) {
       var allFieldsForTable = Object.keys(tableFieldsFromData[tbl] || {});
-      // Only keep fields that match this table's prefix
-      tableOwnFields[tbl] = allFieldsForTable.filter(function(f) {
-        return fieldBelongsToTable(f, tbl);
-      });
-    });
-    
-    // Special case: [LOOKER_DERIVED_FIELDS] keeps all its fields
-    if (tableFieldsFromData['[LOOKER_DERIVED_FIELDS]']) {
-      tableOwnFields['[LOOKER_DERIVED_FIELDS]'] = Object.keys(tableFieldsFromData['[LOOKER_DERIVED_FIELDS]']);
-    }
-    
-    // Debug: verify the fix is working
-    console.log('=== TABLE OWN FIELDS (PREFIX-FILTERED) ===');
-    ['dima_marketer', 'dics_campaign_settings', 'dipb_publisher', 'dise_section', 'diub_unified_blocks'].forEach(function(t) {
-      if (tableOwnFields[t]) {
-        var hasCrossPrefix = tableOwnFields[t].some(function(f) {
-          var fp = getFieldPrefix(f);
-          var tp = getTablePrefix(t);
-          return fp && tp && fp !== tp;
+      var tablePrefix = getTablePrefix(tbl);
+      
+      if (tablePrefix) {
+        // Only keep fields that match this table's prefix
+        tableOwnFields[tbl] = allFieldsForTable.filter(function(f) {
+          return fieldBelongsToTable(f, tbl);
         });
-        console.log(t + ' (' + tableOwnFields[t].length + ' fields, crossPrefix=' + hasCrossPrefix + '):', tableOwnFields[t].slice(0, 5).join(', '));
+      } else {
+        // For tables without clear prefix (like [LOOKER_DERIVED_FIELDS], template_*, etc.)
+        // Keep all their fields
+        tableOwnFields[tbl] = allFieldsForTable;
       }
     });
     
-    // ============ END OF KEY FIX ============
+    // Debug: verify the fix is working
+    console.log('=== ASSET MANAGER: TABLE FIELDS (PREFIX-FILTERED) ===');
+    var testTables = ['dima_marketer', 'dics_campaign_settings', 'dipb_publisher', 'dise_section', 'diub_unified_blocks'];
+    testTables.forEach(function(t) {
+      if (tableOwnFields[t]) {
+        var prefix = getTablePrefix(t);
+        var wrongPrefixFields = tableOwnFields[t].filter(function(f) {
+          var fp = getFieldPrefix(f);
+          return fp && prefix && fp !== prefix;
+        });
+        console.log(t + ' (prefix=' + prefix + ', fields=' + tableOwnFields[t].length + ', wrongPrefix=' + wrongPrefixFields.length + ')');
+        if (wrongPrefixFields.length > 0) {
+          console.log('  WARNING - wrong prefix fields:', wrongPrefixFields.slice(0, 5));
+        } else {
+          console.log('  Sample fields:', tableOwnFields[t].slice(0, 5));
+        }
+      }
+    });
+    
+    // ============================================================
+    // END OF KEY FIX
+    // ============================================================
     
     var tables = {}, views = {}, explores = {}, dashboards = {};
     var viewToTables = {}, viewToViews = {}, exploreToViews = {}, dashToExplores = {};
@@ -150,12 +175,12 @@ looker.plugins.visualizations.add({
           name: tbl, 
           type: 'table', 
           sources: [], 
-          fields: tableOwnFields[tbl] || [],  // Use prefix-filtered fields
+          fields: tableOwnFields[tbl] || [],  // Use prefix-filtered fields!
           sqlTables: [tbl] 
         };
       }
       
-      // Create VIEW with ALL fields from its rows (views can access multiple tables)
+      // Create VIEW - views get ALL fields (they can join multiple tables)
       if (vw && !views[vw]) {
         views[vw] = { id: 'v_' + vw, name: vw, type: 'view', sources: [], fields: [], sqlTables: [] };
       }
@@ -172,7 +197,7 @@ looker.plugins.visualizations.add({
         views[incVw] = { id: 'v_' + incVw, name: incVw, type: 'view', sources: [], fields: [], sqlTables: [] };
       }
       
-      // Views get ALL fields (they join multiple tables)
+      // Views get ALL fields from their rows (they join multiple tables)
       if (vw && views[vw]) { 
         row.fields.forEach(function(f) { 
           if (views[vw].fields.indexOf(f) === -1) views[vw].fields.push(f); 
