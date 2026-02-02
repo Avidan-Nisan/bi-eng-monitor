@@ -27,7 +27,7 @@ looker.plugins.visualizations.add({
       if (fl.indexOf('sql_table_fields') !== -1) { fieldsField = fields[i]; break; }
     }
     
-    // First pass: collect all table names
+    // Collect all table names for filtering
     var allTableNames = {};
     data.forEach(function(row) {
       if (tableField && row[tableField] && row[tableField].value) {
@@ -40,44 +40,7 @@ looker.plugins.visualizations.add({
       }
     });
     
-    // Build a STRICT map: for each UNIQUE table, store ONLY the fields from its FIRST occurrence
-    // This prevents field mixing across different views
-    var tableFirstFields = {};
-    data.forEach(function(row) {
-      var tbl = tableField && row[tableField] ? row[tableField].value : '';
-      var fieldsVal = fieldsField && row[fieldsField] ? row[fieldsField].value || '' : '';
-      
-      if (tbl && fieldsVal && !tableFirstFields[tbl]) {
-        // ONLY set fields the FIRST time we see this table
-        var rawFields = fieldsVal.split('|').filter(function(f) { return f.trim(); });
-        var cleanFields = rawFields.filter(function(f) {
-          var fLower = f.toLowerCase().trim();
-          return !allTableNames[fLower] && fLower.indexOf('.') === -1;
-        });
-        tableFirstFields[tbl] = cleanFields;
-        
-        // Debug: log what fields each table gets
-        if (tbl.indexOf('dima_marketer') !== -1 || tbl.indexOf('dics_campaign') !== -1) {
-          console.log('TABLE FIELDS SET:', tbl, '=', cleanFields.slice(0, 10).join(', '));
-        }
-      }
-    });
-    
-    // Check if dima_marketer has campaign in its fields
-    Object.keys(tableFirstFields).forEach(function(tbl) {
-      if (tbl.toLowerCase().indexOf('dima_marketer') !== -1) {
-        var hasCampaign = tableFirstFields[tbl].some(function(f) {
-          return f.toLowerCase().indexOf('campaign') !== -1;
-        });
-        console.log('dima_marketer has campaign field?', hasCampaign);
-        if (hasCampaign) {
-          console.log('PROBLEM! dima_marketer campaign fields:', tableFirstFields[tbl].filter(function(f) {
-            return f.toLowerCase().indexOf('campaign') !== -1;
-          }));
-        }
-      }
-    });
-    
+    // Build per-row data with clean fields
     var allRows = data.map(function(row) {
       var fieldsVal = fieldsField && row[fieldsField] ? row[fieldsField].value || '' : '';
       var rawFields = fieldsVal ? fieldsVal.split('|').filter(function(f) { return f.trim(); }) : [];
@@ -99,14 +62,59 @@ looker.plugins.visualizations.add({
       };
     });
     
+    // KEY CHANGE: Build a map of (view+table) -> fields
+    // This ensures each table's fields are specific to the view context
+    var viewTableFields = {};
+    allRows.forEach(function(row) {
+      if (row.view && row.table) {
+        var key = row.view + '|||' + row.table;
+        if (!viewTableFields[key]) {
+          viewTableFields[key] = { view: row.view, table: row.table, fields: [] };
+        }
+        row.fields.forEach(function(f) {
+          if (viewTableFields[key].fields.indexOf(f) === -1) {
+            viewTableFields[key].fields.push(f);
+          }
+        });
+      }
+    });
+    
+    // Now build unique tables - a table is unique by name, but its fields are the INTERSECTION
+    // of what fields actually exist in the raw SQL table (fields that appear in ALL views using this table would be safest,
+    // but for simplicity, we'll use fields that are "typical" for the table based on naming convention)
+    var tableFieldsByName = {};
+    Object.values(viewTableFields).forEach(function(vtf) {
+      var tbl = vtf.table;
+      if (!tableFieldsByName[tbl]) {
+        tableFieldsByName[tbl] = {};
+      }
+      // Only add fields that look like they belong to this table (match prefix pattern)
+      var tblPrefix = tbl.toLowerCase().replace(/[^a-z]/g, '').substring(0, 4);
+      vtf.fields.forEach(function(f) {
+        var fPrefix = f.toLowerCase().substring(0, 4);
+        // Field belongs to table if it starts with similar prefix OR if table has no clear prefix
+        if (fPrefix === tblPrefix || tbl === '[LOOKER_DERIVED_FIELDS]') {
+          tableFieldsByName[tbl][f] = true;
+        }
+      });
+    });
+    
+    // Debug
+    console.log('=== TABLE FIELDS BY PREFIX MATCHING ===');
+    ['dima_marketer', 'dics_campaign_settings', 'diad_ad'].forEach(function(t) {
+      if (tableFieldsByName[t]) {
+        console.log(t + ':', Object.keys(tableFieldsByName[t]).slice(0, 10).join(', '));
+      }
+    });
+    
     var tables = {}, views = {}, explores = {}, dashboards = {}, viewToTables = {}, viewToViews = {}, exploreToViews = {}, dashToExplores = {};
     
     allRows.forEach(function(row) {
       var tbl = row.table, vw = row.view, exp = row.explore, dash = row.dashboard, extVw = row.extendedView, incVw = row.includedView;
       
-      // Create table with ONLY its own fields from tableFirstFields
+      // Create table with ONLY fields that match its naming prefix
       if (tbl && !tables[tbl]) {
-        var tblFields = tableFirstFields[tbl] || [];
+        var tblFields = tableFieldsByName[tbl] ? Object.keys(tableFieldsByName[tbl]) : [];
         tables[tbl] = { id: 't_'+tbl, name: tbl, type: 'table', sources: [], fields: tblFields, sqlTables: [tbl] };
       }
       
@@ -116,19 +124,17 @@ looker.plugins.visualizations.add({
       if (extVw && !views[extVw]) views[extVw] = { id: 'v_'+extVw, name: extVw, type: 'view', sources: [], fields: [], sqlTables: [] };
       if (incVw && !views[incVw]) views[incVw] = { id: 'v_'+incVw, name: incVw, type: 'view', sources: [], fields: [], sqlTables: [] };
       
-      // Views accumulate ALL fields from all their source tables
+      // Views get ALL fields from their rows
       if (vw && views[vw]) { 
         row.fields.forEach(function(f) { if (views[vw].fields.indexOf(f) === -1) views[vw].fields.push(f); }); 
         if (tbl && views[vw].sqlTables.indexOf(tbl) === -1) views[vw].sqlTables.push(tbl); 
       }
       
-      // Explores accumulate fields
       if (exp && explores[exp]) { 
         row.fields.forEach(function(f) { if (explores[exp].fields.indexOf(f) === -1) explores[exp].fields.push(f); }); 
         if (tbl && explores[exp].sqlTables.indexOf(tbl) === -1) explores[exp].sqlTables.push(tbl); 
       }
       
-      // Dashboards accumulate fields
       if (dash && dashboards[dash]) { 
         row.fields.forEach(function(f) { if (dashboards[dash].fields.indexOf(f) === -1) dashboards[dash].fields.push(f); }); 
         if (tbl && dashboards[dash].sqlTables.indexOf(tbl) === -1) dashboards[dash].sqlTables.push(tbl); 
@@ -149,12 +155,14 @@ looker.plugins.visualizations.add({
     var activeTab = 'lineage', searchTerm = '', searchTags = [], selectedNode = null, upstream = [], downstream = [], highlightedEntities = [], expandedDuplicates = {};
     var similarResults = null, analysisLoading = false, analysisError = null;
     
-    // Final check: what fields does dima_marketer table entity have?
-    var dimaTable = allEntities.find(function(e) { return e.name && e.name.toLowerCase().indexOf('dima_marketer') !== -1 && e.type === 'table'; });
+    // Final debug check
+    var dimaTable = tables['dima_marketer'];
     if (dimaTable) {
-      console.log('FINAL dima_marketer table entity fields:', dimaTable.fields.slice(0, 15));
-      var campaignFields = dimaTable.fields.filter(function(f) { return f.toLowerCase().indexOf('campaign') !== -1; });
-      console.log('FINAL dima_marketer campaign fields:', campaignFields);
+      var hasCampaign = dimaTable.fields.some(function(f) { return f.toLowerCase().indexOf('campaign') !== -1; });
+      console.log('FINAL CHECK - dima_marketer has campaign?', hasCampaign);
+      if (hasCampaign) {
+        console.log('Campaign fields in dima_marketer:', dimaTable.fields.filter(function(f) { return f.toLowerCase().indexOf('campaign') !== -1; }));
+      }
     }
     
     var icons = { search: '<svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><path d="M21 21l-4.35-4.35"/></svg>', x: '<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>', lineage: '<svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2"><circle cx="5" cy="12" r="2"/><circle cx="19" cy="6" r="2"/><circle cx="19" cy="18" r="2"/><path d="M7 12h4l4-6h2M11 12l4 6h2"/></svg>', duplicate: '<svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2"><rect x="8" y="8" width="12" height="12" rx="2"/><path d="M4 16V6a2 2 0 012-2h10"/></svg>', chevronDown: '<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 12 15 18 9"/></svg>', chevronRight: '<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2"><polyline points="9 18 15 12 9 6"/></svg>' };
@@ -287,10 +295,8 @@ looker.plugins.visualizations.add({
         terms.forEach(function(term) {
           var termMatched = false;
           
-          // Match on entity name
           if (smartMatch(entity.name, term)) termMatched = true;
           
-          // Match on fields
           if (entity.fields && entity.fields.length > 0) {
             entity.fields.forEach(function(field) {
               if (smartMatch(field, term)) {
@@ -302,11 +308,6 @@ looker.plugins.visualizations.add({
           
           if (termMatched) matchedTermsCount++;
         });
-        
-        // Debug: log why dima_marketer matches
-        if (entity.name && entity.name.toLowerCase().indexOf('dima_marketer') !== -1 && matchedTermsCount > 0) {
-          console.log('SEARCH MATCH:', entity.name, 'type:', entity.type, 'matched fields:', fieldMatches);
-        }
         
         var matchData = { entity: entity, fieldMatches: fieldMatches, totalTerms: terms.length, matchedTermsCount: matchedTermsCount };
         
