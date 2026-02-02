@@ -33,6 +33,15 @@ looker.plugins.visualizations.add({
       console.log('SAMPLE VALUE (first 200 chars):', String(sample).substring(0, 200));
     }
     
+    // Check what sql_table values we have
+    var tableValues = [];
+    for (var i = 0; i < Math.min(5, data.length); i++) {
+      if (tableField && data[i][tableField]) {
+        tableValues.push(data[i][tableField].value);
+      }
+    }
+    console.log('SAMPLE TABLE VALUES:', tableValues);
+    
     var allRows = data.map(function(row) {
       var fieldsVal = fieldsField && row[fieldsField] ? row[fieldsField].value || '' : '';
       return { 
