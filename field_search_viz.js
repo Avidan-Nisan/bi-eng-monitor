@@ -31,7 +31,7 @@ looker.plugins.visualizations.add({
       if (fl.indexOf('sql_table_fields') !== -1) { fieldsField = fields[i]; break; }
     }
     
-    // Collect all table names for filtering out table names from fields
+    // Collect all table names for filtering
     var allTableNames = {};
     data.forEach(function(row) {
       if (tableField && row[tableField] && row[tableField].value) {
@@ -41,6 +41,26 @@ looker.plugins.visualizations.add({
         if (parts.length > 1) allTableNames[parts[parts.length - 1]] = true;
       }
     });
+    
+    // ============================================================
+    // PREFIX EXTRACTION FUNCTIONS
+    // ============================================================
+    function getTablePrefix(tableName) {
+      if (!tableName) return null;
+      var name = tableName.toLowerCase();
+      if (name === '[looker_derived_fields]') return null;
+      if (name.indexOf('template_') === 0) return null;
+      if (name.indexOf('off_platform_') === 0) return null;
+      var idx = name.indexOf('_');
+      return idx > 0 ? name.substring(0, idx) : null;
+    }
+    
+    function getFieldPrefix(fieldName) {
+      if (!fieldName) return null;
+      var name = fieldName.toLowerCase();
+      var idx = name.indexOf('_');
+      return idx > 0 ? name.substring(0, idx) : null;
+    }
     
     // Build per-row data with clean fields
     var allRows = data.map(function(row) {
@@ -65,40 +85,15 @@ looker.plugins.visualizations.add({
     });
     
     // ============================================================
-    // KEY FIX: PREFIX-BASED FIELD ASSIGNMENT FOR TABLES
-    // Tables only get fields where field prefix matches table prefix
-    // e.g., dima_marketer only gets dima_* fields
+    // COLLECT ALL UNIQUE FIELDS (for assigning to tables by prefix)
     // ============================================================
-    
-    // Extract prefix from table name (e.g., "dima_marketer" -> "dima")
-    function getTablePrefix(tableName) {
-      if (!tableName) return null;
-      var name = tableName.toLowerCase();
-      // Special tables that don't follow prefix pattern
-      if (name === '[looker_derived_fields]') return null;
-      if (name.indexOf('template_') === 0) return null;
-      if (name.indexOf('off_platform_') === 0) return null;
-      var idx = name.indexOf('_');
-      return idx > 0 ? name.substring(0, idx) : null;
-    }
-    
-    // Extract prefix from field name (e.g., "dima_name" -> "dima")
-    function getFieldPrefix(fieldName) {
-      if (!fieldName) return null;
-      var name = fieldName.toLowerCase();
-      var idx = name.indexOf('_');
-      return idx > 0 ? name.substring(0, idx) : null;
-    }
-    
-    // Check if field belongs to table based on prefix match
-    function fieldBelongsToTable(field, tableName) {
-      var tablePrefix = getTablePrefix(tableName);
-      var fieldPrefix = getFieldPrefix(field);
-      // If table has no clear prefix, don't assign any fields based on prefix
-      if (!tablePrefix) return false;
-      if (!fieldPrefix) return false;
-      return tablePrefix === fieldPrefix;
-    }
+    var allUniqueFields = {};
+    allRows.forEach(function(row) {
+      row.fields.forEach(function(f) {
+        allUniqueFields[f] = true;
+      });
+    });
+    var allFieldsList = Object.keys(allUniqueFields);
     
     // Collect all unique table names
     var allTablesList = [];
@@ -108,59 +103,47 @@ looker.plugins.visualizations.add({
       }
     });
     
-    // Collect ALL fields that appear in data for each table (from row associations)
-    var tableFieldsFromData = {};
-    allRows.forEach(function(row) {
-      if (row.table) {
-        if (!tableFieldsFromData[row.table]) tableFieldsFromData[row.table] = {};
-        row.fields.forEach(function(f) {
-          tableFieldsFromData[row.table][f] = true;
-        });
-      }
-    });
-    
-    // FOR TABLES: Filter to only keep fields where prefix matches table prefix
-    // This ensures dima_marketer only has dima_* fields, not dics_* fields
+    // ============================================================
+    // KEY FIX: Assign fields to tables ONLY by prefix match
+    // Don't use row associations - use pure prefix matching
+    // ============================================================
     var tableOwnFields = {};
     allTablesList.forEach(function(tbl) {
-      var allFieldsForTable = Object.keys(tableFieldsFromData[tbl] || {});
       var tablePrefix = getTablePrefix(tbl);
       
       if (tablePrefix) {
-        // Only keep fields that match this table's prefix
-        tableOwnFields[tbl] = allFieldsForTable.filter(function(f) {
-          return fieldBelongsToTable(f, tbl);
+        // Only assign fields where field prefix matches table prefix
+        tableOwnFields[tbl] = allFieldsList.filter(function(f) {
+          var fieldPrefix = getFieldPrefix(f);
+          return fieldPrefix === tablePrefix;
         });
       } else {
-        // For tables without clear prefix (like [LOOKER_DERIVED_FIELDS], template_*, etc.)
-        // Keep all their fields
-        tableOwnFields[tbl] = allFieldsForTable;
+        // For tables without prefix (template_*, etc.), no fields assigned
+        tableOwnFields[tbl] = [];
       }
     });
     
-    // Debug: verify the fix is working
-    console.log('=== ASSET MANAGER: TABLE FIELDS (PREFIX-FILTERED) ===');
-    var testTables = ['dima_marketer', 'dics_campaign_settings', 'dipb_publisher', 'dise_section', 'diub_unified_blocks'];
-    testTables.forEach(function(t) {
+    // Debug output
+    console.log('TABLE OWN FIELDS:', allTablesList.slice(0, 100).map(function(t) {
+      return t + ': ' + (tableOwnFields[t] || []).slice(0, 5).join(', ');
+    }));
+    
+    // Verify specific tables
+    console.log('SAMPLE TABLE FIELDS:');
+    ['dima_marketer', 'dics_campaign_settings', 'dipb_publisher'].forEach(function(t) {
       if (tableOwnFields[t]) {
         var prefix = getTablePrefix(t);
-        var wrongPrefixFields = tableOwnFields[t].filter(function(f) {
+        var wrongFields = tableOwnFields[t].filter(function(f) {
           var fp = getFieldPrefix(f);
-          return fp && prefix && fp !== prefix;
+          return fp && fp !== prefix;
         });
-        console.log(t + ' (prefix=' + prefix + ', fields=' + tableOwnFields[t].length + ', wrongPrefix=' + wrongPrefixFields.length + ')');
-        if (wrongPrefixFields.length > 0) {
-          console.log('  WARNING - wrong prefix fields:', wrongPrefixFields.slice(0, 5));
-        } else {
-          console.log('  Sample fields:', tableOwnFields[t].slice(0, 5));
-        }
+        console.log('  ' + t + ':', tableOwnFields[t].slice(0, 5), 'wrong:', wrongFields.length);
       }
     });
     
     // ============================================================
-    // END OF KEY FIX
+    // BUILD ENTITIES
     // ============================================================
-    
     var tables = {}, views = {}, explores = {}, dashboards = {};
     var viewToTables = {}, viewToViews = {}, exploreToViews = {}, dashToExplores = {};
     
@@ -175,12 +158,12 @@ looker.plugins.visualizations.add({
           name: tbl, 
           type: 'table', 
           sources: [], 
-          fields: tableOwnFields[tbl] || [],  // Use prefix-filtered fields!
+          fields: tableOwnFields[tbl] || [],
           sqlTables: [tbl] 
         };
       }
       
-      // Create VIEW - views get ALL fields (they can join multiple tables)
+      // Create VIEW - views get ALL fields from their rows
       if (vw && !views[vw]) {
         views[vw] = { id: 'v_' + vw, name: vw, type: 'view', sources: [], fields: [], sqlTables: [] };
       }
@@ -197,7 +180,7 @@ looker.plugins.visualizations.add({
         views[incVw] = { id: 'v_' + incVw, name: incVw, type: 'view', sources: [], fields: [], sqlTables: [] };
       }
       
-      // Views get ALL fields from their rows (they join multiple tables)
+      // Views get ALL fields from their rows (they can join multiple tables)
       if (vw && views[vw]) { 
         row.fields.forEach(function(f) { 
           if (views[vw].fields.indexOf(f) === -1) views[vw].fields.push(f); 
@@ -472,10 +455,8 @@ looker.plugins.visualizations.add({
         terms.forEach(function(term) {
           var termMatched = false;
           
-          // Match entity name
           if (smartMatch(entity.name, term)) termMatched = true;
           
-          // Match fields
           if (entity.fields && entity.fields.length > 0) {
             entity.fields.forEach(function(field) {
               if (smartMatch(field, term)) {
@@ -555,7 +536,6 @@ looker.plugins.visualizations.add({
       var maxCount = Math.max(byType.table.length||1, byType.view.length||1, byType.explore.length||1, byType.dashboard.length||1);
       var svgHeight = Math.max(maxCount * nodeSpacing + 100, 350);
       
-      // Draw edges
       var edgesHtml = ''; 
       visibleEntities.forEach(function(e) { 
         (e.sources||[]).forEach(function(s) { 
@@ -576,7 +556,6 @@ looker.plugins.visualizations.add({
         }); 
       });
       
-      // Draw nodes
       var nodesHtml = ''; 
       visibleEntities.forEach(function(entity) { 
         var pos = positions[entity.id];
@@ -601,7 +580,6 @@ looker.plugins.visualizations.add({
         nodesHtml += '</g>'; 
       });
       
-      // Draw headers
       var hdrHtml = ''; 
       ['table','view','explore','dashboard'].forEach(function(type) { 
         var cfg = typeConfig[type]; 
@@ -609,7 +587,6 @@ looker.plugins.visualizations.add({
         hdrHtml += '<text x="' + (colX[type]+nodeW/2) + '" y="36" text-anchor="middle" fill="#475569" font-size="8">' + byType[type].length + ' items</text>'; 
       });
       
-      // Stats text
       var statsText = '';
       if (selectedNode) {
         statsText = '<span style="color:' + typeConfig[selectedNode.type].color + ';">' + selectedNode.name + '</span> ';
@@ -623,7 +600,6 @@ looker.plugins.visualizations.add({
         statsText = '<span style="color:#64748b;">Click node to trace lineage</span>';
       }
       
-      // No results message with partial matches
       var noResultsHtml = '';
       if (filterMode === 'search' && visibleEntities.length === 0) {
         noResultsHtml = '<div style="padding:20px;background:#1e293b;margin:12px;border-radius:8px;">';
@@ -700,18 +676,15 @@ looker.plugins.visualizations.add({
       var html = '<div style="background:#0f172a;min-height:600px;">';
       html += '<div style="padding:14px 24px;border-bottom:1px solid #1e293b;">';
       
-      // Header
       html += '<div style="display:flex;justify-content:space-between;margin-bottom:14px;">';
       html += '<div><div style="font-weight:600;color:#f1f5f9;font-size:16px;">Asset Manager</div>';
       html += '<div style="font-size:10px;color:#64748b;">' + allRows.length + ' assets</div></div>';
       
-      // Tabs
       html += '<div style="display:flex;gap:0;">';
       html += '<button class="tab-btn" data-tab="lineage" style="display:flex;align-items:center;gap:6px;padding:10px 20px;border:none;cursor:pointer;font-size:12px;background:' + (activeTab==='lineage'?'#1e293b':'transparent') + ';color:' + (activeTab==='lineage'?'#10b981':'#64748b') + ';border-radius:8px 0 0 8px;border:1px solid #334155;">' + icons.lineage + ' Lineage</button>';
       html += '<button class="tab-btn" data-tab="duplicates" style="display:flex;align-items:center;gap:6px;padding:10px 20px;border:none;cursor:pointer;font-size:12px;background:' + (activeTab==='duplicates'?'#1e293b':'transparent') + ';color:' + (activeTab==='duplicates'?'#8b5cf6':'#64748b') + ';border-radius:0 8px 8px 0;border:1px solid #334155;border-left:none;">' + icons.duplicate + ' Similar Views</button>';
       html += '</div></div>';
       
-      // Search box
       html += '<div style="background:#1e293b;border:1px solid #475569;border-radius:12px;padding:16px;">';
       html += '<div style="display:flex;align-items:center;gap:10px;margin-bottom:' + (searchTags.length ? '12px' : '0') + ';">';
       html += '<span style="color:#10b981;">' + icons.search + '</span>';
@@ -725,13 +698,11 @@ looker.plugins.visualizations.add({
       }
       html += '</div></div>';
       
-      // Tab content
       html += '<div id="tab-content">' + (activeTab === 'lineage' ? renderLineageTab() : renderDuplicatesTab()) + '</div>';
       html += '</div>';
       
       container.innerHTML = html;
       
-      // Search input events
       var input = container.querySelector('#searchInput');
       input.addEventListener('input', function(e) { 
         var val = e.target.value; 
@@ -765,7 +736,6 @@ looker.plugins.visualizations.add({
         } 
       });
       
-      // Clear button
       var clearBtn = container.querySelector('#clearAll'); 
       if (clearBtn) {
         clearBtn.addEventListener('click', function() { 
@@ -774,7 +744,6 @@ looker.plugins.visualizations.add({
         });
       }
       
-      // Remove tag buttons
       container.querySelectorAll('.remove-tag').forEach(function(btn) { 
         btn.addEventListener('click', function(e) { 
           e.stopPropagation(); 
@@ -783,7 +752,6 @@ looker.plugins.visualizations.add({
         }); 
       });
       
-      // Tab buttons
       container.querySelectorAll('.tab-btn').forEach(function(btn) { 
         btn.addEventListener('click', function() { 
           activeTab = btn.dataset.tab; 
