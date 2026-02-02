@@ -26,30 +26,58 @@ looker.plugins.visualizations.add({
       var fl = fields[i].toLowerCase();
       if (fl.indexOf('sql_table_fields') !== -1) { fieldsField = fields[i]; break; }
     }
-    console.log('FIELDS COLUMN:', fieldsField);
-    console.log('ALL COLUMNS:', fields);
-    if (fieldsField && data[0] && data[0][fieldsField]) {
-      var sample = data[0][fieldsField].value || data[0][fieldsField];
-      console.log('SAMPLE VALUE (first 200 chars):', String(sample).substring(0, 200));
-    }
     
-    // Check what sql_table values we have
-    var tableValues = [];
-    for (var i = 0; i < Math.min(5, data.length); i++) {
-      if (tableField && data[i][tableField]) {
-        tableValues.push(data[i][tableField].value);
+    // First pass: collect all table names
+    var allTableNames = {};
+    data.forEach(function(row) {
+      if (tableField && row[tableField] && row[tableField].value) {
+        var tblName = row[tableField].value.toLowerCase().trim();
+        allTableNames[tblName] = true;
+        var parts = tblName.split('.');
+        if (parts.length > 1) {
+          allTableNames[parts[parts.length - 1]] = true;
+        }
       }
-    }
-    console.log('SAMPLE TABLE VALUES:', tableValues);
+    });
+    
+    // Build a map of table -> its own fields (from sql_table_fields column)
+    var tableOwnFields = {};
+    data.forEach(function(row) {
+      var tbl = tableField && row[tableField] ? row[tableField].value : '';
+      var fieldsVal = fieldsField && row[fieldsField] ? row[fieldsField].value || '' : '';
+      if (tbl && fieldsVal) {
+        if (!tableOwnFields[tbl]) tableOwnFields[tbl] = {};
+        var rawFields = fieldsVal.split('|').filter(function(f) { return f.trim(); });
+        rawFields.forEach(function(f) {
+          var fLower = f.toLowerCase().trim();
+          // Filter out table names from fields
+          if (!allTableNames[fLower] && fLower.indexOf('.') === -1) {
+            tableOwnFields[tbl][f] = true;
+          }
+        });
+      }
+    });
+    
+    console.log('TABLE OWN FIELDS:', Object.keys(tableOwnFields).map(function(t) { 
+      return t + ': ' + Object.keys(tableOwnFields[t]).slice(0, 5).join(', '); 
+    }));
     
     var allRows = data.map(function(row) {
       var fieldsVal = fieldsField && row[fieldsField] ? row[fieldsField].value || '' : '';
+      var rawFields = fieldsVal ? fieldsVal.split('|').filter(function(f) { return f.trim(); }) : [];
+      var cleanFields = rawFields.filter(function(f) {
+        var fLower = f.toLowerCase().trim();
+        if (allTableNames[fLower]) return false;
+        if (fLower.indexOf('.') !== -1) return false;
+        return true;
+      });
+      
       return { 
         dashboard: row[dashField] ? row[dashField].value : '', 
         explore: row[expField] ? row[expField].value : '', 
         view: row[viewField] ? row[viewField].value : '', 
         table: tableField && row[tableField] ? row[tableField].value : '', 
-        fields: fieldsVal ? fieldsVal.split('|').filter(function(f) { return f.trim(); }) : [],
+        fields: cleanFields,
         extendedView: extendedViewField && row[extendedViewField] ? row[extendedViewField].value : '',
         includedView: includedViewField && row[includedViewField] ? row[includedViewField].value : ''
       };
@@ -59,17 +87,37 @@ looker.plugins.visualizations.add({
     
     allRows.forEach(function(row) {
       var tbl = row.table, vw = row.view, exp = row.explore, dash = row.dashboard, extVw = row.extendedView, incVw = row.includedView;
-      if (tbl && !tables[tbl]) tables[tbl] = { id: 't_'+tbl, name: tbl, type: 'table', sources: [], fields: [], sqlTables: [tbl] };
+      
+      // Create table with ONLY its own fields from tableOwnFields
+      if (tbl && !tables[tbl]) {
+        var tblFields = tableOwnFields[tbl] ? Object.keys(tableOwnFields[tbl]) : [];
+        tables[tbl] = { id: 't_'+tbl, name: tbl, type: 'table', sources: [], fields: tblFields, sqlTables: [tbl] };
+      }
+      
       if (vw && !views[vw]) views[vw] = { id: 'v_'+vw, name: vw, type: 'view', sources: [], fields: [], sqlTables: [] };
       if (exp && !explores[exp]) explores[exp] = { id: 'e_'+exp, name: exp, type: 'explore', sources: [], fields: [], sqlTables: [] };
       if (dash && !dashboards[dash]) dashboards[dash] = { id: 'd_'+dash, name: dash, type: 'dashboard', sources: [], fields: [], sqlTables: [] };
       if (extVw && !views[extVw]) views[extVw] = { id: 'v_'+extVw, name: extVw, type: 'view', sources: [], fields: [], sqlTables: [] };
       if (incVw && !views[incVw]) views[incVw] = { id: 'v_'+incVw, name: incVw, type: 'view', sources: [], fields: [], sqlTables: [] };
       
-      if (vw && views[vw]) { row.fields.forEach(function(f) { if (views[vw].fields.indexOf(f) === -1) views[vw].fields.push(f); }); if (tbl && views[vw].sqlTables.indexOf(tbl) === -1) views[vw].sqlTables.push(tbl); }
-      if (tbl && tables[tbl]) { row.fields.forEach(function(f) { if (tables[tbl].fields.indexOf(f) === -1) tables[tbl].fields.push(f); }); }
-      if (exp && explores[exp]) { row.fields.forEach(function(f) { if (explores[exp].fields.indexOf(f) === -1) explores[exp].fields.push(f); }); if (tbl && explores[exp].sqlTables.indexOf(tbl) === -1) explores[exp].sqlTables.push(tbl); }
-      if (dash && dashboards[dash]) { row.fields.forEach(function(f) { if (dashboards[dash].fields.indexOf(f) === -1) dashboards[dash].fields.push(f); }); if (tbl && dashboards[dash].sqlTables.indexOf(tbl) === -1) dashboards[dash].sqlTables.push(tbl); }
+      // Add fields to view (views get ALL fields from the row, which includes derived/Looker fields)
+      if (vw && views[vw]) { 
+        row.fields.forEach(function(f) { if (views[vw].fields.indexOf(f) === -1) views[vw].fields.push(f); }); 
+        if (tbl && views[vw].sqlTables.indexOf(tbl) === -1) views[vw].sqlTables.push(tbl); 
+      }
+      
+      // Add fields to explore
+      if (exp && explores[exp]) { 
+        row.fields.forEach(function(f) { if (explores[exp].fields.indexOf(f) === -1) explores[exp].fields.push(f); }); 
+        if (tbl && explores[exp].sqlTables.indexOf(tbl) === -1) explores[exp].sqlTables.push(tbl); 
+      }
+      
+      // Add fields to dashboard
+      if (dash && dashboards[dash]) { 
+        row.fields.forEach(function(f) { if (dashboards[dash].fields.indexOf(f) === -1) dashboards[dash].fields.push(f); }); 
+        if (tbl && dashboards[dash].sqlTables.indexOf(tbl) === -1) dashboards[dash].sqlTables.push(tbl); 
+      }
+      
       if (vw && tbl) { if (!viewToTables[vw]) viewToTables[vw] = {}; viewToTables[vw]['t_'+tbl] = true; }
       if (vw && extVw && vw !== extVw) { if (!viewToViews[vw]) viewToViews[vw] = {}; viewToViews[vw]['v_'+extVw] = true; }
       if (vw && incVw && vw !== incVw) { if (!viewToViews[vw]) viewToViews[vw] = {}; viewToViews[vw]['v_'+incVw] = true; }
@@ -85,12 +133,17 @@ looker.plugins.visualizations.add({
     var activeTab = 'lineage', searchTerm = '', searchTags = [], selectedNode = null, upstream = [], downstream = [], highlightedEntities = [], expandedDuplicates = {};
     var similarResults = null, analysisLoading = false, analysisError = null;
     
+    // Debug: log table fields
+    console.log('SAMPLE TABLE FIELDS:');
+    Object.keys(tables).slice(0, 3).forEach(function(t) {
+      console.log('  ' + t + ':', tables[t].fields.slice(0, 5));
+    });
+    
     var icons = { search: '<svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><path d="M21 21l-4.35-4.35"/></svg>', x: '<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>', lineage: '<svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2"><circle cx="5" cy="12" r="2"/><circle cx="19" cy="6" r="2"/><circle cx="19" cy="18" r="2"/><path d="M7 12h4l4-6h2M11 12l4 6h2"/></svg>', duplicate: '<svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2"><rect x="8" y="8" width="12" height="12" rx="2"/><path d="M4 16V6a2 2 0 012-2h10"/></svg>', chevronDown: '<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 12 15 18 9"/></svg>', chevronRight: '<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2"><polyline points="9 18 15 12 9 6"/></svg>' };
     var typeIcons = { table: '<svg viewBox="0 0 24 24" width="14" height="14" fill="currentColor"><rect x="3" y="3" width="18" height="4" rx="1"/><rect x="3" y="9" width="8" height="3"/><rect x="13" y="9" width="8" height="3"/><rect x="3" y="14" width="8" height="3"/><rect x="13" y="14" width="8" height="3"/></svg>', view: '<svg viewBox="0 0 24 24" width="14" height="14" fill="currentColor"><circle cx="12" cy="12" r="3"/><path d="M12 5C7 5 2.7 8.4 1 12c1.7 3.6 6 7 11 7s9.3-3.4 11-7c-1.7-3.6-6-7-11-7z"/></svg>', explore: '<svg viewBox="0 0 24 24" width="14" height="14" fill="currentColor"><circle cx="10" cy="10" r="6" fill="none" stroke="currentColor" stroke-width="2.5"/><line x1="14.5" y1="14.5" x2="20" y2="20" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"/></svg>', dashboard: '<svg viewBox="0 0 24 24" width="14" height="14" fill="currentColor"><rect x="2" y="2" width="9" height="6" rx="1"/><rect x="13" y="2" width="9" height="9" rx="1"/><rect x="2" y="10" width="9" height="12" rx="1"/><rect x="13" y="13" width="9" height="9" rx="1"/></svg>' };
     var typeConfig = { table: { color: '#06b6d4', label: 'SQL Tables' }, view: { color: '#8b5cf6', label: 'Views' }, explore: { color: '#ec4899', label: 'Explores' }, dashboard: { color: '#f97316', label: 'Dashboards' } };
 
     function normalize(str) { return str ? str.toLowerCase().replace(/[_\-\s\.]+/g, '') : ''; }
-    function tokenize(str) { if (!str) return []; var tokens = str.toLowerCase().split(/[_\-\s\.]+/).filter(function(t) { return t.length > 0; }); var camelSplit = str.replace(/([a-z])([A-Z])/g, '$1 $2').toLowerCase().split(/\s+/); return tokens.concat(camelSplit).filter(function(v, i, a) { return a.indexOf(v) === i && v.length > 0; }); }
     
     function smartMatch(text, searchTerm) {
       if (!text || !searchTerm) return false;
@@ -175,7 +228,7 @@ looker.plugins.visualizations.add({
           html += '<div class="dup-header" style="display:flex;align-items:center;gap:16px;padding:14px 20px;cursor:pointer;">';
           html += '<div style="width:44px;height:44px;border-radius:50%;background:linear-gradient(135deg,#8b5cf620,#ec489920);display:flex;align-items:center;justify-content:center;font-size:13px;color:#a78bfa;font-weight:600;">'+pair.similarity+'%</div>';
           html += '<div style="flex:1;min-width:0;">';
-          html += '<div style="display:flex;align-items:center;gap:8px;margin-bottom:4px;"><span style="color:#e2e8f0;font-size:13px;font-weight:500;">'+pair.v1+'</span><span style="color:#475569;">-</span><span style="color:#e2e8f0;font-size:13px;font-weight:500;">'+pair.v2+'</span></div>';
+          html += '<div style="display:flex;align-items:center;gap:8px;margin-bottom:4px;"><span style="color:#e2e8f0;font-size:13px;font-weight:500;">'+pair.v1+'</span><span style="color:#475569;">—</span><span style="color:#e2e8f0;font-size:13px;font-weight:500;">'+pair.v2+'</span></div>';
           html += '<div style="color:#64748b;font-size:11px;">'+reasonSummary.join(' | ')+'</div>';
           html += '</div>';
           html += '<span style="color:#475569;">'+icons.chevronDown+'</span>';
@@ -216,14 +269,11 @@ looker.plugins.visualizations.add({
         terms.forEach(function(term) {
           var termMatched = false;
           
+          // Match on entity name
           if (smartMatch(entity.name, term)) termMatched = true;
           
-          if (entity.sqlTables && entity.sqlTables.length > 0) {
-            entity.sqlTables.forEach(function(tbl) {
-              if (smartMatch(tbl, term)) termMatched = true;
-            });
-          }
-          
+          // For tables: ONLY match on their own fields, not connected view fields
+          // For views/explores/dashboards: match on their fields
           if (entity.fields && entity.fields.length > 0) {
             entity.fields.forEach(function(field) {
               if (smartMatch(field, term)) {
@@ -263,6 +313,7 @@ looker.plugins.visualizations.add({
         visibleEntities = allEntities.filter(function(e) { return ids.indexOf(e.id) !== -1; }); 
       } else if (searchTags.length > 0 || searchTerm.trim()) { 
         filterMode = 'search'; 
+        // Only show entities that actually match, don't auto-expand lineage
         visibleEntities = highlightedEntities.length > 0 ? allEntities.filter(function(e) { return highlightedEntities.indexOf(e.id) !== -1; }) : [];
       }
       
