@@ -17,13 +17,6 @@ looker.plugins.visualizations.add({
       return; 
     }
     
-    // Get Looker host from current URL or configure here
-    var lookerHost = window.location.origin || '';
-    function getViewLink(viewName) {
-      // Default pattern - adjust project name as needed
-      return lookerHost + '/projects/lookml/files/' + viewName + '.view.lkml';
-    }
-    
     var fields = queryResponse.fields.dimension_like.map(function(f) { return f.name; });
     
     var dashField = fields.find(function(f) { return f.toLowerCase().indexOf('dashboard') !== -1 && f.toLowerCase().indexOf('title') !== -1; });
@@ -209,17 +202,6 @@ looker.plugins.visualizations.add({
     var allTablesList = [];
     allRows.forEach(function(row) { if (row.table && allTablesList.indexOf(row.table) === -1) allTablesList.push(row.table); });
     
-    // Store table to fields mapping for search (separate from view field overlap logic)
-    var tableFields = {};
-    allRows.forEach(function(row) {
-      if (row.table && row.fields.length > 0) {
-        if (!tableFields[row.table]) tableFields[row.table] = [];
-        row.fields.forEach(function(f) {
-          if (tableFields[row.table].indexOf(f) === -1) tableFields[row.table].push(f);
-        });
-      }
-    });
-    
     var tables = {}, views = {}, explores = {}, dashboards = {};
     var viewToTables = {}, viewToViews = {}, exploreToViews = {}, dashToExplores = {};
     var viewModels = {}; // Track models per view
@@ -229,7 +211,7 @@ looker.plugins.visualizations.add({
       var extVw = row.extendedView, incVw = row.includedView;
       var model = row.model;
       
-      if (tbl && !tables[tbl]) tables[tbl] = { id: 't_' + tbl, name: tbl, type: 'table', sources: [], fields: tableFields[tbl] || [], sqlTables: [tbl] };
+      if (tbl && !tables[tbl]) tables[tbl] = { id: 't_' + tbl, name: tbl, type: 'table', sources: [], fields: [], sqlTables: [tbl] };
       if (vw && !views[vw]) views[vw] = { id: 'v_' + vw, name: vw, type: 'view', sources: [], fields: [], sqlTables: [], model: null };
       if (exp && !explores[exp]) explores[exp] = { id: 'e_' + exp, name: exp, type: 'explore', sources: [], fields: [], sqlTables: [], model: model };
       if (dash && !dashboards[dash]) dashboards[dash] = { id: 'd_' + dash, name: dash, type: 'dashboard', sources: [], fields: [], sqlTables: [] };
@@ -240,6 +222,13 @@ looker.plugins.visualizations.add({
       if (vw && model) {
         if (!viewModels[vw]) viewModels[vw] = {};
         viewModels[vw][model] = true;
+      }
+      
+      // Assign fields to TABLES for search (accumulate from all rows with this table)
+      if (tbl && tables[tbl]) {
+        row.fields.forEach(function(f) { 
+          if (tables[tbl].fields.indexOf(f) === -1) tables[tbl].fields.push(f); 
+        });
       }
       
       if (vw && views[vw]) { 
@@ -284,8 +273,7 @@ looker.plugins.visualizations.add({
       search: '<svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><path d="M21 21l-4.35-4.35"/></svg>', 
       x: '<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>', 
       lineage: '<svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2"><circle cx="5" cy="12" r="2"/><circle cx="19" cy="6" r="2"/><circle cx="19" cy="18" r="2"/><path d="M7 12h4l4-6h2M11 12l4 6h2"/></svg>', 
-      overlap: '<svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2"><circle cx="9" cy="12" r="5"/><circle cx="15" cy="12" r="5"/></svg>',
-      link: '<svg viewBox="0 0 24 24" width="10" height="10" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 13v6a2 2 0 01-2 2H5a2 2 0 01-2-2V8a2 2 0 012-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg>', 
+      overlap: '<svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2"><circle cx="9" cy="12" r="5"/><circle cx="15" cy="12" r="5"/></svg>', 
       chevronDown: '<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 12 15 18 9"/></svg>',
       chevronUp: '<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2"><polyline points="18 15 12 9 6 15"/></svg>'
     };
@@ -532,9 +520,9 @@ looker.plugins.visualizations.add({
           
           h += '<div style="flex:1;min-width:0;">';
           h += '<div style="display:flex;align-items:center;gap:12px;margin-bottom:4px;">';
-          h += '<div><a href="' + getViewLink(pair.v1) + '" target="_blank" style="color:#a78bfa;font-size:13px;font-weight:500;text-decoration:none;display:inline-flex;align-items:center;gap:4px;" onmouseover="this.style.textDecoration=\'underline\'" onmouseout="this.style.textDecoration=\'none\'">' + pair.v1 + ' ' + icons.link + '</a><span style="color:#64748b;font-size:10px;margin-left:6px;">' + pair.v1Model + '</span></div>';
+          h += '<div><span style="color:#a78bfa;font-size:13px;font-weight:500;">' + pair.v1 + '</span><span style="color:#64748b;font-size:10px;margin-left:6px;">' + pair.v1Model + '</span></div>';
           h += '<span style="color:#475569;">↔</span>';
-          h += '<div><a href="' + getViewLink(pair.v2) + '" target="_blank" style="color:#a78bfa;font-size:13px;font-weight:500;text-decoration:none;display:inline-flex;align-items:center;gap:4px;" onmouseover="this.style.textDecoration=\'underline\'" onmouseout="this.style.textDecoration=\'none\'">' + pair.v2 + ' ' + icons.link + '</a><span style="color:#64748b;font-size:10px;margin-left:6px;">' + pair.v2Model + '</span></div>';
+          h += '<div><span style="color:#a78bfa;font-size:13px;font-weight:500;">' + pair.v2 + '</span><span style="color:#64748b;font-size:10px;margin-left:6px;">' + pair.v2Model + '</span></div>';
           h += '</div>';
           
           h += '<div style="display:flex;gap:12px;align-items:center;color:#64748b;font-size:11px;">';
