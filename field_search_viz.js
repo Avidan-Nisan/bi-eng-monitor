@@ -5,14 +5,14 @@ looker.plugins.visualizations.add({
   create: function(element, config) {
     element.style.height = '100%';
     element.style.width = '100%';
-    element.innerHTML = '<div id="asset-manager-container" style="width:100%;min-height:600px;height:100%;overflow:auto;font-family:system-ui,sans-serif;background:#0f172a;"></div>';
+    element.innerHTML = '<div id="asset-manager-container" style="width:100%;height:100%;overflow:auto;font-family:system-ui,sans-serif;background:#0f172a;"></div>';
   },
   updateAsync: function(data, element, config, queryResponse, details, done) {
     var container = element.querySelector('#asset-manager-container');
     var containerWidth = element.offsetWidth || 1200;
     
     if (!data || data.length === 0) { 
-      container.innerHTML = '<div style="padding:40px;color:#64748b;background:#0f172a;min-height:600px;">No data available</div>'; 
+      container.innerHTML = '<div style="padding:40px;color:#64748b;background:#0f172a;">No data available</div>'; 
       done(); 
       return; 
     }
@@ -25,7 +25,12 @@ looker.plugins.visualizations.add({
     var tableField = fields.find(function(f) { return f.toLowerCase().indexOf('sql_table') !== -1 && f.toLowerCase().indexOf('fields') === -1 && f.toLowerCase().indexOf('path') === -1; });
     var extendedViewField = fields.find(function(f) { return f.toLowerCase().indexOf('extended') !== -1 && f.toLowerCase().indexOf('view') !== -1; });
     var includedViewField = fields.find(function(f) { return f.toLowerCase().indexOf('included') !== -1 && f.toLowerCase().indexOf('view') !== -1; });
-    var modelField = fields.find(function(f) { return f.toLowerCase().indexOf('model') !== -1 && f.toLowerCase().indexOf('name') !== -1; });
+    
+    // Try multiple ways to find model field
+    var modelField = fields.find(function(f) { 
+      var fl = f.toLowerCase();
+      return (fl.indexOf('model') !== -1 && fl.indexOf('name') !== -1) || fl === 'model' || fl.endsWith('.model');
+    });
     
     var fieldsField = null;
     for (var i = 0; i < fields.length; i++) {
@@ -50,7 +55,96 @@ looker.plugins.visualizations.add({
       return idx > 0 ? name.substring(0, idx) : null;
     }
     
-    // Get the core field name (after prefix) for grouping
+    // Generic field cores that should NOT be matched as similar
+    var genericCores = ['id', 'name', 'type', 'date', 'value', 'status', 'code', 'key', 'count', 'sum', 'avg', 'min', 'max', 'total', 'amount', 'number', 'num', 'flag', 'is', 'has'];
+    
+    // Granularity/level indicators - views at different levels cannot be combined
+    var levelIndicators = [
+      'ad', 'ads', 'ad_level', 'adlevel',
+      'campaign', 'campaigns', 'campaign_level', 
+      'section', 'sections', 'section_level',
+      'publisher', 'publishers', 'publisher_level',
+      'marketer', 'marketers', 'marketer_level',
+      'advertiser', 'advertisers', 'advertiser_level',
+      'account', 'accounts', 'account_level',
+      'user', 'users', 'user_level',
+      'website', 'websites', 'website_level',
+      'order', 'orders', 'order_level',
+      'line_item', 'lineitem', 'line_items',
+      'creative', 'creatives', 'creative_level',
+      'placement', 'placements', 'placement_level',
+      'insertion', 'insertions', 'insertion_level',
+      'daily', 'weekly', 'monthly', 'hourly', 'yearly',
+      '_d', '_w', '_m', '_h', '_y',
+      'agg', 'aggregate', 'aggregated', 'summary', 'rollup'
+    ];
+    
+    function extractLevels(viewName) {
+      if (!viewName) return [];
+      var name = viewName.toLowerCase();
+      var found = [];
+      levelIndicators.forEach(function(level) {
+        // Check for exact match, or as word boundary (with _ or at start/end)
+        var patterns = [
+          '_' + level + '_', '_' + level, level + '_', 
+          name === level
+        ];
+        if (name.indexOf(level) !== -1) {
+          // Verify it's a word boundary match
+          var idx = name.indexOf(level);
+          var before = idx === 0 ? '_' : name[idx - 1];
+          var after = idx + level.length >= name.length ? '_' : name[idx + level.length];
+          if ((before === '_' || before === '-' || idx === 0) && 
+              (after === '_' || after === '-' || idx + level.length === name.length)) {
+            found.push(level);
+          }
+        }
+      });
+      return found;
+    }
+    
+    function hasDifferentLevels(v1Name, v2Name) {
+      var levels1 = extractLevels(v1Name);
+      var levels2 = extractLevels(v2Name);
+      
+      // If both have level indicators, check if they're different
+      if (levels1.length > 0 && levels2.length > 0) {
+        // Normalize similar terms
+        var normalize = function(lvl) {
+          if (lvl.indexOf('ad') === 0) return 'ad';
+          if (lvl.indexOf('campaign') === 0) return 'campaign';
+          if (lvl.indexOf('section') === 0) return 'section';
+          if (lvl.indexOf('publisher') === 0) return 'publisher';
+          if (lvl.indexOf('marketer') === 0) return 'marketer';
+          if (lvl.indexOf('advertiser') === 0) return 'advertiser';
+          if (lvl.indexOf('account') === 0) return 'account';
+          if (lvl.indexOf('user') === 0) return 'user';
+          if (lvl.indexOf('website') === 0) return 'website';
+          if (lvl.indexOf('order') === 0) return 'order';
+          if (lvl.indexOf('creative') === 0) return 'creative';
+          if (lvl.indexOf('placement') === 0) return 'placement';
+          if (lvl.indexOf('insertion') === 0) return 'insertion';
+          if (lvl.indexOf('line') === 0) return 'lineitem';
+          if (lvl === 'daily' || lvl === '_d') return 'daily';
+          if (lvl === 'weekly' || lvl === '_w') return 'weekly';
+          if (lvl === 'monthly' || lvl === '_m') return 'monthly';
+          return lvl;
+        };
+        
+        var norm1 = levels1.map(normalize);
+        var norm2 = levels2.map(normalize);
+        
+        // Check for any level that's in one but not the other
+        var diff1 = norm1.filter(function(l) { return norm2.indexOf(l) === -1; });
+        var diff2 = norm2.filter(function(l) { return norm1.indexOf(l) === -1; });
+        
+        if (diff1.length > 0 || diff2.length > 0) {
+          return true; // Different granularity levels
+        }
+      }
+      return false;
+    }
+    
     function getFieldCore(fieldName) {
       if (!fieldName) return '';
       var name = fieldName.toLowerCase();
@@ -59,12 +153,29 @@ looker.plugins.visualizations.add({
       return name;
     }
     
+    function isGenericCore(core) {
+      if (!core) return true;
+      if (core.length <= 2) return true;
+      return genericCores.indexOf(core) !== -1;
+    }
+    
     function getExploresForView(viewName) {
       var result = [];
       Object.values(explores).forEach(function(exp) {
         if (exp.sources && exp.sources.indexOf('v_' + viewName) !== -1) result.push(exp.name);
       });
       return result;
+    }
+    
+    // Extract model from explore name or view name pattern
+    function extractModel(row) {
+      if (modelField && row[modelField] && row[modelField].value) return row[modelField].value;
+      // Try to infer from explore field format (model.explore)
+      if (expField && row[expField] && row[expField].value) {
+        var exp = row[expField].value;
+        if (exp.indexOf('.') !== -1) return exp.split('.')[0];
+      }
+      return null;
     }
     
     var allRows = data.map(function(row) {
@@ -81,7 +192,7 @@ looker.plugins.visualizations.add({
         explore: row[expField] ? row[expField].value : '', 
         view: row[viewField] ? row[viewField].value : '', 
         table: tableField && row[tableField] ? row[tableField].value : '', 
-        model: modelField && row[modelField] ? row[modelField].value : '',
+        model: extractModel(row),
         fields: cleanFields,
         extendedView: extendedViewField && row[extendedViewField] ? row[extendedViewField].value : '',
         includedView: includedViewField && row[includedViewField] ? row[includedViewField].value : ''
@@ -97,6 +208,7 @@ looker.plugins.visualizations.add({
     
     var tables = {}, views = {}, explores = {}, dashboards = {};
     var viewToTables = {}, viewToViews = {}, exploreToViews = {}, dashToExplores = {};
+    var viewModels = {}; // Track models per view
     
     allRows.forEach(function(row) {
       var tbl = row.table, vw = row.view, exp = row.explore, dash = row.dashboard;
@@ -104,14 +216,17 @@ looker.plugins.visualizations.add({
       var model = row.model;
       
       if (tbl && !tables[tbl]) tables[tbl] = { id: 't_' + tbl, name: tbl, type: 'table', sources: [], fields: [], sqlTables: [tbl] };
-      if (vw && !views[vw]) views[vw] = { id: 'v_' + vw, name: vw, type: 'view', sources: [], fields: [], sqlTables: [], model: model };
+      if (vw && !views[vw]) views[vw] = { id: 'v_' + vw, name: vw, type: 'view', sources: [], fields: [], sqlTables: [], model: null };
       if (exp && !explores[exp]) explores[exp] = { id: 'e_' + exp, name: exp, type: 'explore', sources: [], fields: [], sqlTables: [], model: model };
       if (dash && !dashboards[dash]) dashboards[dash] = { id: 'd_' + dash, name: dash, type: 'dashboard', sources: [], fields: [], sqlTables: [] };
-      if (extVw && !views[extVw]) views[extVw] = { id: 'v_' + extVw, name: extVw, type: 'view', sources: [], fields: [], sqlTables: [], model: model };
-      if (incVw && !views[incVw]) views[incVw] = { id: 'v_' + incVw, name: incVw, type: 'view', sources: [], fields: [], sqlTables: [], model: model };
+      if (extVw && !views[extVw]) views[extVw] = { id: 'v_' + extVw, name: extVw, type: 'view', sources: [], fields: [], sqlTables: [], model: null };
+      if (incVw && !views[incVw]) views[incVw] = { id: 'v_' + incVw, name: incVw, type: 'view', sources: [], fields: [], sqlTables: [], model: null };
       
-      // Update model if we have it
-      if (vw && views[vw] && model && !views[vw].model) views[vw].model = model;
+      // Track models for views
+      if (vw && model) {
+        if (!viewModels[vw]) viewModels[vw] = {};
+        viewModels[vw][model] = true;
+      }
       
       if (vw && views[vw]) { 
         row.fields.forEach(function(f) { if (views[vw].fields.indexOf(f) === -1) views[vw].fields.push(f); }); 
@@ -133,6 +248,14 @@ looker.plugins.visualizations.add({
       if (dash && exp) { if (!dashToExplores[dash]) dashToExplores[dash] = {}; dashToExplores[dash]['e_' + exp] = true; }
     });
     
+    // Assign models to views
+    Object.keys(views).forEach(function(vw) {
+      if (viewModels[vw]) {
+        var models = Object.keys(viewModels[vw]);
+        views[vw].model = models.length > 0 ? models.join(', ') : null;
+      }
+    });
+    
     Object.keys(views).forEach(function(k) { views[k].sources = Object.keys(viewToTables[k] || {}).concat(Object.keys(viewToViews[k] || {})); });
     Object.keys(explores).forEach(function(k) { explores[k].sources = Object.keys(exploreToViews[k] || {}); });
     Object.keys(dashboards).forEach(function(k) { dashboards[k].sources = Object.keys(dashToExplores[k] || {}); });
@@ -149,8 +272,7 @@ looker.plugins.visualizations.add({
       lineage: '<svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2"><circle cx="5" cy="12" r="2"/><circle cx="19" cy="6" r="2"/><circle cx="19" cy="18" r="2"/><path d="M7 12h4l4-6h2M11 12l4 6h2"/></svg>', 
       duplicate: '<svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2"><rect x="8" y="8" width="12" height="12" rx="2"/><path d="M4 16V6a2 2 0 012-2h10"/></svg>', 
       chevronDown: '<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 12 15 18 9"/></svg>',
-      chevronUp: '<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2"><polyline points="18 15 12 9 6 15"/></svg>',
-      link: '<svg viewBox="0 0 24 24" width="11" height="11" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 13v6a2 2 0 01-2 2H5a2 2 0 01-2-2V8a2 2 0 012-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg>'
+      chevronUp: '<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2"><polyline points="18 15 12 9 6 15"/></svg>'
     };
     var typeIcons = { 
       table: '<svg viewBox="0 0 24 24" width="14" height="14" fill="currentColor"><rect x="3" y="3" width="18" height="4" rx="1"/><rect x="3" y="9" width="8" height="3"/><rect x="13" y="9" width="8" height="3"/><rect x="3" y="14" width="8" height="3"/><rect x="13" y="14" width="8" height="3"/></svg>', 
@@ -190,14 +312,11 @@ looker.plugins.visualizations.add({
       return r.filter(function(x,i,a) { return a.indexOf(x)===i; }); 
     }
     
-    // NEW LOGIC: Find truly duplicate fields
-    // True duplicates = EXACT same field names OR same prefix pattern within same domain
     function findDuplicateFields(v1, v2) {
       var matches = [];
       var v1Prefix = null, v2Prefix = null;
-      
-      // Determine dominant prefix for each view
       var v1Prefixes = {}, v2Prefixes = {};
+      
       v1.fields.forEach(function(f) {
         var p = getFieldPrefix(f);
         if (p) v1Prefixes[p] = (v1Prefixes[p] || 0) + 1;
@@ -207,20 +326,21 @@ looker.plugins.visualizations.add({
         if (p) v2Prefixes[p] = (v2Prefixes[p] || 0) + 1;
       });
       
-      // Get dominant prefix
       var maxCount1 = 0, maxCount2 = 0;
       Object.keys(v1Prefixes).forEach(function(p) { if (v1Prefixes[p] > maxCount1) { maxCount1 = v1Prefixes[p]; v1Prefix = p; } });
       Object.keys(v2Prefixes).forEach(function(p) { if (v2Prefixes[p] > maxCount2) { maxCount2 = v2Prefixes[p]; v2Prefix = p; } });
       
-      // If views have DIFFERENT dominant prefixes, they are likely different domains
-      // Only match if: same prefix OR one has no prefix OR exact match
       var sameDomain = !v1Prefix || !v2Prefix || v1Prefix === v2Prefix;
+      
+      var v1Matched = {}, v2Matched = {};
       
       // Find exact matches first
       v1.fields.forEach(function(f1) {
         v2.fields.forEach(function(f2) {
           if (f1.toLowerCase() === f2.toLowerCase()) {
             matches.push({ f1: f1, f2: f2, type: 'exact' });
+            v1Matched[f1.toLowerCase()] = true;
+            v2Matched[f2.toLowerCase()] = true;
           }
         });
       });
@@ -230,7 +350,8 @@ looker.plugins.visualizations.add({
         var v1ByCore = {};
         v1.fields.forEach(function(f) {
           var core = getFieldCore(f);
-          if (core && core.length > 3) { // Skip very short cores
+          // Skip generic cores for similar matching
+          if (core && !isGenericCore(core)) {
             if (!v1ByCore[core]) v1ByCore[core] = [];
             v1ByCore[core].push(f);
           }
@@ -238,21 +359,26 @@ looker.plugins.visualizations.add({
         
         v2.fields.forEach(function(f2) {
           var core = getFieldCore(f2);
-          if (core && v1ByCore[core]) {
+          if (core && !isGenericCore(core) && v1ByCore[core]) {
             v1ByCore[core].forEach(function(f1) {
-              // Skip if already matched as exact
               var alreadyMatched = matches.some(function(m) { 
                 return m.f1.toLowerCase() === f1.toLowerCase() && m.f2.toLowerCase() === f2.toLowerCase(); 
               });
               if (!alreadyMatched && f1.toLowerCase() !== f2.toLowerCase()) {
                 matches.push({ f1: f1, f2: f2, type: 'similar', core: core });
+                v1Matched[f1.toLowerCase()] = true;
+                v2Matched[f2.toLowerCase()] = true;
               }
             });
           }
         });
       }
       
-      return { matches: matches, sameDomain: sameDomain, v1Prefix: v1Prefix, v2Prefix: v2Prefix };
+      // Find unmatched fields
+      var v1Only = v1.fields.filter(function(f) { return !v1Matched[f.toLowerCase()]; });
+      var v2Only = v2.fields.filter(function(f) { return !v2Matched[f.toLowerCase()]; });
+      
+      return { matches: matches, sameDomain: sameDomain, v1Prefix: v1Prefix, v2Prefix: v2Prefix, v1Only: v1Only, v2Only: v2Only };
     }
     
     function runAnalysis() {
@@ -269,33 +395,27 @@ looker.plugins.visualizations.add({
               var v1 = viewsList[i], v2 = viewsList[j];
               var analysis = findDuplicateFields(v1, v2);
               
-              // Skip if different domains (different prefixes)
               if (!analysis.sameDomain) continue;
+              
+              // Skip if views are at different granularity levels
+              if (hasDifferentLevels(v1.name, v2.name)) continue;
               
               var exactMatches = analysis.matches.filter(function(m) { return m.type === 'exact'; });
               var similarMatches = analysis.matches.filter(function(m) { return m.type === 'similar'; });
               
-              // For true duplicates: prioritize exact matches
-              // Need at least 5 exact matches OR 70%+ exact overlap
               var minFields = Math.min(v1.fields.length, v2.fields.length);
               var exactRatio = exactMatches.length / minFields;
               var totalMatches = analysis.matches.length;
               var totalRatio = totalMatches / minFields;
               
-              // Scoring: exact matches worth 100%, similar worth 50%
               var score = (exactMatches.length + similarMatches.length * 0.5) / minFields;
               var similarity = Math.round(score * 100);
               
-              // Only show if:
-              // - At least 5 exact matches, OR
-              // - At least 40% exact match ratio, OR  
-              // - At least 60% total match ratio with same domain
               if (exactMatches.length >= 5 || exactRatio >= 0.4 || (totalRatio >= 0.6 && analysis.sameDomain)) {
                 results.push({ 
-                  v1: v1.name, 
-                  v2: v2.name, 
-                  v1Model: v1.model || 'unknown',
-                  v2Model: v2.model || 'unknown',
+                  v1: v1.name, v2: v2.name, 
+                  v1Model: v1.model || '-',
+                  v2Model: v2.model || '-',
                   similarity: Math.min(similarity, 100),
                   exactCount: exactMatches.length,
                   similarCount: similarMatches.length,
@@ -304,8 +424,8 @@ looker.plugins.visualizations.add({
                   v2FieldCount: v2.fields.length,
                   exactMatches: exactMatches,
                   similarMatches: similarMatches,
-                  v1Prefix: analysis.v1Prefix,
-                  v2Prefix: analysis.v2Prefix
+                  v1Only: analysis.v1Only,
+                  v2Only: analysis.v2Only
                 });
               }
             }
@@ -369,86 +489,91 @@ looker.plugins.visualizations.add({
       }
       
       if (analysisLoading) {
-        h += '<div style="text-align:center;padding:80px 40px;"><div style="color:#8b5cf6;font-size:14px;">Analyzing for duplicate views...</div></div>';
+        h += '<div style="text-align:center;padding:60px 40px;"><div style="color:#8b5cf6;font-size:14px;">Analyzing for duplicate views...</div></div>';
       } else if (analysisError) {
-        h += '<div style="text-align:center;padding:80px 40px;color:#ef4444;font-size:14px;">' + analysisError + '</div>';
+        h += '<div style="text-align:center;padding:60px 40px;color:#ef4444;font-size:14px;">' + analysisError + '</div>';
       } else if (!similarResults || similarResults.length === 0) {
-        h += '<div style="text-align:center;padding:80px 40px;"><div style="color:#10b981;font-size:14px;">No duplicate views found that can be consolidated</div></div>';
+        h += '<div style="text-align:center;padding:60px 40px;"><div style="color:#10b981;font-size:14px;">No duplicate views found that can be consolidated</div></div>';
       } else {
-        h += '<div style="max-height:500px;overflow-y:auto;">';
+        h += '<div style="overflow-y:auto;">';
         
         similarResults.forEach(function(pair, idx) {
           var isExp = expandedDuplicates[idx];
           var simColor = pair.similarity >= 70 ? '#10b981' : pair.similarity >= 50 ? '#eab308' : '#f97316';
           
-          // Preview of exact matches
-          var previewFields = pair.exactMatches.slice(0, 3).map(function(m) { return m.f1; });
-          var moreCount = pair.totalCount - 3;
-          
           h += '<div class="dup-row" data-idx="' + idx + '" style="border-bottom:1px solid #1e293b;">';
           h += '<div class="dup-header" style="display:flex;align-items:center;gap:12px;padding:12px 20px;cursor:pointer;transition:background 0.15s;" onmouseover="this.style.background=\'#1e293b50\'" onmouseout="this.style.background=\'transparent\'">';
           
-          h += '<div style="width:42px;height:42px;border-radius:8px;background:linear-gradient(135deg,' + simColor + '20,' + simColor + '10);border:1px solid ' + simColor + '40;display:flex;align-items:center;justify-content:center;">';
+          h += '<div style="min-width:42px;width:42px;height:42px;border-radius:8px;background:linear-gradient(135deg,' + simColor + '20,' + simColor + '10);border:1px solid ' + simColor + '40;display:flex;align-items:center;justify-content:center;">';
           h += '<div style="font-size:14px;color:' + simColor + ';font-weight:700;">' + pair.similarity + '%</div>';
           h += '</div>';
           
           h += '<div style="flex:1;min-width:0;">';
-          
-          // View names with models
-          h += '<div style="display:flex;align-items:center;gap:8px;margin-bottom:6px;flex-wrap:wrap;">';
-          h += '<div style="display:flex;flex-direction:column;gap:2px;">';
-          h += '<span style="color:#a78bfa;font-size:13px;font-weight:500;">' + pair.v1 + '</span>';
-          h += '<span style="color:#64748b;font-size:10px;">model: ' + pair.v1Model + '</span>';
-          h += '</div>';
-          h += '<span style="color:#475569;font-size:16px;">↔</span>';
-          h += '<div style="display:flex;flex-direction:column;gap:2px;">';
-          h += '<span style="color:#a78bfa;font-size:13px;font-weight:500;">' + pair.v2 + '</span>';
-          h += '<span style="color:#64748b;font-size:10px;">model: ' + pair.v2Model + '</span>';
-          h += '</div>';
+          h += '<div style="display:flex;align-items:center;gap:12px;margin-bottom:4px;">';
+          h += '<div><span style="color:#a78bfa;font-size:13px;font-weight:500;">' + pair.v1 + '</span><span style="color:#64748b;font-size:10px;margin-left:6px;">' + pair.v1Model + '</span></div>';
+          h += '<span style="color:#475569;">↔</span>';
+          h += '<div><span style="color:#a78bfa;font-size:13px;font-weight:500;">' + pair.v2 + '</span><span style="color:#64748b;font-size:10px;margin-left:6px;">' + pair.v2Model + '</span></div>';
           h += '</div>';
           
-          // Match summary
           h += '<div style="display:flex;gap:12px;align-items:center;color:#64748b;font-size:11px;">';
           h += '<span><span style="color:#10b981;">' + pair.exactCount + '</span> exact</span>';
           if (pair.similarCount > 0) h += '<span><span style="color:#eab308;">' + pair.similarCount + '</span> similar</span>';
           h += '<span style="color:#475569;">|</span>';
           h += '<span>' + pair.v1FieldCount + ' vs ' + pair.v2FieldCount + ' fields</span>';
-          h += '</div>';
+          if (pair.v1Only.length > 0 || pair.v2Only.length > 0) {
+            h += '<span style="color:#475569;">|</span>';
+            h += '<span style="color:#ef4444;">' + (pair.v1Only.length + pair.v2Only.length) + ' unique</span>';
+          }
+          h += '</div></div>';
           
-          h += '</div>';
-          
-          h += '<span style="color:#475569;transition:transform 0.2s;">' + (isExp ? icons.chevronUp : icons.chevronDown) + '</span>';
+          h += '<span style="color:#475569;">' + (isExp ? icons.chevronUp : icons.chevronDown) + '</span>';
           h += '</div>';
           
           if (isExp) {
-            h += '<div style="padding:12px 20px 16px 74px;background:#0f172a;">';
+            h += '<div style="padding:12px 20px 16px 20px;background:#0f172a;">';
             
-            // Field comparison table
-            h += '<div style="margin-bottom:8px;display:flex;gap:16px;padding:8px 12px;background:#1e293b;border-radius:6px 6px 0 0;border-bottom:1px solid #334155;">';
-            h += '<div style="flex:1;font-size:10px;color:#64748b;text-transform:uppercase;letter-spacing:0.5px;">' + pair.v1 + '</div>';
-            h += '<div style="width:30px;"></div>';
-            h += '<div style="flex:1;font-size:10px;color:#64748b;text-transform:uppercase;letter-spacing:0.5px;">' + pair.v2 + '</div>';
-            h += '</div>';
+            // Three-column layout: v1 fields | match | v2 fields
+            h += '<div style="display:grid;grid-template-columns:1fr 40px 1fr;gap:0;font-size:11px;">';
             
-            h += '<div style="max-height:300px;overflow-y:auto;background:#1e293b;border-radius:0 0 6px 6px;">';
+            // Header
+            h += '<div style="padding:8px 12px;background:#1e293b;border-radius:6px 0 0 0;color:#64748b;text-transform:uppercase;letter-spacing:0.5px;font-size:10px;border-bottom:1px solid #334155;">' + pair.v1 + ' (' + pair.v1FieldCount + ')</div>';
+            h += '<div style="padding:8px 4px;background:#1e293b;color:#64748b;text-align:center;font-size:10px;border-bottom:1px solid #334155;"></div>';
+            h += '<div style="padding:8px 12px;background:#1e293b;border-radius:0 6px 0 0;color:#64748b;text-transform:uppercase;letter-spacing:0.5px;font-size:10px;border-bottom:1px solid #334155;">' + pair.v2 + ' (' + pair.v2FieldCount + ')</div>';
             
             // Exact matches
             pair.exactMatches.forEach(function(match) {
-              h += '<div style="display:flex;align-items:center;gap:16px;padding:8px 12px;border-bottom:1px solid #0f172a;">';
-              h += '<div style="flex:1;color:#e2e8f0;font-size:11px;font-family:monospace;">' + match.f1 + '</div>';
-              h += '<div style="width:30px;text-align:center;color:#10b981;font-size:14px;">=</div>';
-              h += '<div style="flex:1;color:#e2e8f0;font-size:11px;font-family:monospace;">' + match.f2 + '</div>';
-              h += '</div>';
+              h += '<div style="padding:6px 12px;background:#1e293b;color:#e2e8f0;font-family:monospace;border-bottom:1px solid #0f172a;">' + match.f1 + '</div>';
+              h += '<div style="padding:6px 4px;background:#1e293b;color:#10b981;text-align:center;border-bottom:1px solid #0f172a;">=</div>';
+              h += '<div style="padding:6px 12px;background:#1e293b;color:#e2e8f0;font-family:monospace;border-bottom:1px solid #0f172a;">' + match.f2 + '</div>';
             });
             
             // Similar matches
             pair.similarMatches.forEach(function(match) {
-              h += '<div style="display:flex;align-items:center;gap:16px;padding:8px 12px;border-bottom:1px solid #0f172a;">';
-              h += '<div style="flex:1;color:#94a3b8;font-size:11px;font-family:monospace;">' + match.f1 + '</div>';
-              h += '<div style="width:30px;text-align:center;color:#eab308;font-size:14px;">≈</div>';
-              h += '<div style="flex:1;color:#94a3b8;font-size:11px;font-family:monospace;">' + match.f2 + '</div>';
-              h += '</div>';
+              h += '<div style="padding:6px 12px;background:#1e293b;color:#94a3b8;font-family:monospace;border-bottom:1px solid #0f172a;">' + match.f1 + '</div>';
+              h += '<div style="padding:6px 4px;background:#1e293b;color:#eab308;text-align:center;border-bottom:1px solid #0f172a;">≈</div>';
+              h += '<div style="padding:6px 12px;background:#1e293b;color:#94a3b8;font-family:monospace;border-bottom:1px solid #0f172a;">' + match.f2 + '</div>';
             });
+            
+            // Unmatched fields - show side by side
+            var maxUnmatched = Math.max(pair.v1Only.length, pair.v2Only.length);
+            for (var u = 0; u < maxUnmatched; u++) {
+              var v1Field = pair.v1Only[u] || '';
+              var v2Field = pair.v2Only[u] || '';
+              var isLast = u === maxUnmatched - 1;
+              var radiusLeft = isLast ? 'border-radius:0 0 0 6px;' : '';
+              var radiusRight = isLast ? 'border-radius:0 0 6px 0;' : '';
+              
+              h += '<div style="padding:6px 12px;background:#1e293b;color:' + (v1Field ? '#ef4444' : 'transparent') + ';font-family:monospace;' + (isLast ? '' : 'border-bottom:1px solid #0f172a;') + radiusLeft + '">' + (v1Field || '-') + '</div>';
+              h += '<div style="padding:6px 4px;background:#1e293b;color:#334155;text-align:center;' + (isLast ? '' : 'border-bottom:1px solid #0f172a;') + '">✗</div>';
+              h += '<div style="padding:6px 12px;background:#1e293b;color:' + (v2Field ? '#ef4444' : 'transparent') + ';font-family:monospace;' + (isLast ? '' : 'border-bottom:1px solid #0f172a;') + radiusRight + '">' + (v2Field || '-') + '</div>';
+            }
+            
+            // If no unmatched, close the grid properly
+            if (maxUnmatched === 0) {
+              h += '<div style="background:#1e293b;border-radius:0 0 0 6px;height:4px;"></div>';
+              h += '<div style="background:#1e293b;height:4px;"></div>';
+              h += '<div style="background:#1e293b;border-radius:0 0 6px 0;height:4px;"></div>';
+            }
             
             h += '</div></div>';
           }
@@ -513,7 +638,7 @@ looker.plugins.visualizations.add({
       });
       
       var maxC = Math.max(byType.table.length||1, byType.view.length||1, byType.explore.length||1, byType.dashboard.length||1);
-      var svgH = Math.max(maxC * spacing + 100, 350);
+      var svgH = Math.max(maxC * spacing + 80, 300);
       
       var edges = ''; 
       visible.forEach(function(e) { 
@@ -619,7 +744,7 @@ looker.plugins.visualizations.add({
       
       var hasS = searchTags.length > 0 || searchTerm.trim();
       
-      var h = '<div style="background:#0f172a;min-height:600px;"><div style="padding:14px 24px;border-bottom:1px solid #1e293b;">';
+      var h = '<div style="background:#0f172a;"><div style="padding:14px 24px;border-bottom:1px solid #1e293b;">';
       
       h += '<div style="display:flex;justify-content:flex-end;margin-bottom:14px;">';
       h += '<div style="display:flex;gap:0;"><button class="tab-btn" data-tab="lineage" style="display:flex;align-items:center;gap:6px;padding:10px 20px;border:none;cursor:pointer;font-size:12px;background:' + (activeTab==='lineage'?'#1e293b':'transparent') + ';color:' + (activeTab==='lineage'?'#10b981':'#64748b') + ';border-radius:8px 0 0 8px;border:1px solid #334155;">' + icons.lineage + ' Lineage</button>';
