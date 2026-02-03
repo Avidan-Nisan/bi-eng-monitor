@@ -76,6 +76,17 @@ looker.plugins.visualizations.add({
       return name;
     }
     
+    // Get explores that use a specific view
+    function getExploresForView(viewName) {
+      var result = [];
+      Object.values(explores).forEach(function(exp) {
+        if (exp.sources && exp.sources.indexOf('v_' + viewName) !== -1) {
+          result.push(exp.name);
+        }
+      });
+      return result;
+    }
+    
     var allRows = data.map(function(row) {
       var fieldsVal = fieldsField && row[fieldsField] ? row[fieldsField].value || '' : '';
       var rawFields = fieldsVal ? fieldsVal.split('|').filter(function(f) { return f.trim(); }) : [];
@@ -281,20 +292,55 @@ looker.plugins.visualizations.add({
               
               // Need at least 5 matching fields to be considered
               if (similarFields.length >= 5) {
-                // Calculate Jaccard similarity: intersection / union
+                // Calculate field Jaccard similarity
                 var unionSize = v1.fields.length + v2.fields.length - similarFields.length;
-                var similarity = Math.round((similarFields.length / unionSize) * 100);
+                var fieldSimilarity = similarFields.length / unionSize;
                 
-                // Only show if at least 20% similar
-                if (similarity >= 20) {
+                // Find shared SQL tables
+                var sharedTables = v1.sqlTables.filter(function(t) {
+                  return v2.sqlTables.indexOf(t) !== -1;
+                });
+                var tableSimilarity = 0;
+                if (v1.sqlTables.length > 0 || v2.sqlTables.length > 0) {
+                  var tableUnion = v1.sqlTables.length + v2.sqlTables.length - sharedTables.length;
+                  tableSimilarity = tableUnion > 0 ? sharedTables.length / tableUnion : 0;
+                }
+                
+                // Find shared explores
+                var v1Explores = getExploresForView(v1.name);
+                var v2Explores = getExploresForView(v2.name);
+                var sharedExplores = v1Explores.filter(function(e) {
+                  return v2Explores.indexOf(e) !== -1;
+                });
+                var exploreSimilarity = 0;
+                if (v1Explores.length > 0 || v2Explores.length > 0) {
+                  var exploreUnion = v1Explores.length + v2Explores.length - sharedExplores.length;
+                  exploreSimilarity = exploreUnion > 0 ? sharedExplores.length / exploreUnion : 0;
+                }
+                
+                // Combined weighted score (fields are most important)
+                // Fields: 70%, Tables: 20%, Explores: 10%
+                var combinedScore = Math.round((fieldSimilarity * 0.7 + tableSimilarity * 0.2 + exploreSimilarity * 0.1) * 100);
+                
+                // Only show if combined score is at least 15%
+                if (combinedScore >= 15) {
                   results.push({ 
                     v1: v1.name, 
                     v2: v2.name, 
                     v1Fields: v1.fields.length,
                     v2Fields: v2.fields.length,
-                    similarity: similarity, 
+                    similarity: combinedScore,
+                    fieldSimilarity: Math.round(fieldSimilarity * 100),
                     matchCount: similarFields.length,
-                    similarFields: similarFields
+                    similarFields: similarFields,
+                    sharedTables: sharedTables,
+                    v1Tables: v1.sqlTables.length,
+                    v2Tables: v2.sqlTables.length,
+                    tableSimilarity: Math.round(tableSimilarity * 100),
+                    sharedExplores: sharedExplores,
+                    v1Explores: v1Explores.length,
+                    v2Explores: v2Explores.length,
+                    exploreSimilarity: Math.round(exploreSimilarity * 100)
                   });
                 }
               }
@@ -326,17 +372,17 @@ looker.plugins.visualizations.add({
       } else if (analysisError) {
         h += '<div style="text-align:center;padding:80px 40px;color:#ef4444;font-size:14px;">' + analysisError + '</div>';
       } else if (!similarResults || similarResults.length === 0) {
-        h += '<div style="text-align:center;padding:80px 40px;"><div style="color:#10b981;font-size:14px;">No similar views found (threshold: 20% Jaccard similarity, 5+ matching fields)</div></div>';
+        h += '<div style="text-align:center;padding:80px 40px;"><div style="color:#10b981;font-size:14px;">No similar views found (threshold: 15% combined similarity, 5+ matching fields)</div></div>';
       } else {
         h += '<div style="padding:12px 20px;background:#1e293b50;border-bottom:1px solid #1e293b;display:flex;gap:20px;font-size:11px;color:#64748b;">';
         h += '<span>Found <span style="color:#a78bfa;font-weight:600;">' + similarResults.length + '</span> similar view pairs</span>';
-        h += '<span>•</span><span>Jaccard Similarity = matching fields / (total unique fields in both views)</span>';
+        h += '<span>•</span><span>Score = 70% fields + 20% tables + 10% explores</span>';
         h += '</div>';
         h += '<div style="max-height:500px;overflow-y:auto;">';
         
         similarResults.forEach(function(pair, idx) {
           var isExp = expandedDuplicates[idx];
-          var simColor = pair.similarity >= 70 ? '#ef4444' : pair.similarity >= 50 ? '#f97316' : '#eab308';
+          var simColor = pair.similarity >= 50 ? '#ef4444' : pair.similarity >= 30 ? '#f97316' : '#eab308';
           
           h += '<div class="dup-row" data-idx="' + idx + '" style="border-bottom:1px solid #1e293b;">';
           h += '<div class="dup-header" style="display:flex;align-items:center;gap:16px;padding:14px 20px;cursor:pointer;transition:background 0.15s;" onmouseover="this.style.background=\'#1e293b50\'" onmouseout="this.style.background=\'transparent\'">';
@@ -350,13 +396,15 @@ looker.plugins.visualizations.add({
           h += '<div style="flex:1;min-width:0;">';
           h += '<div style="display:flex;align-items:center;gap:8px;margin-bottom:6px;flex-wrap:wrap;">';
           h += '<span style="color:#e2e8f0;font-size:13px;font-weight:500;">' + pair.v1 + '</span>';
-          h += '<span style="color:#64748b;font-size:10px;">(' + pair.v1Fields + ' fields)</span>';
           h += '<span style="color:#475569;">↔</span>';
           h += '<span style="color:#e2e8f0;font-size:13px;font-weight:500;">' + pair.v2 + '</span>';
-          h += '<span style="color:#64748b;font-size:10px;">(' + pair.v2Fields + ' fields)</span>';
           h += '</div>';
-          h += '<div style="color:#64748b;font-size:11px;">';
-          h += '<span style="color:#10b981;">' + pair.matchCount + ' matching fields</span>';
+          
+          // Stats row
+          h += '<div style="display:flex;gap:16px;flex-wrap:wrap;color:#64748b;font-size:11px;">';
+          h += '<span title="Field similarity"><span style="color:#8b5cf6;">⬤</span> Fields: <span style="color:#a78bfa;">' + pair.matchCount + '</span>/' + Math.max(pair.v1Fields, pair.v2Fields) + ' (' + pair.fieldSimilarity + '%)</span>';
+          h += '<span title="Shared SQL tables"><span style="color:#06b6d4;">⬤</span> Tables: <span style="color:#22d3ee;">' + pair.sharedTables.length + '</span>/' + Math.max(pair.v1Tables, pair.v2Tables) + ' (' + pair.tableSimilarity + '%)</span>';
+          h += '<span title="Shared explores"><span style="color:#ec4899;">⬤</span> Explores: <span style="color:#f472b6;">' + pair.sharedExplores.length + '</span>/' + Math.max(pair.v1Explores, pair.v2Explores) + ' (' + pair.exploreSimilarity + '%)</span>';
           h += '</div></div>';
           
           // Expand icon
@@ -366,17 +414,42 @@ looker.plugins.visualizations.add({
           // Expanded content
           if (isExp) {
             h += '<div style="padding:0 20px 16px 88px;background:#0f172a;">';
-            h += '<div style="font-size:10px;color:#64748b;margin-bottom:8px;text-transform:uppercase;letter-spacing:0.5px;">Matching Fields</div>';
+            
+            // Shared tables section
+            if (pair.sharedTables.length > 0) {
+              h += '<div style="margin-bottom:12px;">';
+              h += '<div style="font-size:10px;color:#64748b;margin-bottom:6px;text-transform:uppercase;letter-spacing:0.5px;">Shared SQL Tables (' + pair.sharedTables.length + ')</div>';
+              h += '<div style="display:flex;flex-wrap:wrap;gap:6px;">';
+              pair.sharedTables.forEach(function(t) {
+                h += '<span style="background:#06b6d420;color:#22d3ee;padding:4px 10px;border-radius:4px;font-size:11px;font-family:monospace;">' + t + '</span>';
+              });
+              h += '</div></div>';
+            }
+            
+            // Shared explores section
+            if (pair.sharedExplores.length > 0) {
+              h += '<div style="margin-bottom:12px;">';
+              h += '<div style="font-size:10px;color:#64748b;margin-bottom:6px;text-transform:uppercase;letter-spacing:0.5px;">Shared Explores (' + pair.sharedExplores.length + ')</div>';
+              h += '<div style="display:flex;flex-wrap:wrap;gap:6px;">';
+              pair.sharedExplores.forEach(function(e) {
+                h += '<span style="background:#ec489920;color:#f472b6;padding:4px 10px;border-radius:4px;font-size:11px;font-family:monospace;">' + e + '</span>';
+              });
+              h += '</div></div>';
+            }
+            
+            // Matching fields section
+            h += '<div style="margin-bottom:12px;">';
+            h += '<div style="font-size:10px;color:#64748b;margin-bottom:8px;text-transform:uppercase;letter-spacing:0.5px;">Matching Fields (' + pair.matchCount + ')</div>';
             h += '<div style="display:flex;flex-direction:column;gap:6px;max-height:300px;overflow-y:auto;">';
             
             pair.similarFields.forEach(function(match) {
               var isExact = match.exact;
               h += '<div style="display:flex;align-items:center;gap:8px;padding:8px 12px;background:#1e293b;border-radius:6px;">';
               if (isExact) {
-                h += '<span style="background:#10b98120;color:#6ee7b7;padding:2px 8px;border-radius:4px;font-size:10px;">EXACT</span>';
+                h += '<span style="background:#10b98120;color:#6ee7b7;padding:2px 8px;border-radius:4px;font-size:10px;min-width:55px;text-align:center;">EXACT</span>';
                 h += '<span style="color:#e2e8f0;font-size:12px;font-family:monospace;">' + match.f1 + '</span>';
               } else {
-                h += '<span style="background:#8b5cf620;color:#c4b5fd;padding:2px 8px;border-radius:4px;font-size:10px;">SIMILAR</span>';
+                h += '<span style="background:#8b5cf620;color:#c4b5fd;padding:2px 8px;border-radius:4px;font-size:10px;min-width:55px;text-align:center;">SIMILAR</span>';
                 h += '<span style="color:#e2e8f0;font-size:12px;font-family:monospace;">' + match.f1 + '</span>';
                 h += '<span style="color:#475569;">≈</span>';
                 h += '<span style="color:#e2e8f0;font-size:12px;font-family:monospace;">' + match.f2 + '</span>';
@@ -384,6 +457,7 @@ looker.plugins.visualizations.add({
               h += '</div>';
             });
             h += '</div></div>';
+            h += '</div>';
           }
           h += '</div>';
         });
