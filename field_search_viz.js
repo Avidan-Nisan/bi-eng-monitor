@@ -17,6 +17,13 @@ looker.plugins.visualizations.add({
       return; 
     }
     
+    // Get Looker host from current URL or configure here
+    var lookerHost = window.location.origin || '';
+    function getViewLink(viewName) {
+      // Default pattern - adjust project name as needed
+      return lookerHost + '/projects/lookml/files/' + viewName + '.view.lkml';
+    }
+    
     var fields = queryResponse.fields.dimension_like.map(function(f) { return f.name; });
     
     var dashField = fields.find(function(f) { return f.toLowerCase().indexOf('dashboard') !== -1 && f.toLowerCase().indexOf('title') !== -1; });
@@ -199,12 +206,19 @@ looker.plugins.visualizations.add({
       };
     });
     
-    var allUniqueFields = {};
-    allRows.forEach(function(row) { row.fields.forEach(function(f) { allUniqueFields[f] = true; }); });
-    var allFieldsList = Object.keys(allUniqueFields);
-    
     var allTablesList = [];
     allRows.forEach(function(row) { if (row.table && allTablesList.indexOf(row.table) === -1) allTablesList.push(row.table); });
+    
+    // Store table to fields mapping for search (separate from view field overlap logic)
+    var tableFields = {};
+    allRows.forEach(function(row) {
+      if (row.table && row.fields.length > 0) {
+        if (!tableFields[row.table]) tableFields[row.table] = [];
+        row.fields.forEach(function(f) {
+          if (tableFields[row.table].indexOf(f) === -1) tableFields[row.table].push(f);
+        });
+      }
+    });
     
     var tables = {}, views = {}, explores = {}, dashboards = {};
     var viewToTables = {}, viewToViews = {}, exploreToViews = {}, dashToExplores = {};
@@ -215,7 +229,7 @@ looker.plugins.visualizations.add({
       var extVw = row.extendedView, incVw = row.includedView;
       var model = row.model;
       
-      if (tbl && !tables[tbl]) tables[tbl] = { id: 't_' + tbl, name: tbl, type: 'table', sources: [], fields: [], sqlTables: [tbl] };
+      if (tbl && !tables[tbl]) tables[tbl] = { id: 't_' + tbl, name: tbl, type: 'table', sources: [], fields: tableFields[tbl] || [], sqlTables: [tbl] };
       if (vw && !views[vw]) views[vw] = { id: 'v_' + vw, name: vw, type: 'view', sources: [], fields: [], sqlTables: [], model: null };
       if (exp && !explores[exp]) explores[exp] = { id: 'e_' + exp, name: exp, type: 'explore', sources: [], fields: [], sqlTables: [], model: model };
       if (dash && !dashboards[dash]) dashboards[dash] = { id: 'd_' + dash, name: dash, type: 'dashboard', sources: [], fields: [], sqlTables: [] };
@@ -270,7 +284,8 @@ looker.plugins.visualizations.add({
       search: '<svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><path d="M21 21l-4.35-4.35"/></svg>', 
       x: '<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>', 
       lineage: '<svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2"><circle cx="5" cy="12" r="2"/><circle cx="19" cy="6" r="2"/><circle cx="19" cy="18" r="2"/><path d="M7 12h4l4-6h2M11 12l4 6h2"/></svg>', 
-      duplicate: '<svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2"><rect x="8" y="8" width="12" height="12" rx="2"/><path d="M4 16V6a2 2 0 012-2h10"/></svg>', 
+      overlap: '<svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2"><circle cx="9" cy="12" r="5"/><circle cx="15" cy="12" r="5"/></svg>',
+      link: '<svg viewBox="0 0 24 24" width="10" height="10" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 13v6a2 2 0 01-2 2H5a2 2 0 01-2-2V8a2 2 0 012-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg>', 
       chevronDown: '<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 12 15 18 9"/></svg>',
       chevronUp: '<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2"><polyline points="18 15 12 9 6 15"/></svg>'
     };
@@ -465,7 +480,7 @@ looker.plugins.visualizations.add({
       var metrics = calculateSummaryMetrics();
       
       var h = '<div style="padding:12px 24px;border-bottom:1px solid #1e293b;">';
-      h += '<div style="color:#94a3b8;font-size:12px;">Analyzing <span style="color:#e2e8f0;font-weight:500;">' + viewsCount + '</span> views for potential consolidation</div>';
+      h += '<div style="color:#94a3b8;font-size:12px;">Analyzing <span style="color:#e2e8f0;font-weight:500;">' + viewsCount + '</span> views for field overlap</div>';
       h += '</div>';
       
       if (metrics) {
@@ -474,7 +489,7 @@ looker.plugins.visualizations.add({
         
         h += '<div style="display:flex;align-items:center;gap:8px;">';
         h += '<span style="font-size:20px;font-weight:700;color:#a78bfa;">' + metrics.totalSimilarViews + '</span>';
-        h += '<span style="font-size:11px;color:#64748b;">Candidate Views</span>';
+        h += '<span style="font-size:11px;color:#64748b;">Views with Overlap</span>';
         h += '</div>';
         
         h += '<div style="width:1px;height:24px;background:#334155;"></div>';
@@ -489,18 +504,18 @@ looker.plugins.visualizations.add({
         
         h += '<div style="display:flex;align-items:center;gap:8px;">';
         h += '<span style="font-size:20px;font-weight:700;color:#22d3ee;">' + metrics.totalPairs + '</span>';
-        h += '<span style="font-size:11px;color:#64748b;">Duplicate Pairs</span>';
+        h += '<span style="font-size:11px;color:#64748b;">View Pairs</span>';
         h += '</div>';
         
         h += '</div></div>';
       }
       
       if (analysisLoading) {
-        h += '<div style="text-align:center;padding:60px 40px;"><div style="color:#8b5cf6;font-size:14px;">Analyzing for duplicate views...</div></div>';
+        h += '<div style="text-align:center;padding:60px 40px;"><div style="color:#8b5cf6;font-size:14px;">Analyzing field overlap...</div></div>';
       } else if (analysisError) {
         h += '<div style="text-align:center;padding:60px 40px;color:#ef4444;font-size:14px;">' + analysisError + '</div>';
       } else if (!similarResults || similarResults.length === 0) {
-        h += '<div style="text-align:center;padding:60px 40px;"><div style="color:#10b981;font-size:14px;">No duplicate views found that can be consolidated</div></div>';
+        h += '<div style="text-align:center;padding:60px 40px;"><div style="color:#10b981;font-size:14px;">No significant field overlap found between views</div></div>';
       } else {
         h += '<div style="overflow-y:auto;">';
         
@@ -517,9 +532,9 @@ looker.plugins.visualizations.add({
           
           h += '<div style="flex:1;min-width:0;">';
           h += '<div style="display:flex;align-items:center;gap:12px;margin-bottom:4px;">';
-          h += '<div><span style="color:#a78bfa;font-size:13px;font-weight:500;">' + pair.v1 + '</span><span style="color:#64748b;font-size:10px;margin-left:6px;">' + pair.v1Model + '</span></div>';
+          h += '<div><a href="' + getViewLink(pair.v1) + '" target="_blank" style="color:#a78bfa;font-size:13px;font-weight:500;text-decoration:none;display:inline-flex;align-items:center;gap:4px;" onmouseover="this.style.textDecoration=\'underline\'" onmouseout="this.style.textDecoration=\'none\'">' + pair.v1 + ' ' + icons.link + '</a><span style="color:#64748b;font-size:10px;margin-left:6px;">' + pair.v1Model + '</span></div>';
           h += '<span style="color:#475569;">↔</span>';
-          h += '<div><span style="color:#a78bfa;font-size:13px;font-weight:500;">' + pair.v2 + '</span><span style="color:#64748b;font-size:10px;margin-left:6px;">' + pair.v2Model + '</span></div>';
+          h += '<div><a href="' + getViewLink(pair.v2) + '" target="_blank" style="color:#a78bfa;font-size:13px;font-weight:500;text-decoration:none;display:inline-flex;align-items:center;gap:4px;" onmouseover="this.style.textDecoration=\'underline\'" onmouseout="this.style.textDecoration=\'none\'">' + pair.v2 + ' ' + icons.link + '</a><span style="color:#64748b;font-size:10px;margin-left:6px;">' + pair.v2Model + '</span></div>';
           h += '</div>';
           
           h += '<div style="display:flex;gap:12px;align-items:center;color:#64748b;font-size:11px;">';
@@ -755,7 +770,7 @@ looker.plugins.visualizations.add({
       
       h += '<div style="display:flex;justify-content:flex-end;margin-bottom:14px;">';
       h += '<div style="display:flex;gap:0;"><button class="tab-btn" data-tab="lineage" style="display:flex;align-items:center;gap:6px;padding:10px 20px;border:none;cursor:pointer;font-size:12px;background:' + (activeTab==='lineage'?'#1e293b':'transparent') + ';color:' + (activeTab==='lineage'?'#10b981':'#64748b') + ';border-radius:8px 0 0 8px;border:1px solid #334155;">' + icons.lineage + ' Lineage</button>';
-      h += '<button class="tab-btn" data-tab="duplicates" style="display:flex;align-items:center;gap:6px;padding:10px 20px;border:none;cursor:pointer;font-size:12px;background:' + (activeTab==='duplicates'?'#1e293b':'transparent') + ';color:' + (activeTab==='duplicates'?'#8b5cf6':'#64748b') + ';border-radius:0 8px 8px 0;border:1px solid #334155;border-left:none;">' + icons.duplicate + ' Duplicates</button></div></div>';
+      h += '<button class="tab-btn" data-tab="duplicates" style="display:flex;align-items:center;gap:6px;padding:10px 20px;border:none;cursor:pointer;font-size:12px;background:' + (activeTab==='duplicates'?'#1e293b':'transparent') + ';color:' + (activeTab==='duplicates'?'#8b5cf6':'#64748b') + ';border-radius:0 8px 8px 0;border:1px solid #334155;border-left:none;">' + icons.overlap + ' Field Overlap</button></div></div>';
       
       h += '<div style="background:#1e293b;border:1px solid #475569;border-radius:12px;padding:16px;"><div style="display:flex;align-items:center;gap:10px;margin-bottom:' + (searchTags.length ? '12px' : '0') + ';"><span style="color:#10b981;">' + icons.search + '</span><input id="searchInput" type="text" value="' + searchTerm + '" placeholder="Search tables, views, explores, dashboards, or fields..." style="flex:1;background:transparent;border:none;color:#e2e8f0;font-size:14px;outline:none;"/>';
       if (hasS || selectedNode) h += '<span id="clearAll" style="color:#64748b;cursor:pointer;padding:6px 10px;border-radius:6px;background:#334155;font-size:11px;">Clear</span>';
