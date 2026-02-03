@@ -59,12 +59,19 @@ looker.plugins.visualizations.add({
     }
     
     // Normalize field name for comparison (remove prefix like dics_, hics_, etc.)
+    // But keep enough context to avoid false positives
     function normalizeFieldName(fieldName) {
       if (!fieldName) return '';
       var name = fieldName.toLowerCase();
       var idx = name.indexOf('_');
       if (idx > 0 && idx < 6) { // prefix is typically 2-5 chars
-        return name.substring(idx + 1);
+        var suffix = name.substring(idx + 1);
+        // Skip overly generic suffixes that cause false positives
+        var genericSuffixes = ['id', 'name', 'type', 'date', 'value', 'status', 'code'];
+        if (genericSuffixes.indexOf(suffix) !== -1) {
+          return null; // Don't match generic fields
+        }
+        return suffix;
       }
       return name;
     }
@@ -222,13 +229,15 @@ looker.plugins.visualizations.add({
       var normalized1 = {};
       fields1.forEach(function(f) {
         var norm = normalizeFieldName(f);
-        if (!normalized1[norm]) normalized1[norm] = [];
-        normalized1[norm].push(f);
+        if (norm) { // Skip if null (generic field)
+          if (!normalized1[norm]) normalized1[norm] = [];
+          normalized1[norm].push(f);
+        }
       });
       
       fields2.forEach(function(f2) {
         var norm = normalizeFieldName(f2);
-        if (normalized1[norm]) {
+        if (norm && normalized1[norm]) {
           normalized1[norm].forEach(function(f1) {
             if (f1.toLowerCase() !== f2.toLowerCase()) { // Different original names
               matches.push({ f1: f1, f2: f2, normalized: norm });
@@ -237,7 +246,7 @@ looker.plugins.visualizations.add({
         }
       });
       
-      // Also find exact matches
+      // Also find exact matches (same field name in both views)
       fields1.forEach(function(f1) {
         fields2.forEach(function(f2) {
           if (f1.toLowerCase() === f2.toLowerCase()) {
@@ -263,18 +272,21 @@ looker.plugins.visualizations.add({
       setTimeout(function() {
         try {
           var results = [];
-          var viewsList = Object.values(views).filter(function(v) { return v.fields && v.fields.length >= 3; });
+          var viewsList = Object.values(views).filter(function(v) { return v.fields && v.fields.length >= 5; });
           
           for (var i = 0; i < viewsList.length; i++) {
             for (var j = i + 1; j < viewsList.length; j++) {
               var v1 = viewsList[i], v2 = viewsList[j];
               var similarFields = findSimilarFields(v1.fields, v2.fields);
               
-              if (similarFields.length >= 3) {
-                var totalFields = Math.min(v1.fields.length, v2.fields.length);
-                var similarity = Math.round((similarFields.length / totalFields) * 100);
+              // Need at least 5 matching fields to be considered
+              if (similarFields.length >= 5) {
+                // Calculate Jaccard similarity: intersection / union
+                var unionSize = v1.fields.length + v2.fields.length - similarFields.length;
+                var similarity = Math.round((similarFields.length / unionSize) * 100);
                 
-                if (similarity >= 30) { // Only show if at least 30% similar
+                // Only show if at least 20% similar
+                if (similarity >= 20) {
                   results.push({ 
                     v1: v1.name, 
                     v2: v2.name, 
@@ -302,10 +314,10 @@ looker.plugins.visualizations.add({
     }
     
     function renderDuplicatesTab() {
-      var viewsCount = Object.values(views).filter(function(v) { return v.fields && v.fields.length >= 3; }).length;
+      var viewsCount = Object.values(views).filter(function(v) { return v.fields && v.fields.length >= 5; }).length;
       
       var h = '<div style="padding:16px 24px;border-bottom:1px solid #1e293b;display:flex;justify-content:space-between;align-items:center;">';
-      h += '<div style="color:#94a3b8;font-size:13px;">Comparing <span style="color:#e2e8f0;font-weight:500;">' + viewsCount + '</span> views with 3+ fields</div>';
+      h += '<div style="color:#94a3b8;font-size:13px;">Comparing <span style="color:#e2e8f0;font-weight:500;">' + viewsCount + '</span> views with 5+ fields</div>';
       if (similarResults) h += '<button id="refreshBtn" style="background:transparent;border:1px solid #475569;padding:6px 12px;border-radius:6px;color:#94a3b8;cursor:pointer;font-size:11px;">Refresh</button>';
       h += '</div>';
       
@@ -314,11 +326,11 @@ looker.plugins.visualizations.add({
       } else if (analysisError) {
         h += '<div style="text-align:center;padding:80px 40px;color:#ef4444;font-size:14px;">' + analysisError + '</div>';
       } else if (!similarResults || similarResults.length === 0) {
-        h += '<div style="text-align:center;padding:80px 40px;"><div style="color:#10b981;font-size:14px;">No similar views found (threshold: 30% similarity)</div></div>';
+        h += '<div style="text-align:center;padding:80px 40px;"><div style="color:#10b981;font-size:14px;">No similar views found (threshold: 20% Jaccard similarity, 5+ matching fields)</div></div>';
       } else {
         h += '<div style="padding:12px 20px;background:#1e293b50;border-bottom:1px solid #1e293b;display:flex;gap:20px;font-size:11px;color:#64748b;">';
         h += '<span>Found <span style="color:#a78bfa;font-weight:600;">' + similarResults.length + '</span> similar view pairs</span>';
-        h += '<span>•</span><span>Similarity = matching fields / smaller view\'s total fields</span>';
+        h += '<span>•</span><span>Jaccard Similarity = matching fields / (total unique fields in both views)</span>';
         h += '</div>';
         h += '<div style="max-height:500px;overflow-y:auto;">';
         
