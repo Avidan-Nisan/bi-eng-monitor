@@ -10,6 +10,19 @@ looker.plugins.visualizations.add({
   updateAsync: function(data, element, config, queryResponse, details, done) {
     var container = element.querySelector('#asset-manager-container');
     var containerWidth = element.offsetWidth || 1200;
+    
+    // Configure Looker base URLs here - adjust to match your instance
+    var LOOKER_BASE = ''; // e.g., 'https://your-instance.looker.com'
+    var LOOKER_PROJECT = 'your_project'; // Your LookML project name
+    var LOOKER_MODEL = 'your_model'; // Your model name
+    
+    function getLookerViewUrl(viewName) {
+      return LOOKER_BASE + '/projects/' + LOOKER_PROJECT + '/files/' + viewName + '.view.lkml';
+    }
+    function getLookerExploreUrl(exploreName) {
+      return LOOKER_BASE + '/explore/' + LOOKER_MODEL + '/' + exploreName;
+    }
+    
     if (!data || data.length === 0) { 
       container.innerHTML = '<div style="padding:40px;color:#64748b;background:#0f172a;min-height:600px;">No data available</div>'; 
       done(); 
@@ -163,7 +176,7 @@ looker.plugins.visualizations.add({
       duplicate: '<svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2"><rect x="8" y="8" width="12" height="12" rx="2"/><path d="M4 16V6a2 2 0 012-2h10"/></svg>', 
       chevronDown: '<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 12 15 18 9"/></svg>',
       chevronUp: '<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2"><polyline points="18 15 12 9 6 15"/></svg>',
-      link: '<svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2"><path d="M10 13a5 5 0 007.54.54l3-3a5 5 0 00-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 00-7.54-.54l-3 3a5 5 0 007.07 7.07l1.71-1.71"/></svg>'
+      link: '<svg viewBox="0 0 24 24" width="11" height="11" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 13v6a2 2 0 01-2 2H5a2 2 0 01-2-2V8a2 2 0 012-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg>'
     };
     var typeIcons = { 
       table: '<svg viewBox="0 0 24 24" width="14" height="14" fill="currentColor"><rect x="3" y="3" width="18" height="4" rx="1"/><rect x="3" y="9" width="8" height="3"/><rect x="13" y="9" width="8" height="3"/><rect x="3" y="14" width="8" height="3"/><rect x="13" y="14" width="8" height="3"/></svg>', 
@@ -226,11 +239,6 @@ looker.plugins.visualizations.add({
       return matches.filter(function(m) { var key = m.f1 + '|' + m.f2; if (seen[key]) return false; seen[key] = true; return true; });
     }
     
-    function navigateToEntity(entityId) {
-      var entity = allEntities.find(function(x) { return x.id === entityId; });
-      if (entity) { selectedNode = entity; searchTerm = ''; searchTags = []; activeTab = 'lineage'; render(); }
-    }
-    
     function runAnalysis() {
       if (analysisLoading) return;
       analysisLoading = true; analysisError = null; render();
@@ -268,14 +276,9 @@ looker.plugins.visualizations.add({
                 
                 if (combinedScore >= 15) {
                   results.push({ 
-                    v1: v1.name, v2: v2.name, v1Fields: v1.fields.length, v2Fields: v2.fields.length,
-                    similarity: combinedScore, fieldSimilarity: Math.round(fieldSimilarity * 100),
+                    v1: v1.name, v2: v2.name, similarity: combinedScore,
                     matchCount: similarFields.length, similarFields: similarFields,
-                    sharedTables: sharedTables, v1Tables: v1.sqlTables.length, v2Tables: v2.sqlTables.length,
-                    tableSimilarity: Math.round(tableSimilarity * 100), sharedExplores: sharedExplores,
-                    v1Explores: v1Explores, v2Explores: v2Explores,
-                    v1ExploresCount: v1Explores.length, v2ExploresCount: v2Explores.length,
-                    exploreSimilarity: Math.round(exploreSimilarity * 100)
+                    sharedTables: sharedTables, sharedExplores: sharedExplores
                   });
                 }
               }
@@ -291,16 +294,13 @@ looker.plugins.visualizations.add({
     
     function calculateSummaryMetrics() {
       if (!similarResults || similarResults.length === 0) return null;
-      
       var uniqueViews = {}, uniqueExplores = {}, totalSimilarity = 0;
-      
       similarResults.forEach(function(pair) {
         uniqueViews[pair.v1] = true;
         uniqueViews[pair.v2] = true;
         pair.sharedExplores.forEach(function(e) { uniqueExplores[e] = true; });
         totalSimilarity += pair.similarity;
       });
-      
       return {
         totalSimilarViews: Object.keys(uniqueViews).length,
         totalSimilarExplores: Object.keys(uniqueExplores).length,
@@ -313,39 +313,40 @@ looker.plugins.visualizations.add({
       var viewsCount = Object.values(views).filter(function(v) { return v.fields && v.fields.length >= 5; }).length;
       var metrics = calculateSummaryMetrics();
       
-      var h = '<div style="padding:16px 24px;border-bottom:1px solid #1e293b;display:flex;justify-content:space-between;align-items:center;">';
-      h += '<div style="color:#94a3b8;font-size:13px;">Comparing <span style="color:#e2e8f0;font-weight:500;">' + viewsCount + '</span> views with 5+ fields</div>';
-      if (similarResults) h += '<button id="refreshBtn" style="background:transparent;border:1px solid #475569;padding:6px 12px;border-radius:6px;color:#94a3b8;cursor:pointer;font-size:11px;">Refresh</button>';
+      var h = '<div style="padding:12px 24px;border-bottom:1px solid #1e293b;">';
+      h += '<div style="color:#94a3b8;font-size:12px;">Comparing <span style="color:#e2e8f0;font-weight:500;">' + viewsCount + '</span> views with 5+ fields</div>';
       h += '</div>';
       
-      // Summary metrics box
+      // Compact summary metrics box
       if (metrics) {
-        h += '<div style="padding:16px 24px;background:linear-gradient(135deg,#1e293b,#0f172a);border-bottom:1px solid #1e293b;">';
-        h += '<div style="display:grid;grid-template-columns:repeat(4,1fr);gap:16px;">';
+        h += '<div style="padding:12px 24px;background:#1e293b40;border-bottom:1px solid #1e293b;">';
+        h += '<div style="display:flex;gap:24px;align-items:center;">';
         
-        // Total Similar Views
-        h += '<div style="background:#8b5cf615;border:1px solid #8b5cf640;border-radius:12px;padding:16px;text-align:center;">';
-        h += '<div style="font-size:28px;font-weight:700;color:#a78bfa;">' + metrics.totalSimilarViews + '</div>';
-        h += '<div style="font-size:11px;color:#94a3b8;margin-top:4px;">Similar Views</div>';
+        h += '<div style="display:flex;align-items:center;gap:8px;">';
+        h += '<span style="font-size:20px;font-weight:700;color:#a78bfa;">' + metrics.totalSimilarViews + '</span>';
+        h += '<span style="font-size:11px;color:#64748b;">Similar Views</span>';
         h += '</div>';
         
-        // Total Similar Explores
-        h += '<div style="background:#ec489915;border:1px solid #ec489940;border-radius:12px;padding:16px;text-align:center;">';
-        h += '<div style="font-size:28px;font-weight:700;color:#f472b6;">' + metrics.totalSimilarExplores + '</div>';
-        h += '<div style="font-size:11px;color:#94a3b8;margin-top:4px;">Affected Explores</div>';
+        h += '<div style="width:1px;height:24px;background:#334155;"></div>';
+        
+        h += '<div style="display:flex;align-items:center;gap:8px;">';
+        h += '<span style="font-size:20px;font-weight:700;color:#f472b6;">' + metrics.totalSimilarExplores + '</span>';
+        h += '<span style="font-size:11px;color:#64748b;">Affected Explores</span>';
         h += '</div>';
         
-        // Average Similarity Rate
+        h += '<div style="width:1px;height:24px;background:#334155;"></div>';
+        
         var simColor = metrics.avgSimilarity >= 50 ? '#ef4444' : metrics.avgSimilarity >= 30 ? '#f97316' : '#eab308';
-        h += '<div style="background:' + simColor + '15;border:1px solid ' + simColor + '40;border-radius:12px;padding:16px;text-align:center;">';
-        h += '<div style="font-size:28px;font-weight:700;color:' + simColor + ';">' + metrics.avgSimilarity + '%</div>';
-        h += '<div style="font-size:11px;color:#94a3b8;margin-top:4px;">Avg Similarity</div>';
+        h += '<div style="display:flex;align-items:center;gap:8px;">';
+        h += '<span style="font-size:20px;font-weight:700;color:' + simColor + ';">' + metrics.avgSimilarity + '%</span>';
+        h += '<span style="font-size:11px;color:#64748b;">Avg Similarity</span>';
         h += '</div>';
         
-        // Total Pairs
-        h += '<div style="background:#06b6d415;border:1px solid #06b6d440;border-radius:12px;padding:16px;text-align:center;">';
-        h += '<div style="font-size:28px;font-weight:700;color:#22d3ee;">' + metrics.totalPairs + '</div>';
-        h += '<div style="font-size:11px;color:#94a3b8;margin-top:4px;">Similar Pairs</div>';
+        h += '<div style="width:1px;height:24px;background:#334155;"></div>';
+        
+        h += '<div style="display:flex;align-items:center;gap:8px;">';
+        h += '<span style="font-size:20px;font-weight:700;color:#22d3ee;">' + metrics.totalPairs + '</span>';
+        h += '<span style="font-size:11px;color:#64748b;">Similar Pairs</span>';
         h += '</div>';
         
         h += '</div></div>';
@@ -356,79 +357,87 @@ looker.plugins.visualizations.add({
       } else if (analysisError) {
         h += '<div style="text-align:center;padding:80px 40px;color:#ef4444;font-size:14px;">' + analysisError + '</div>';
       } else if (!similarResults || similarResults.length === 0) {
-        h += '<div style="text-align:center;padding:80px 40px;"><div style="color:#10b981;font-size:14px;">No similar views found (threshold: 15% combined similarity, 5+ matching fields)</div></div>';
+        h += '<div style="text-align:center;padding:80px 40px;"><div style="color:#10b981;font-size:14px;">No similar views found</div></div>';
       } else {
-        h += '<div style="padding:12px 20px;background:#1e293b50;border-bottom:1px solid #1e293b;display:flex;gap:20px;font-size:11px;color:#64748b;">';
-        h += '<span>Score = 70% fields + 20% tables + 10% explores</span>';
-        h += '<span>•</span><span>Click view/explore names to see lineage</span>';
-        h += '</div>';
         h += '<div style="max-height:500px;overflow-y:auto;">';
         
         similarResults.forEach(function(pair, idx) {
           var isExp = expandedDuplicates[idx];
           var simColor = pair.similarity >= 50 ? '#ef4444' : pair.similarity >= 30 ? '#f97316' : '#eab308';
           
-          h += '<div class="dup-row" data-idx="' + idx + '" style="border-bottom:1px solid #1e293b;">';
-          h += '<div class="dup-header" style="display:flex;align-items:center;gap:16px;padding:14px 20px;cursor:pointer;transition:background 0.15s;" onmouseover="this.style.background=\'#1e293b50\'" onmouseout="this.style.background=\'transparent\'">';
+          // Get preview of similar fields (first 3)
+          var fieldPreview = pair.similarFields.slice(0, 3).map(function(m) {
+            return m.exact ? m.f1 : m.f1 + '≈' + m.f2;
+          });
+          var moreCount = pair.similarFields.length - 3;
           
-          h += '<div style="width:52px;height:52px;border-radius:10px;background:linear-gradient(135deg,' + simColor + '20,' + simColor + '10);border:1px solid ' + simColor + '40;display:flex;flex-direction:column;align-items:center;justify-content:center;">';
-          h += '<div style="font-size:16px;color:' + simColor + ';font-weight:700;">' + pair.similarity + '%</div>';
+          h += '<div class="dup-row" data-idx="' + idx + '" style="border-bottom:1px solid #1e293b;">';
+          h += '<div class="dup-header" style="display:flex;align-items:center;gap:12px;padding:12px 20px;cursor:pointer;transition:background 0.15s;" onmouseover="this.style.background=\'#1e293b50\'" onmouseout="this.style.background=\'transparent\'">';
+          
+          // Similarity badge - smaller
+          h += '<div style="width:42px;height:42px;border-radius:8px;background:linear-gradient(135deg,' + simColor + '20,' + simColor + '10);border:1px solid ' + simColor + '40;display:flex;align-items:center;justify-content:center;">';
+          h += '<div style="font-size:14px;color:' + simColor + ';font-weight:700;">' + pair.similarity + '%</div>';
           h += '</div>';
           
           h += '<div style="flex:1;min-width:0;">';
+          // View names with external links
           h += '<div style="display:flex;align-items:center;gap:8px;margin-bottom:6px;flex-wrap:wrap;">';
-          h += '<span class="entity-link" data-id="v_' + pair.v1 + '" style="color:#a78bfa;font-size:13px;font-weight:500;cursor:pointer;display:inline-flex;align-items:center;gap:4px;padding:2px 6px;border-radius:4px;transition:background 0.15s;" onmouseover="this.style.background=\'#8b5cf620\'" onmouseout="this.style.background=\'transparent\'">' + icons.link + ' ' + pair.v1 + '</span>';
+          h += '<a href="' + getLookerViewUrl(pair.v1) + '" target="_blank" class="view-link" style="color:#a78bfa;font-size:13px;font-weight:500;text-decoration:none;display:inline-flex;align-items:center;gap:4px;padding:2px 6px;border-radius:4px;transition:background 0.15s;" onmouseover="this.style.background=\'#8b5cf620\'" onmouseout="this.style.background=\'transparent\'">' + pair.v1 + ' ' + icons.link + '</a>';
           h += '<span style="color:#475569;">↔</span>';
-          h += '<span class="entity-link" data-id="v_' + pair.v2 + '" style="color:#a78bfa;font-size:13px;font-weight:500;cursor:pointer;display:inline-flex;align-items:center;gap:4px;padding:2px 6px;border-radius:4px;transition:background 0.15s;" onmouseover="this.style.background=\'#8b5cf620\'" onmouseout="this.style.background=\'transparent\'">' + icons.link + ' ' + pair.v2 + '</span>';
+          h += '<a href="' + getLookerViewUrl(pair.v2) + '" target="_blank" class="view-link" style="color:#a78bfa;font-size:13px;font-weight:500;text-decoration:none;display:inline-flex;align-items:center;gap:4px;padding:2px 6px;border-radius:4px;transition:background 0.15s;" onmouseover="this.style.background=\'#8b5cf620\'" onmouseout="this.style.background=\'transparent\'">' + pair.v2 + ' ' + icons.link + '</a>';
           h += '</div>';
           
-          h += '<div style="display:flex;gap:16px;flex-wrap:wrap;color:#64748b;font-size:11px;">';
-          h += '<span title="Field similarity"><span style="color:#8b5cf6;">⬤</span> Fields: <span style="color:#a78bfa;">' + pair.matchCount + '</span>/' + Math.max(pair.v1Fields, pair.v2Fields) + ' (' + pair.fieldSimilarity + '%)</span>';
-          h += '<span title="Shared SQL tables"><span style="color:#06b6d4;">⬤</span> Tables: <span style="color:#22d3ee;">' + pair.sharedTables.length + '</span>/' + Math.max(pair.v1Tables, pair.v2Tables) + ' (' + pair.tableSimilarity + '%)</span>';
-          h += '<span title="Shared explores"><span style="color:#ec4899;">⬤</span> Explores: <span style="color:#f472b6;">' + pair.sharedExplores.length + '</span>/' + Math.max(pair.v1ExploresCount, pair.v2ExploresCount) + ' (' + pair.exploreSimilarity + '%)</span>';
+          // Similar fields preview
+          h += '<div style="display:flex;flex-wrap:wrap;gap:6px;align-items:center;">';
+          fieldPreview.forEach(function(f) {
+            h += '<span style="background:#1e293b;color:#94a3b8;padding:2px 8px;border-radius:4px;font-size:10px;font-family:monospace;">' + f + '</span>';
+          });
+          if (moreCount > 0) {
+            h += '<span style="color:#64748b;font-size:10px;">+' + moreCount + ' more</span>';
+          }
           h += '</div></div>';
           
           h += '<span style="color:#475569;transition:transform 0.2s;">' + (isExp ? icons.chevronUp : icons.chevronDown) + '</span>';
           h += '</div>';
           
           if (isExp) {
-            h += '<div style="padding:0 20px 16px 88px;background:#0f172a;">';
+            h += '<div style="padding:0 20px 16px 74px;background:#0f172a;">';
             
             if (pair.sharedTables.length > 0) {
               h += '<div style="margin-bottom:12px;">';
-              h += '<div style="font-size:10px;color:#64748b;margin-bottom:6px;text-transform:uppercase;letter-spacing:0.5px;">Shared SQL Tables (' + pair.sharedTables.length + ')</div>';
+              h += '<div style="font-size:10px;color:#64748b;margin-bottom:6px;text-transform:uppercase;letter-spacing:0.5px;">Shared SQL Tables</div>';
               h += '<div style="display:flex;flex-wrap:wrap;gap:6px;">';
               pair.sharedTables.forEach(function(t) {
-                h += '<span class="entity-link" data-id="t_' + t + '" style="background:#06b6d420;color:#22d3ee;padding:4px 10px;border-radius:4px;font-size:11px;font-family:monospace;cursor:pointer;display:inline-flex;align-items:center;gap:4px;transition:background 0.15s;" onmouseover="this.style.background=\'#06b6d440\'" onmouseout="this.style.background=\'#06b6d420\'">' + icons.link + ' ' + t + '</span>';
+                h += '<span style="background:#06b6d420;color:#22d3ee;padding:4px 10px;border-radius:4px;font-size:11px;font-family:monospace;">' + t + '</span>';
               });
               h += '</div></div>';
             }
             
             if (pair.sharedExplores.length > 0) {
               h += '<div style="margin-bottom:12px;">';
-              h += '<div style="font-size:10px;color:#64748b;margin-bottom:6px;text-transform:uppercase;letter-spacing:0.5px;">Shared Explores (' + pair.sharedExplores.length + ')</div>';
+              h += '<div style="font-size:10px;color:#64748b;margin-bottom:6px;text-transform:uppercase;letter-spacing:0.5px;">Shared Explores</div>';
               h += '<div style="display:flex;flex-wrap:wrap;gap:6px;">';
               pair.sharedExplores.forEach(function(e) {
-                h += '<span class="entity-link" data-id="e_' + e + '" style="background:#ec489920;color:#f472b6;padding:4px 10px;border-radius:4px;font-size:11px;font-family:monospace;cursor:pointer;display:inline-flex;align-items:center;gap:4px;transition:background 0.15s;" onmouseover="this.style.background=\'#ec489940\'" onmouseout="this.style.background=\'#ec489920\'">' + icons.link + ' ' + e + '</span>';
+                h += '<a href="' + getLookerExploreUrl(e) + '" target="_blank" style="background:#ec489920;color:#f472b6;padding:4px 10px;border-radius:4px;font-size:11px;font-family:monospace;text-decoration:none;display:inline-flex;align-items:center;gap:4px;transition:background 0.15s;" onmouseover="this.style.background=\'#ec489940\'" onmouseout="this.style.background=\'#ec489920\'">' + e + ' ' + icons.link + '</a>';
               });
               h += '</div></div>';
             }
             
             h += '<div style="margin-bottom:12px;">';
-            h += '<div style="font-size:10px;color:#64748b;margin-bottom:8px;text-transform:uppercase;letter-spacing:0.5px;">Matching Fields (' + pair.matchCount + ')</div>';
-            h += '<div style="display:flex;flex-direction:column;gap:6px;max-height:300px;overflow-y:auto;">';
+            h += '<div style="font-size:10px;color:#64748b;margin-bottom:8px;text-transform:uppercase;letter-spacing:0.5px;">All Similar Fields (' + pair.matchCount + ')</div>';
+            h += '<div style="display:flex;flex-direction:column;gap:4px;max-height:300px;overflow-y:auto;">';
             
             pair.similarFields.forEach(function(match) {
               var isExact = match.exact;
-              h += '<div style="display:flex;align-items:center;gap:8px;padding:8px 12px;background:#1e293b;border-radius:6px;">';
+              h += '<div style="display:flex;align-items:center;gap:8px;padding:6px 10px;background:#1e293b;border-radius:4px;">';
               if (isExact) {
-                h += '<span style="background:#10b98120;color:#6ee7b7;padding:2px 8px;border-radius:4px;font-size:10px;min-width:55px;text-align:center;">EXACT</span>';
-                h += '<span style="color:#e2e8f0;font-size:12px;font-family:monospace;">' + match.f1 + '</span>';
+                h += '<span style="background:#10b98120;color:#6ee7b7;padding:2px 6px;border-radius:3px;font-size:9px;min-width:45px;text-align:center;">EXACT</span>';
+                h += '<span style="color:#e2e8f0;font-size:11px;font-family:monospace;">' + match.f1 + '</span>';
               } else {
-                h += '<span style="background:#8b5cf620;color:#c4b5fd;padding:2px 8px;border-radius:4px;font-size:10px;min-width:55px;text-align:center;">SIMILAR</span>';
-                h += '<span style="color:#e2e8f0;font-size:12px;font-family:monospace;">' + match.f1 + '</span>';
-                h += '<span style="color:#475569;">≈</span>';
-                h += '<span style="color:#e2e8f0;font-size:12px;font-family:monospace;">' + match.f2 + '</span>';
+                h += '<span style="background:#8b5cf620;color:#c4b5fd;padding:2px 6px;border-radius:3px;font-size:9px;min-width:45px;text-align:center;">SIMILAR</span>';
+                h += '<span style="color:#e2e8f0;font-size:11px;font-family:monospace;">' + match.f1 + '</span>';
+                h += '<span style="color:#475569;font-size:10px;">≈</span>';
+                h += '<span style="color:#e2e8f0;font-size:11px;font-family:monospace;">' + match.f2 + '</span>';
               }
               h += '</div>';
             });
@@ -445,7 +454,6 @@ looker.plugins.visualizations.add({
       var terms = searchTags.slice(); 
       if (searchTerm.trim()) terms.push(searchTerm.trim()); 
       if (terms.length === 0) return [];
-      
       var matches = [], partial = [];
       allEntities.forEach(function(entity) {
         var matchCount = 0, fieldMatches = [];
@@ -584,25 +592,14 @@ looker.plugins.visualizations.add({
         }); 
       });
       
-      var rb = container.querySelector('#refreshBtn'); 
-      if (rb) rb.addEventListener('click', function() { runAnalysis(); });
-      
       container.querySelectorAll('.dup-header').forEach(function(h) { 
         h.addEventListener('click', function(e) { 
-          if (e.target.closest('.entity-link')) return;
+          if (e.target.closest('a')) return; // Don't toggle when clicking links
           var idx = parseInt(h.parentElement.dataset.idx); 
           expandedDuplicates[idx] = !expandedDuplicates[idx]; 
           var tc = container.querySelector('#tab-content'); 
           if (tc) { tc.innerHTML = renderDuplicatesTab(); attachEvents(); } 
         }); 
-      });
-      
-      container.querySelectorAll('.entity-link').forEach(function(link) {
-        link.addEventListener('click', function(e) {
-          e.stopPropagation();
-          var entityId = link.dataset.id;
-          navigateToEntity(entityId);
-        });
       });
     }
     
