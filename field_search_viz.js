@@ -332,11 +332,14 @@ looker.plugins.visualizations.add({
       
       var sameDomain = !v1Prefix || !v2Prefix || v1Prefix === v2Prefix;
       
+      // Track which fields have been matched - each field can only match ONCE
       var v1Matched = {}, v2Matched = {};
       
-      // Find exact matches first
+      // Find exact matches first (highest priority)
       v1.fields.forEach(function(f1) {
+        if (v1Matched[f1.toLowerCase()]) return; // Already matched
         v2.fields.forEach(function(f2) {
+          if (v2Matched[f2.toLowerCase()]) return; // Already matched
           if (f1.toLowerCase() === f2.toLowerCase()) {
             matches.push({ f1: f1, f2: f2, type: 'exact' });
             v1Matched[f1.toLowerCase()] = true;
@@ -346,30 +349,34 @@ looker.plugins.visualizations.add({
       });
       
       // Only find similar matches if same domain
+      // Each field can only be matched once (1:1 matching)
       if (sameDomain) {
+        // Group unmatched v1 fields by core
         var v1ByCore = {};
         v1.fields.forEach(function(f) {
+          if (v1Matched[f.toLowerCase()]) return; // Skip already matched
           var core = getFieldCore(f);
-          // Skip generic cores for similar matching
           if (core && !isGenericCore(core)) {
             if (!v1ByCore[core]) v1ByCore[core] = [];
             v1ByCore[core].push(f);
           }
         });
         
+        // For each unmatched v2 field, find ONE match from v1
         v2.fields.forEach(function(f2) {
+          if (v2Matched[f2.toLowerCase()]) return; // Skip already matched
           var core = getFieldCore(f2);
-          if (core && !isGenericCore(core) && v1ByCore[core]) {
-            v1ByCore[core].forEach(function(f1) {
-              var alreadyMatched = matches.some(function(m) { 
-                return m.f1.toLowerCase() === f1.toLowerCase() && m.f2.toLowerCase() === f2.toLowerCase(); 
-              });
-              if (!alreadyMatched && f1.toLowerCase() !== f2.toLowerCase()) {
+          if (core && !isGenericCore(core) && v1ByCore[core] && v1ByCore[core].length > 0) {
+            // Find first unmatched v1 field with same core
+            for (var i = 0; i < v1ByCore[core].length; i++) {
+              var f1 = v1ByCore[core][i];
+              if (!v1Matched[f1.toLowerCase()]) {
                 matches.push({ f1: f1, f2: f2, type: 'similar', core: core });
                 v1Matched[f1.toLowerCase()] = true;
                 v2Matched[f2.toLowerCase()] = true;
+                break; // Only one match per field
               }
-            });
+            }
           }
         });
       }
