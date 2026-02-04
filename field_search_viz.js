@@ -545,49 +545,61 @@ looker.plugins.visualizations.add({
           if (isExp) {
             h += '<div style="padding:12px 20px 16px 20px;background:#0f172a;">';
             
-            // Three-column layout: v1 fields | match | v2 fields
-            h += '<div style="display:grid;grid-template-columns:minmax(0,1fr) 40px minmax(0,1fr);gap:0;font-size:11px;">';
+            // Table layout for fields
+            h += '<div style="display:table;width:100%;font-size:11px;border-collapse:collapse;">';
             
             // Header
-            h += '<div style="padding:8px 12px;background:#1e293b;border-radius:6px 0 0 0;color:#64748b;text-transform:uppercase;letter-spacing:0.5px;font-size:10px;border-bottom:1px solid #334155;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">' + pair.v1 + ' (' + pair.v1FieldCount + ')</div>';
-            h += '<div style="padding:8px 4px;background:#1e293b;color:#64748b;text-align:center;font-size:10px;border-bottom:1px solid #334155;"></div>';
-            h += '<div style="padding:8px 12px;background:#1e293b;border-radius:0 6px 0 0;color:#64748b;text-transform:uppercase;letter-spacing:0.5px;font-size:10px;border-bottom:1px solid #334155;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">' + pair.v2 + ' (' + pair.v2FieldCount + ')</div>';
+            h += '<div style="display:table-row;">';
+            h += '<div style="display:table-cell;width:45%;padding:8px 12px;background:#1e293b;border-radius:6px 0 0 0;color:#64748b;text-transform:uppercase;letter-spacing:0.5px;font-size:10px;border-bottom:1px solid #334155;">' + pair.v1 + ' (' + pair.v1FieldCount + ')</div>';
+            h += '<div style="display:table-cell;width:10%;padding:8px 4px;background:#1e293b;color:#64748b;text-align:center;font-size:10px;border-bottom:1px solid #334155;"></div>';
+            h += '<div style="display:table-cell;width:45%;padding:8px 12px;background:#1e293b;border-radius:0 6px 0 0;color:#64748b;text-transform:uppercase;letter-spacing:0.5px;font-size:10px;border-bottom:1px solid #334155;">' + pair.v2 + ' (' + pair.v2FieldCount + ')</div>';
+            h += '</div>';
             
             // Exact matches
             pair.exactMatches.forEach(function(match) {
-              h += '<div style="padding:6px 12px;background:#1e293b;color:#e2e8f0;font-family:monospace;border-bottom:1px solid #0f172a;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;" title="' + match.f1 + '">' + match.f1 + '</div>';
-              h += '<div style="padding:6px 4px;background:#1e293b;color:#10b981;text-align:center;border-bottom:1px solid #0f172a;">=</div>';
-              h += '<div style="padding:6px 12px;background:#1e293b;color:#e2e8f0;font-family:monospace;border-bottom:1px solid #0f172a;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;" title="' + match.f2 + '">' + match.f2 + '</div>';
+              h += '<div style="display:table-row;">';
+              h += '<div style="display:table-cell;width:45%;padding:6px 12px;background:#1e293b;color:#e2e8f0;font-family:monospace;border-bottom:1px solid #0f172a;word-break:break-word;">' + match.f1 + '</div>';
+              h += '<div style="display:table-cell;width:10%;padding:6px 4px;background:#1e293b;color:#10b981;text-align:center;border-bottom:1px solid #0f172a;">=</div>';
+              h += '<div style="display:table-cell;width:45%;padding:6px 12px;background:#1e293b;color:#e2e8f0;font-family:monospace;border-bottom:1px solid #0f172a;word-break:break-word;">' + match.f2 + '</div>';
+              h += '</div>';
             });
             
             // Similar matches
             pair.similarMatches.forEach(function(match) {
-              h += '<div style="padding:6px 12px;background:#1e293b;color:#94a3b8;font-family:monospace;border-bottom:1px solid #0f172a;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;" title="' + match.f1 + '">' + match.f1 + '</div>';
-              h += '<div style="padding:6px 4px;background:#1e293b;color:#eab308;text-align:center;border-bottom:1px solid #0f172a;">≈</div>';
-              h += '<div style="padding:6px 12px;background:#1e293b;color:#94a3b8;font-family:monospace;border-bottom:1px solid #0f172a;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;" title="' + match.f2 + '">' + match.f2 + '</div>';
+              h += '<div style="display:table-row;">';
+              h += '<div style="display:table-cell;width:45%;padding:6px 12px;background:#1e293b;color:#94a3b8;font-family:monospace;border-bottom:1px solid #0f172a;word-break:break-word;">' + match.f1 + '</div>';
+              h += '<div style="display:table-cell;width:10%;padding:6px 4px;background:#1e293b;color:#eab308;text-align:center;border-bottom:1px solid #0f172a;">≈</div>';
+              h += '<div style="display:table-cell;width:45%;padding:6px 12px;background:#1e293b;color:#94a3b8;font-family:monospace;border-bottom:1px solid #0f172a;word-break:break-word;">' + match.f2 + '</div>';
+              h += '</div>';
             });
             
             // Unmatched fields - v1 only (left side)
             pair.v1Only.forEach(function(f, idx) {
               var isLast = idx === pair.v1Only.length - 1 && pair.v2Only.length === 0;
-              h += '<div style="padding:6px 12px;background:#1e293b;color:#ef4444;font-family:monospace;border-bottom:' + (isLast ? 'none' : '1px solid #0f172a') + ';overflow:hidden;text-overflow:ellipsis;white-space:nowrap;' + (isLast ? 'border-radius:0 0 0 6px;' : '') + '" title="' + f + '">' + f + '</div>';
-              h += '<div style="padding:6px 4px;background:#1e293b;color:#334155;text-align:center;border-bottom:' + (isLast ? 'none' : '1px solid #0f172a') + ';">✗</div>';
-              h += '<div style="padding:6px 12px;background:#1e293b;color:transparent;border-bottom:' + (isLast ? 'none' : '1px solid #0f172a') + ';' + (isLast ? 'border-radius:0 0 6px 0;' : '') + '">-</div>';
+              h += '<div style="display:table-row;">';
+              h += '<div style="display:table-cell;width:45%;padding:6px 12px;background:#1e293b;color:#ef4444;font-family:monospace;' + (isLast ? '' : 'border-bottom:1px solid #0f172a;') + 'word-break:break-word;' + (isLast ? 'border-radius:0 0 0 6px;' : '') + '">' + f + '</div>';
+              h += '<div style="display:table-cell;width:10%;padding:6px 4px;background:#1e293b;color:#334155;text-align:center;' + (isLast ? '' : 'border-bottom:1px solid #0f172a;') + '">✗</div>';
+              h += '<div style="display:table-cell;width:45%;padding:6px 12px;background:#1e293b;color:#1e293b;' + (isLast ? '' : 'border-bottom:1px solid #0f172a;') + (isLast ? 'border-radius:0 0 6px 0;' : '') + '">-</div>';
+              h += '</div>';
             });
             
             // Unmatched fields - v2 only (right side)
             pair.v2Only.forEach(function(f, idx) {
               var isLast = idx === pair.v2Only.length - 1;
-              h += '<div style="padding:6px 12px;background:#1e293b;color:transparent;border-bottom:' + (isLast ? 'none' : '1px solid #0f172a') + ';' + (isLast ? 'border-radius:0 0 0 6px;' : '') + '">-</div>';
-              h += '<div style="padding:6px 4px;background:#1e293b;color:#334155;text-align:center;border-bottom:' + (isLast ? 'none' : '1px solid #0f172a') + ';">✗</div>';
-              h += '<div style="padding:6px 12px;background:#1e293b;color:#ef4444;font-family:monospace;border-bottom:' + (isLast ? 'none' : '1px solid #0f172a') + ';overflow:hidden;text-overflow:ellipsis;white-space:nowrap;' + (isLast ? 'border-radius:0 0 6px 0;' : '') + '" title="' + f + '">' + f + '</div>';
+              h += '<div style="display:table-row;">';
+              h += '<div style="display:table-cell;width:45%;padding:6px 12px;background:#1e293b;color:#1e293b;' + (isLast ? '' : 'border-bottom:1px solid #0f172a;') + (isLast ? 'border-radius:0 0 0 6px;' : '') + '">-</div>';
+              h += '<div style="display:table-cell;width:10%;padding:6px 4px;background:#1e293b;color:#334155;text-align:center;' + (isLast ? '' : 'border-bottom:1px solid #0f172a;') + '">✗</div>';
+              h += '<div style="display:table-cell;width:45%;padding:6px 12px;background:#1e293b;color:#ef4444;font-family:monospace;' + (isLast ? '' : 'border-bottom:1px solid #0f172a;') + 'word-break:break-word;' + (isLast ? 'border-radius:0 0 6px 0;' : '') + '">' + f + '</div>';
+              h += '</div>';
             });
             
-            // If no unmatched at all, close the grid properly
+            // If no unmatched at all, add bottom padding
             if (pair.v1Only.length === 0 && pair.v2Only.length === 0) {
-              h += '<div style="background:#1e293b;border-radius:0 0 0 6px;height:4px;"></div>';
-              h += '<div style="background:#1e293b;height:4px;"></div>';
-              h += '<div style="background:#1e293b;border-radius:0 0 6px 0;height:4px;"></div>';
+              h += '<div style="display:table-row;">';
+              h += '<div style="display:table-cell;background:#1e293b;border-radius:0 0 0 6px;height:4px;"></div>';
+              h += '<div style="display:table-cell;background:#1e293b;height:4px;"></div>';
+              h += '<div style="display:table-cell;background:#1e293b;border-radius:0 0 6px 0;height:4px;"></div>';
+              h += '</div>';
             }
             
             h += '</div></div>';
