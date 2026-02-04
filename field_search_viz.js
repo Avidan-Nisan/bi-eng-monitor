@@ -43,8 +43,16 @@ looker.plugins.visualizations.add({
       if (tableField && row[tableField] && row[tableField].value) {
         var tblName = row[tableField].value.toLowerCase().trim();
         allTableNames[tblName] = true;
-        var parts = tblName.split('.');
-        if (parts.length > 1) allTableNames[parts[parts.length - 1]] = true;
+        // Only add the last part if it's clearly a schema.table format (contains .)
+        // Don't add short parts that might match field names
+        if (tblName.indexOf('.') !== -1) {
+          var parts = tblName.split('.');
+          var lastPart = parts[parts.length - 1];
+          // Only add if it looks like a table name (longer than 10 chars or has underscore)
+          if (lastPart.length > 10 || lastPart.indexOf('_') !== -1) {
+            allTableNames[lastPart] = true;
+          }
+        }
       }
     });
     
@@ -268,12 +276,14 @@ looker.plugins.visualizations.add({
     var activeTab = 'lineage', searchTerm = '', searchTags = [], selectedNode = null;
     var upstream = [], downstream = [], highlightedEntities = [], expandedDuplicates = {};
     var similarResults = null, analysisLoading = false, analysisError = null;
+    var overlapSearchTerm = '';
     
     var icons = { 
       search: '<svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><path d="M21 21l-4.35-4.35"/></svg>', 
       x: '<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>', 
       lineage: '<svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2"><circle cx="5" cy="12" r="2"/><circle cx="19" cy="6" r="2"/><circle cx="19" cy="18" r="2"/><path d="M7 12h4l4-6h2M11 12l4 6h2"/></svg>', 
-      overlap: '<svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2"><circle cx="9" cy="12" r="5"/><circle cx="15" cy="12" r="5"/></svg>', 
+      overlap: '<svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2"><circle cx="9" cy="12" r="5"/><circle cx="15" cy="12" r="5"/></svg>',
+      extLink: '<svg viewBox="0 0 24 24" width="10" height="10" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 13v6a2 2 0 01-2 2H5a2 2 0 01-2-2V8a2 2 0 012-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg>', 
       chevronDown: '<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 12 15 18 9"/></svg>',
       chevronUp: '<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2"><polyline points="18 15 12 9 6 15"/></svg>'
     };
@@ -448,52 +458,78 @@ looker.plugins.visualizations.add({
       }, 100);
     }
     
-    function calculateSummaryMetrics() {
-      if (!similarResults || similarResults.length === 0) return null;
-      var uniqueViews = {}, totalSimilarity = 0;
-      similarResults.forEach(function(pair) {
-        uniqueViews[pair.v1] = true;
-        uniqueViews[pair.v2] = true;
-        totalSimilarity += pair.similarity;
-      });
-      return {
-        totalSimilarViews: Object.keys(uniqueViews).length,
-        avgSimilarity: Math.round(totalSimilarity / similarResults.length),
-        totalPairs: similarResults.length
-      };
-    }
-    
     function renderDuplicatesTab() {
       var viewsCount = Object.values(views).filter(function(v) { return v.fields && v.fields.length >= 5; }).length;
-      var metrics = calculateSummaryMetrics();
+      
+      // Filter results based on search
+      var filteredResults = similarResults;
+      if (overlapSearchTerm && similarResults) {
+        var term = overlapSearchTerm.toLowerCase();
+        filteredResults = similarResults.filter(function(pair) {
+          // Match view names
+          if (pair.v1.toLowerCase().indexOf(term) !== -1) return true;
+          if (pair.v2.toLowerCase().indexOf(term) !== -1) return true;
+          // Match field names
+          var fieldMatch = pair.exactMatches.concat(pair.similarMatches).some(function(m) {
+            return m.f1.toLowerCase().indexOf(term) !== -1 || m.f2.toLowerCase().indexOf(term) !== -1;
+          });
+          if (fieldMatch) return true;
+          return false;
+        });
+      }
+      
+      var metrics = null;
+      if (filteredResults && filteredResults.length > 0) {
+        var uniqueViews = {}, totalSimilarity = 0;
+        filteredResults.forEach(function(pair) {
+          uniqueViews[pair.v1] = true;
+          uniqueViews[pair.v2] = true;
+          totalSimilarity += pair.similarity;
+        });
+        metrics = {
+          totalSimilarViews: Object.keys(uniqueViews).length,
+          avgSimilarity: Math.round(totalSimilarity / filteredResults.length),
+          totalPairs: filteredResults.length
+        };
+      }
       
       var h = '<div style="padding:12px 24px;border-bottom:1px solid #1e293b;">';
+      h += '<div style="display:flex;justify-content:space-between;align-items:center;">';
       h += '<div style="color:#94a3b8;font-size:12px;">Analyzing <span style="color:#e2e8f0;font-weight:500;">' + viewsCount + '</span> views for field overlap</div>';
-      h += '</div>';
+      h += '<div style="display:flex;align-items:center;gap:8px;background:#1e293b;border:1px solid #334155;border-radius:6px;padding:6px 10px;">';
+      h += '<span style="color:#8b5cf6;">' + icons.search + '</span>';
+      h += '<input id="overlapSearch" type="text" value="' + overlapSearchTerm + '" placeholder="Filter views or fields..." style="background:transparent;border:none;color:#e2e8f0;font-size:12px;outline:none;width:150px;"/>';
+      if (overlapSearchTerm) h += '<span id="clearOverlapSearch" style="color:#64748b;cursor:pointer;">' + icons.x + '</span>';
+      h += '</div></div></div>';
       
       if (metrics) {
-        h += '<div style="padding:12px 24px;background:#1e293b40;border-bottom:1px solid #1e293b;">';
-        h += '<div style="display:flex;gap:24px;align-items:center;">';
+        h += '<div style="padding:10px 24px;background:#1e293b40;border-bottom:1px solid #1e293b;">';
+        h += '<div style="display:flex;gap:20px;align-items:center;">';
         
-        h += '<div style="display:flex;align-items:center;gap:8px;">';
-        h += '<span style="font-size:20px;font-weight:700;color:#a78bfa;">' + metrics.totalSimilarViews + '</span>';
-        h += '<span style="font-size:11px;color:#64748b;">Views with Overlap</span>';
+        h += '<div style="display:flex;align-items:center;gap:6px;">';
+        h += '<span style="font-size:18px;font-weight:700;color:#a78bfa;">' + metrics.totalSimilarViews + '</span>';
+        h += '<span style="font-size:10px;color:#64748b;">Views</span>';
         h += '</div>';
         
-        h += '<div style="width:1px;height:24px;background:#334155;"></div>';
+        h += '<div style="width:1px;height:20px;background:#334155;"></div>';
         
         var simColor = metrics.avgSimilarity >= 70 ? '#10b981' : metrics.avgSimilarity >= 50 ? '#eab308' : '#f97316';
-        h += '<div style="display:flex;align-items:center;gap:8px;">';
-        h += '<span style="font-size:20px;font-weight:700;color:' + simColor + ';">' + metrics.avgSimilarity + '%</span>';
-        h += '<span style="font-size:11px;color:#64748b;">Avg Overlap</span>';
+        h += '<div style="display:flex;align-items:center;gap:6px;">';
+        h += '<span style="font-size:18px;font-weight:700;color:' + simColor + ';">' + metrics.avgSimilarity + '%</span>';
+        h += '<span style="font-size:10px;color:#64748b;">Avg</span>';
         h += '</div>';
         
-        h += '<div style="width:1px;height:24px;background:#334155;"></div>';
+        h += '<div style="width:1px;height:20px;background:#334155;"></div>';
         
-        h += '<div style="display:flex;align-items:center;gap:8px;">';
-        h += '<span style="font-size:20px;font-weight:700;color:#22d3ee;">' + metrics.totalPairs + '</span>';
-        h += '<span style="font-size:11px;color:#64748b;">View Pairs</span>';
+        h += '<div style="display:flex;align-items:center;gap:6px;">';
+        h += '<span style="font-size:18px;font-weight:700;color:#22d3ee;">' + metrics.totalPairs + '</span>';
+        h += '<span style="font-size:10px;color:#64748b;">Pairs</span>';
         h += '</div>';
+        
+        if (overlapSearchTerm) {
+          h += '<div style="width:1px;height:20px;background:#334155;"></div>';
+          h += '<span style="font-size:10px;color:#94a3b8;">filtered from ' + similarResults.length + '</span>';
+        }
         
         h += '</div></div>';
       }
@@ -502,12 +538,16 @@ looker.plugins.visualizations.add({
         h += '<div style="text-align:center;padding:60px 40px;"><div style="color:#8b5cf6;font-size:14px;">Analyzing field overlap...</div></div>';
       } else if (analysisError) {
         h += '<div style="text-align:center;padding:60px 40px;color:#ef4444;font-size:14px;">' + analysisError + '</div>';
-      } else if (!similarResults || similarResults.length === 0) {
-        h += '<div style="text-align:center;padding:60px 40px;"><div style="color:#10b981;font-size:14px;">No significant field overlap found between views</div></div>';
+      } else if (!filteredResults || filteredResults.length === 0) {
+        if (overlapSearchTerm && similarResults && similarResults.length > 0) {
+          h += '<div style="text-align:center;padding:60px 40px;"><div style="color:#f59e0b;font-size:14px;">No matches for "' + overlapSearchTerm + '"</div></div>';
+        } else {
+          h += '<div style="text-align:center;padding:60px 40px;"><div style="color:#10b981;font-size:14px;">No significant field overlap found between views</div></div>';
+        }
       } else {
         h += '<div style="overflow-y:auto;">';
         
-        similarResults.forEach(function(pair, idx) {
+        filteredResults.forEach(function(pair, idx) {
           var isExp = expandedDuplicates[idx];
           var simColor = pair.similarity >= 70 ? '#10b981' : pair.similarity >= 50 ? '#eab308' : '#f97316';
           
@@ -520,9 +560,9 @@ looker.plugins.visualizations.add({
           
           h += '<div style="flex:1;min-width:0;">';
           h += '<div style="display:flex;align-items:center;gap:12px;margin-bottom:4px;">';
-          h += '<div><span style="color:#a78bfa;font-size:13px;font-weight:500;">' + pair.v1 + '</span><span style="color:#64748b;font-size:10px;margin-left:6px;">' + pair.v1Model + '</span></div>';
+          h += '<div><a href="/search/views?q=' + encodeURIComponent(pair.v1) + '" target="_blank" style="color:#a78bfa;font-size:13px;font-weight:500;text-decoration:none;display:inline-flex;align-items:center;gap:3px;" onmouseover="this.style.textDecoration=\'underline\'" onmouseout="this.style.textDecoration=\'none\'">' + pair.v1 + ' ' + icons.extLink + '</a><span style="color:#64748b;font-size:10px;margin-left:6px;">' + pair.v1Model + '</span></div>';
           h += '<span style="color:#475569;">↔</span>';
-          h += '<div><span style="color:#a78bfa;font-size:13px;font-weight:500;">' + pair.v2 + '</span><span style="color:#64748b;font-size:10px;margin-left:6px;">' + pair.v2Model + '</span></div>';
+          h += '<div><a href="/search/views?q=' + encodeURIComponent(pair.v2) + '" target="_blank" style="color:#a78bfa;font-size:13px;font-weight:500;text-decoration:none;display:inline-flex;align-items:center;gap:3px;" onmouseover="this.style.textDecoration=\'underline\'" onmouseout="this.style.textDecoration=\'none\'">' + pair.v2 + ' ' + icons.extLink + '</a><span style="color:#64748b;font-size:10px;margin-left:6px;">' + pair.v2Model + '</span></div>';
           h += '</div>';
           
           h += '<div style="display:flex;gap:12px;align-items:center;color:#64748b;font-size:11px;">';
@@ -552,34 +592,36 @@ looker.plugins.visualizations.add({
             
             // Exact matches
             pair.exactMatches.forEach(function(match) {
-              h += '<div style="padding:6px 12px;background:#1e293b;color:#e2e8f0;font-family:monospace;border-bottom:1px solid #0f172a;">' + match.f1 + '</div>';
+              h += '<div style="padding:6px 12px;background:#1e293b;color:#e2e8f0;font-family:monospace;border-bottom:1px solid #0f172a;word-break:break-all;">' + match.f1 + '</div>';
               h += '<div style="padding:6px 4px;background:#1e293b;color:#10b981;text-align:center;border-bottom:1px solid #0f172a;">=</div>';
-              h += '<div style="padding:6px 12px;background:#1e293b;color:#e2e8f0;font-family:monospace;border-bottom:1px solid #0f172a;">' + match.f2 + '</div>';
+              h += '<div style="padding:6px 12px;background:#1e293b;color:#e2e8f0;font-family:monospace;border-bottom:1px solid #0f172a;word-break:break-all;">' + match.f2 + '</div>';
             });
             
             // Similar matches
             pair.similarMatches.forEach(function(match) {
-              h += '<div style="padding:6px 12px;background:#1e293b;color:#94a3b8;font-family:monospace;border-bottom:1px solid #0f172a;">' + match.f1 + '</div>';
+              h += '<div style="padding:6px 12px;background:#1e293b;color:#94a3b8;font-family:monospace;border-bottom:1px solid #0f172a;word-break:break-all;">' + match.f1 + '</div>';
               h += '<div style="padding:6px 4px;background:#1e293b;color:#eab308;text-align:center;border-bottom:1px solid #0f172a;">≈</div>';
-              h += '<div style="padding:6px 12px;background:#1e293b;color:#94a3b8;font-family:monospace;border-bottom:1px solid #0f172a;">' + match.f2 + '</div>';
+              h += '<div style="padding:6px 12px;background:#1e293b;color:#94a3b8;font-family:monospace;border-bottom:1px solid #0f172a;word-break:break-all;">' + match.f2 + '</div>';
             });
             
-            // Unmatched fields - show side by side
-            var maxUnmatched = Math.max(pair.v1Only.length, pair.v2Only.length);
-            for (var u = 0; u < maxUnmatched; u++) {
-              var v1Field = pair.v1Only[u] || '';
-              var v2Field = pair.v2Only[u] || '';
-              var isLast = u === maxUnmatched - 1;
-              var radiusLeft = isLast ? 'border-radius:0 0 0 6px;' : '';
-              var radiusRight = isLast ? 'border-radius:0 0 6px 0;' : '';
-              
-              h += '<div style="padding:6px 12px;background:#1e293b;color:' + (v1Field ? '#ef4444' : 'transparent') + ';font-family:monospace;' + (isLast ? '' : 'border-bottom:1px solid #0f172a;') + radiusLeft + '">' + (v1Field || '-') + '</div>';
-              h += '<div style="padding:6px 4px;background:#1e293b;color:#334155;text-align:center;' + (isLast ? '' : 'border-bottom:1px solid #0f172a;') + '">✗</div>';
-              h += '<div style="padding:6px 12px;background:#1e293b;color:' + (v2Field ? '#ef4444' : 'transparent') + ';font-family:monospace;' + (isLast ? '' : 'border-bottom:1px solid #0f172a;') + radiusRight + '">' + (v2Field || '-') + '</div>';
-            }
+            // Unmatched fields - v1 only (left side)
+            pair.v1Only.forEach(function(f, idx) {
+              var isLast = idx === pair.v1Only.length - 1 && pair.v2Only.length === 0;
+              h += '<div style="padding:6px 12px;background:#1e293b;color:#ef4444;font-family:monospace;border-bottom:' + (isLast ? 'none' : '1px solid #0f172a') + ';word-break:break-all;' + (isLast ? 'border-radius:0 0 0 6px;' : '') + '">' + f + '</div>';
+              h += '<div style="padding:6px 4px;background:#1e293b;color:#334155;text-align:center;border-bottom:' + (isLast ? 'none' : '1px solid #0f172a') + ';">✗</div>';
+              h += '<div style="padding:6px 12px;background:#1e293b;color:transparent;border-bottom:' + (isLast ? 'none' : '1px solid #0f172a') + ';' + (isLast ? 'border-radius:0 0 6px 0;' : '') + '">-</div>';
+            });
             
-            // If no unmatched, close the grid properly
-            if (maxUnmatched === 0) {
+            // Unmatched fields - v2 only (right side)
+            pair.v2Only.forEach(function(f, idx) {
+              var isLast = idx === pair.v2Only.length - 1;
+              h += '<div style="padding:6px 12px;background:#1e293b;color:transparent;border-bottom:' + (isLast ? 'none' : '1px solid #0f172a') + ';' + (isLast ? 'border-radius:0 0 0 6px;' : '') + '">-</div>';
+              h += '<div style="padding:6px 4px;background:#1e293b;color:#334155;text-align:center;border-bottom:' + (isLast ? 'none' : '1px solid #0f172a') + ';">✗</div>';
+              h += '<div style="padding:6px 12px;background:#1e293b;color:#ef4444;font-family:monospace;border-bottom:' + (isLast ? 'none' : '1px solid #0f172a') + ';word-break:break-all;' + (isLast ? 'border-radius:0 0 6px 0;' : '') + '">' + f + '</div>';
+            });
+            
+            // If no unmatched at all, close the grid properly
+            if (pair.v1Only.length === 0 && pair.v2Only.length === 0) {
               h += '<div style="background:#1e293b;border-radius:0 0 0 6px;height:4px;"></div>';
               h += '<div style="background:#1e293b;height:4px;"></div>';
               h += '<div style="background:#1e293b;border-radius:0 0 6px 0;height:4px;"></div>';
@@ -745,6 +787,24 @@ looker.plugins.visualizations.add({
           if (tc) { tc.innerHTML = renderDuplicatesTab(); attachEvents(); } 
         }); 
       });
+      
+      var overlapSearchInput = container.querySelector('#overlapSearch');
+      if (overlapSearchInput) {
+        overlapSearchInput.addEventListener('input', function(e) {
+          overlapSearchTerm = e.target.value;
+          var tc = container.querySelector('#tab-content');
+          if (tc) { tc.innerHTML = renderDuplicatesTab(); attachEvents(); }
+        });
+      }
+      
+      var clearOverlapBtn = container.querySelector('#clearOverlapSearch');
+      if (clearOverlapBtn) {
+        clearOverlapBtn.addEventListener('click', function() {
+          overlapSearchTerm = '';
+          var tc = container.querySelector('#tab-content');
+          if (tc) { tc.innerHTML = renderDuplicatesTab(); attachEvents(); }
+        });
+      }
     }
     
     function render() {
