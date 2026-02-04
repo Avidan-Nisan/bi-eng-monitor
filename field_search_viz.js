@@ -172,14 +172,9 @@ looker.plugins.visualizations.add({
       var fieldsVal = fieldsField && row[fieldsField] ? row[fieldsField].value || '' : '';
       var rawFields = fieldsVal ? fieldsVal.split('|').map(function(f) { return f.trim(); }).filter(function(f) { return f.length > 0; }) : [];
       
-      // Only filter out exact table name matches, not partial matches
-      var tblVal = tableField && row[tableField] ? (row[tableField].value || '').toLowerCase().trim() : '';
+      // Only filter out fields with dots (schema.field format)
       var cleanFields = rawFields.filter(function(f) {
-        var fLower = f.toLowerCase();
-        // Only remove if exact match to table name or contains dots
-        if (tblVal && fLower === tblVal) return false;
-        if (fLower.indexOf('.') !== -1) return false;
-        return true;
+        return f.indexOf('.') === -1;
       });
       
       return { 
@@ -189,7 +184,6 @@ looker.plugins.visualizations.add({
         table: tableField && row[tableField] ? row[tableField].value : '', 
         model: extractModel(row),
         fields: cleanFields,
-        rawFields: rawFields, // Keep raw fields for debugging
         extendedView: extendedViewField && row[extendedViewField] ? row[extendedViewField].value : '',
         includedView: includedViewField && row[includedViewField] ? row[includedViewField].value : ''
       };
@@ -268,19 +262,22 @@ looker.plugins.visualizations.add({
     Object.keys(explores).forEach(function(k) { explores[k].sources = Object.keys(exploreToViews[k] || {}); });
     Object.keys(dashboards).forEach(function(k) { dashboards[k].sources = Object.keys(dashToExplores[k] || {}); });
     
-    var allEntities = Object.values(tables).concat(Object.values(views)).concat(Object.values(explores)).concat(Object.values(dashboards));
+    // Build allEntities - include tables, views, explores, dashboards
+    var tablesList = Object.values(tables);
+    var viewsList = Object.values(views);
+    var exploresList = Object.values(explores);
+    var dashboardsList = Object.values(dashboards);
+    var allEntities = tablesList.concat(viewsList).concat(exploresList).concat(dashboardsList);
     
     var activeTab = 'lineage', searchTerm = '', searchTags = [], selectedNode = null;
     var upstream = [], downstream = [], highlightedEntities = [], expandedDuplicates = {};
     var similarResults = null, analysisLoading = false, analysisError = null;
-    var overlapSearchTerm = '';
     
     var icons = { 
       search: '<svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><path d="M21 21l-4.35-4.35"/></svg>', 
       x: '<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>', 
       lineage: '<svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2"><circle cx="5" cy="12" r="2"/><circle cx="19" cy="6" r="2"/><circle cx="19" cy="18" r="2"/><path d="M7 12h4l4-6h2M11 12l4 6h2"/></svg>', 
-      overlap: '<svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2"><circle cx="9" cy="12" r="5"/><circle cx="15" cy="12" r="5"/></svg>',
-      extLink: '<svg viewBox="0 0 24 24" width="10" height="10" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 13v6a2 2 0 01-2 2H5a2 2 0 01-2-2V8a2 2 0 012-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg>', 
+      overlap: '<svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2"><circle cx="9" cy="12" r="5"/><circle cx="15" cy="12" r="5"/></svg>', 
       chevronDown: '<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 12 15 18 9"/></svg>',
       chevronUp: '<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2"><polyline points="18 15 12 9 6 15"/></svg>'
     };
@@ -458,46 +455,24 @@ looker.plugins.visualizations.add({
     function renderDuplicatesTab() {
       var viewsCount = Object.values(views).filter(function(v) { return v.fields && v.fields.length >= 5; }).length;
       
-      // Filter results based on search
-      var filteredResults = similarResults;
-      if (overlapSearchTerm && similarResults) {
-        var term = overlapSearchTerm.toLowerCase();
-        filteredResults = similarResults.filter(function(pair) {
-          // Match view names
-          if (pair.v1.toLowerCase().indexOf(term) !== -1) return true;
-          if (pair.v2.toLowerCase().indexOf(term) !== -1) return true;
-          // Match field names
-          var fieldMatch = pair.exactMatches.concat(pair.similarMatches).some(function(m) {
-            return m.f1.toLowerCase().indexOf(term) !== -1 || m.f2.toLowerCase().indexOf(term) !== -1;
-          });
-          if (fieldMatch) return true;
-          return false;
-        });
-      }
-      
       var metrics = null;
-      if (filteredResults && filteredResults.length > 0) {
+      if (similarResults && similarResults.length > 0) {
         var uniqueViews = {}, totalSimilarity = 0;
-        filteredResults.forEach(function(pair) {
+        similarResults.forEach(function(pair) {
           uniqueViews[pair.v1] = true;
           uniqueViews[pair.v2] = true;
           totalSimilarity += pair.similarity;
         });
         metrics = {
           totalSimilarViews: Object.keys(uniqueViews).length,
-          avgSimilarity: Math.round(totalSimilarity / filteredResults.length),
-          totalPairs: filteredResults.length
+          avgSimilarity: Math.round(totalSimilarity / similarResults.length),
+          totalPairs: similarResults.length
         };
       }
       
       var h = '<div style="padding:12px 24px;border-bottom:1px solid #1e293b;">';
-      h += '<div style="display:flex;justify-content:space-between;align-items:center;">';
       h += '<div style="color:#94a3b8;font-size:12px;">Analyzing <span style="color:#e2e8f0;font-weight:500;">' + viewsCount + '</span> views for field overlap</div>';
-      h += '<div style="display:flex;align-items:center;gap:8px;background:#1e293b;border:1px solid #334155;border-radius:6px;padding:6px 10px;">';
-      h += '<span style="color:#8b5cf6;">' + icons.search + '</span>';
-      h += '<input id="overlapSearch" type="text" value="' + overlapSearchTerm + '" placeholder="Filter views or fields..." style="background:transparent;border:none;color:#e2e8f0;font-size:12px;outline:none;width:150px;"/>';
-      if (overlapSearchTerm) h += '<span id="clearOverlapSearch" style="color:#64748b;cursor:pointer;">' + icons.x + '</span>';
-      h += '</div></div></div>';
+      h += '</div>';
       
       if (metrics) {
         h += '<div style="padding:10px 24px;background:#1e293b40;border-bottom:1px solid #1e293b;">';
@@ -523,11 +498,6 @@ looker.plugins.visualizations.add({
         h += '<span style="font-size:10px;color:#64748b;">Pairs</span>';
         h += '</div>';
         
-        if (overlapSearchTerm) {
-          h += '<div style="width:1px;height:20px;background:#334155;"></div>';
-          h += '<span style="font-size:10px;color:#94a3b8;">filtered from ' + similarResults.length + '</span>';
-        }
-        
         h += '</div></div>';
       }
       
@@ -535,16 +505,12 @@ looker.plugins.visualizations.add({
         h += '<div style="text-align:center;padding:60px 40px;"><div style="color:#8b5cf6;font-size:14px;">Analyzing field overlap...</div></div>';
       } else if (analysisError) {
         h += '<div style="text-align:center;padding:60px 40px;color:#ef4444;font-size:14px;">' + analysisError + '</div>';
-      } else if (!filteredResults || filteredResults.length === 0) {
-        if (overlapSearchTerm && similarResults && similarResults.length > 0) {
-          h += '<div style="text-align:center;padding:60px 40px;"><div style="color:#f59e0b;font-size:14px;">No matches for "' + overlapSearchTerm + '"</div></div>';
-        } else {
-          h += '<div style="text-align:center;padding:60px 40px;"><div style="color:#10b981;font-size:14px;">No significant field overlap found between views</div></div>';
-        }
+      } else if (!similarResults || similarResults.length === 0) {
+        h += '<div style="text-align:center;padding:60px 40px;"><div style="color:#10b981;font-size:14px;">No significant field overlap found between views</div></div>';
       } else {
         h += '<div style="overflow-y:auto;">';
         
-        filteredResults.forEach(function(pair, idx) {
+        similarResults.forEach(function(pair, idx) {
           var isExp = expandedDuplicates[idx];
           var simColor = pair.similarity >= 70 ? '#10b981' : pair.similarity >= 50 ? '#eab308' : '#f97316';
           
@@ -557,9 +523,9 @@ looker.plugins.visualizations.add({
           
           h += '<div style="flex:1;min-width:0;">';
           h += '<div style="display:flex;align-items:center;gap:12px;margin-bottom:4px;">';
-          h += '<div><a href="/search/views?q=' + encodeURIComponent(pair.v1) + '" target="_blank" style="color:#a78bfa;font-size:13px;font-weight:500;text-decoration:none;display:inline-flex;align-items:center;gap:3px;" onmouseover="this.style.textDecoration=\'underline\'" onmouseout="this.style.textDecoration=\'none\'">' + pair.v1 + ' ' + icons.extLink + '</a><span style="color:#64748b;font-size:10px;margin-left:6px;">' + pair.v1Model + '</span></div>';
+          h += '<div><span style="color:#a78bfa;font-size:13px;font-weight:500;">' + pair.v1 + '</span><span style="color:#64748b;font-size:10px;margin-left:6px;">' + pair.v1Model + '</span></div>';
           h += '<span style="color:#475569;">↔</span>';
-          h += '<div><a href="/search/views?q=' + encodeURIComponent(pair.v2) + '" target="_blank" style="color:#a78bfa;font-size:13px;font-weight:500;text-decoration:none;display:inline-flex;align-items:center;gap:3px;" onmouseover="this.style.textDecoration=\'underline\'" onmouseout="this.style.textDecoration=\'none\'">' + pair.v2 + ' ' + icons.extLink + '</a><span style="color:#64748b;font-size:10px;margin-left:6px;">' + pair.v2Model + '</span></div>';
+          h += '<div><span style="color:#a78bfa;font-size:13px;font-weight:500;">' + pair.v2 + '</span><span style="color:#64748b;font-size:10px;margin-left:6px;">' + pair.v2Model + '</span></div>';
           h += '</div>';
           
           h += '<div style="display:flex;gap:12px;align-items:center;color:#64748b;font-size:11px;">';
@@ -580,31 +546,31 @@ looker.plugins.visualizations.add({
             h += '<div style="padding:12px 20px 16px 20px;background:#0f172a;">';
             
             // Three-column layout: v1 fields | match | v2 fields
-            h += '<div style="display:grid;grid-template-columns:1fr 40px 1fr;gap:0;font-size:11px;">';
+            h += '<div style="display:grid;grid-template-columns:minmax(0,1fr) 40px minmax(0,1fr);gap:0;font-size:11px;">';
             
             // Header
-            h += '<div style="padding:8px 12px;background:#1e293b;border-radius:6px 0 0 0;color:#64748b;text-transform:uppercase;letter-spacing:0.5px;font-size:10px;border-bottom:1px solid #334155;">' + pair.v1 + ' (' + pair.v1FieldCount + ')</div>';
+            h += '<div style="padding:8px 12px;background:#1e293b;border-radius:6px 0 0 0;color:#64748b;text-transform:uppercase;letter-spacing:0.5px;font-size:10px;border-bottom:1px solid #334155;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">' + pair.v1 + ' (' + pair.v1FieldCount + ')</div>';
             h += '<div style="padding:8px 4px;background:#1e293b;color:#64748b;text-align:center;font-size:10px;border-bottom:1px solid #334155;"></div>';
-            h += '<div style="padding:8px 12px;background:#1e293b;border-radius:0 6px 0 0;color:#64748b;text-transform:uppercase;letter-spacing:0.5px;font-size:10px;border-bottom:1px solid #334155;">' + pair.v2 + ' (' + pair.v2FieldCount + ')</div>';
+            h += '<div style="padding:8px 12px;background:#1e293b;border-radius:0 6px 0 0;color:#64748b;text-transform:uppercase;letter-spacing:0.5px;font-size:10px;border-bottom:1px solid #334155;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">' + pair.v2 + ' (' + pair.v2FieldCount + ')</div>';
             
             // Exact matches
             pair.exactMatches.forEach(function(match) {
-              h += '<div style="padding:6px 12px;background:#1e293b;color:#e2e8f0;font-family:monospace;border-bottom:1px solid #0f172a;word-break:break-all;">' + match.f1 + '</div>';
+              h += '<div style="padding:6px 12px;background:#1e293b;color:#e2e8f0;font-family:monospace;border-bottom:1px solid #0f172a;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;" title="' + match.f1 + '">' + match.f1 + '</div>';
               h += '<div style="padding:6px 4px;background:#1e293b;color:#10b981;text-align:center;border-bottom:1px solid #0f172a;">=</div>';
-              h += '<div style="padding:6px 12px;background:#1e293b;color:#e2e8f0;font-family:monospace;border-bottom:1px solid #0f172a;word-break:break-all;">' + match.f2 + '</div>';
+              h += '<div style="padding:6px 12px;background:#1e293b;color:#e2e8f0;font-family:monospace;border-bottom:1px solid #0f172a;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;" title="' + match.f2 + '">' + match.f2 + '</div>';
             });
             
             // Similar matches
             pair.similarMatches.forEach(function(match) {
-              h += '<div style="padding:6px 12px;background:#1e293b;color:#94a3b8;font-family:monospace;border-bottom:1px solid #0f172a;word-break:break-all;">' + match.f1 + '</div>';
+              h += '<div style="padding:6px 12px;background:#1e293b;color:#94a3b8;font-family:monospace;border-bottom:1px solid #0f172a;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;" title="' + match.f1 + '">' + match.f1 + '</div>';
               h += '<div style="padding:6px 4px;background:#1e293b;color:#eab308;text-align:center;border-bottom:1px solid #0f172a;">≈</div>';
-              h += '<div style="padding:6px 12px;background:#1e293b;color:#94a3b8;font-family:monospace;border-bottom:1px solid #0f172a;word-break:break-all;">' + match.f2 + '</div>';
+              h += '<div style="padding:6px 12px;background:#1e293b;color:#94a3b8;font-family:monospace;border-bottom:1px solid #0f172a;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;" title="' + match.f2 + '">' + match.f2 + '</div>';
             });
             
             // Unmatched fields - v1 only (left side)
             pair.v1Only.forEach(function(f, idx) {
               var isLast = idx === pair.v1Only.length - 1 && pair.v2Only.length === 0;
-              h += '<div style="padding:6px 12px;background:#1e293b;color:#ef4444;font-family:monospace;border-bottom:' + (isLast ? 'none' : '1px solid #0f172a') + ';word-break:break-all;' + (isLast ? 'border-radius:0 0 0 6px;' : '') + '">' + f + '</div>';
+              h += '<div style="padding:6px 12px;background:#1e293b;color:#ef4444;font-family:monospace;border-bottom:' + (isLast ? 'none' : '1px solid #0f172a') + ';overflow:hidden;text-overflow:ellipsis;white-space:nowrap;' + (isLast ? 'border-radius:0 0 0 6px;' : '') + '" title="' + f + '">' + f + '</div>';
               h += '<div style="padding:6px 4px;background:#1e293b;color:#334155;text-align:center;border-bottom:' + (isLast ? 'none' : '1px solid #0f172a') + ';">✗</div>';
               h += '<div style="padding:6px 12px;background:#1e293b;color:transparent;border-bottom:' + (isLast ? 'none' : '1px solid #0f172a') + ';' + (isLast ? 'border-radius:0 0 6px 0;' : '') + '">-</div>';
             });
@@ -614,7 +580,7 @@ looker.plugins.visualizations.add({
               var isLast = idx === pair.v2Only.length - 1;
               h += '<div style="padding:6px 12px;background:#1e293b;color:transparent;border-bottom:' + (isLast ? 'none' : '1px solid #0f172a') + ';' + (isLast ? 'border-radius:0 0 0 6px;' : '') + '">-</div>';
               h += '<div style="padding:6px 4px;background:#1e293b;color:#334155;text-align:center;border-bottom:' + (isLast ? 'none' : '1px solid #0f172a') + ';">✗</div>';
-              h += '<div style="padding:6px 12px;background:#1e293b;color:#ef4444;font-family:monospace;border-bottom:' + (isLast ? 'none' : '1px solid #0f172a') + ';word-break:break-all;' + (isLast ? 'border-radius:0 0 6px 0;' : '') + '">' + f + '</div>';
+              h += '<div style="padding:6px 12px;background:#1e293b;color:#ef4444;font-family:monospace;border-bottom:' + (isLast ? 'none' : '1px solid #0f172a') + ';overflow:hidden;text-overflow:ellipsis;white-space:nowrap;' + (isLast ? 'border-radius:0 0 6px 0;' : '') + '" title="' + f + '">' + f + '</div>';
             });
             
             // If no unmatched at all, close the grid properly
@@ -638,22 +604,35 @@ looker.plugins.visualizations.add({
       if (searchTerm.trim()) terms.push(searchTerm.trim()); 
       if (terms.length === 0) return [];
       var matches = [], partial = [];
+      
       allEntities.forEach(function(entity) {
         var matchCount = 0, fieldMatches = [];
+        
         terms.forEach(function(term) {
           var matched = false;
+          
+          // Match entity name
           if (smartMatch(entity.name, term)) matched = true;
-          if (entity.fields && entity.fields.length > 0) {
-            entity.fields.forEach(function(f) {
-              if (smartMatch(f, term)) { matched = true; if (fieldMatches.indexOf(f) === -1) fieldMatches.push(f); }
-            });
+          
+          // Match fields (check if entity has fields array)
+          if (entity.fields && Array.isArray(entity.fields) && entity.fields.length > 0) {
+            for (var i = 0; i < entity.fields.length; i++) {
+              var f = entity.fields[i];
+              if (f && smartMatch(f, term)) { 
+                matched = true; 
+                if (fieldMatches.indexOf(f) === -1) fieldMatches.push(f); 
+              }
+            }
           }
+          
           if (matched) matchCount++;
         });
+        
         var data = { entity: entity, fieldMatches: fieldMatches, totalTerms: terms.length, matchedTermsCount: matchCount };
         if (matchCount === terms.length) matches.push(data);
         else if (matchCount > 0) partial.push(data);
       });
+      
       window._partialMatches = partial.sort(function(a, b) { return b.matchedTermsCount - a.matchedTermsCount; }).slice(0, 10);
       return matches.sort(function(a, b) { return b.fieldMatches.length - a.fieldMatches.length; });
     }
@@ -784,24 +763,6 @@ looker.plugins.visualizations.add({
           if (tc) { tc.innerHTML = renderDuplicatesTab(); attachEvents(); } 
         }); 
       });
-      
-      var overlapSearchInput = container.querySelector('#overlapSearch');
-      if (overlapSearchInput) {
-        overlapSearchInput.addEventListener('input', function(e) {
-          overlapSearchTerm = e.target.value;
-          var tc = container.querySelector('#tab-content');
-          if (tc) { tc.innerHTML = renderDuplicatesTab(); attachEvents(); }
-        });
-      }
-      
-      var clearOverlapBtn = container.querySelector('#clearOverlapSearch');
-      if (clearOverlapBtn) {
-        clearOverlapBtn.addEventListener('click', function() {
-          overlapSearchTerm = '';
-          var tc = container.querySelector('#tab-content');
-          if (tc) { tc.innerHTML = renderDuplicatesTab(); attachEvents(); }
-        });
-      }
     }
     
     function render() {
