@@ -38,24 +38,6 @@ looker.plugins.visualizations.add({
       if (fl.indexOf('sql_table_fields') !== -1) { fieldsField = fields[i]; break; }
     }
     
-    var allTableNames = {};
-    data.forEach(function(row) {
-      if (tableField && row[tableField] && row[tableField].value) {
-        var tblName = row[tableField].value.toLowerCase().trim();
-        allTableNames[tblName] = true;
-        // Only add the last part if it's clearly a schema.table format (contains .)
-        // Don't add short parts that might match field names
-        if (tblName.indexOf('.') !== -1) {
-          var parts = tblName.split('.');
-          var lastPart = parts[parts.length - 1];
-          // Only add if it looks like a table name (longer than 10 chars or has underscore)
-          if (lastPart.length > 10 || lastPart.indexOf('_') !== -1) {
-            allTableNames[lastPart] = true;
-          }
-        }
-      }
-    });
-    
     function getFieldPrefix(fieldName) {
       if (!fieldName) return null;
       var name = fieldName.toLowerCase();
@@ -188,13 +170,18 @@ looker.plugins.visualizations.add({
     
     var allRows = data.map(function(row) {
       var fieldsVal = fieldsField && row[fieldsField] ? row[fieldsField].value || '' : '';
-      var rawFields = fieldsVal ? fieldsVal.split('|').filter(function(f) { return f.trim(); }) : [];
+      var rawFields = fieldsVal ? fieldsVal.split('|').map(function(f) { return f.trim(); }).filter(function(f) { return f.length > 0; }) : [];
+      
+      // Only filter out exact table name matches, not partial matches
+      var tblVal = tableField && row[tableField] ? (row[tableField].value || '').toLowerCase().trim() : '';
       var cleanFields = rawFields.filter(function(f) {
-        var fLower = f.toLowerCase().trim();
-        if (allTableNames[fLower]) return false;
+        var fLower = f.toLowerCase();
+        // Only remove if exact match to table name or contains dots
+        if (tblVal && fLower === tblVal) return false;
         if (fLower.indexOf('.') !== -1) return false;
         return true;
       });
+      
       return { 
         dashboard: row[dashField] ? row[dashField].value : '', 
         explore: row[expField] ? row[expField].value : '', 
@@ -202,6 +189,7 @@ looker.plugins.visualizations.add({
         table: tableField && row[tableField] ? row[tableField].value : '', 
         model: extractModel(row),
         fields: cleanFields,
+        rawFields: rawFields, // Keep raw fields for debugging
         extendedView: extendedViewField && row[extendedViewField] ? row[extendedViewField].value : '',
         includedView: includedViewField && row[includedViewField] ? row[includedViewField].value : ''
       };
@@ -212,8 +200,9 @@ looker.plugins.visualizations.add({
     
     var tables = {}, views = {}, explores = {}, dashboards = {};
     var viewToTables = {}, viewToViews = {}, exploreToViews = {}, dashToExplores = {};
-    var viewModels = {}; // Track models per view
+    var viewModels = {};
     
+    // FIRST PASS: Create all entities
     allRows.forEach(function(row) {
       var tbl = row.table, vw = row.view, exp = row.explore, dash = row.dashboard;
       var extVw = row.extendedView, incVw = row.includedView;
@@ -225,6 +214,13 @@ looker.plugins.visualizations.add({
       if (dash && !dashboards[dash]) dashboards[dash] = { id: 'd_' + dash, name: dash, type: 'dashboard', sources: [], fields: [], sqlTables: [] };
       if (extVw && !views[extVw]) views[extVw] = { id: 'v_' + extVw, name: extVw, type: 'view', sources: [], fields: [], sqlTables: [], model: null };
       if (incVw && !views[incVw]) views[incVw] = { id: 'v_' + incVw, name: incVw, type: 'view', sources: [], fields: [], sqlTables: [], model: null };
+    });
+    
+    // SECOND PASS: Assign fields and relationships
+    allRows.forEach(function(row) {
+      var tbl = row.table, vw = row.view, exp = row.explore, dash = row.dashboard;
+      var extVw = row.extendedView, incVw = row.includedView;
+      var model = row.model;
       
       // Track models for views
       if (vw && model) {
@@ -232,14 +228,15 @@ looker.plugins.visualizations.add({
         viewModels[vw][model] = true;
       }
       
-      // Assign fields to TABLES for search (accumulate from all rows with this table)
-      if (tbl && tables[tbl]) {
+      // Assign fields to TABLES (for search)
+      if (tbl && tables[tbl] && row.fields) {
         row.fields.forEach(function(f) { 
-          if (tables[tbl].fields.indexOf(f) === -1) tables[tbl].fields.push(f); 
+          if (f && tables[tbl].fields.indexOf(f) === -1) tables[tbl].fields.push(f); 
         });
       }
       
-      if (vw && views[vw]) { 
+      // Assign fields to VIEWS
+      if (vw && views[vw] && row.fields) { 
         row.fields.forEach(function(f) { if (views[vw].fields.indexOf(f) === -1) views[vw].fields.push(f); }); 
         if (tbl && views[vw].sqlTables.indexOf(tbl) === -1) views[vw].sqlTables.push(tbl); 
       }
