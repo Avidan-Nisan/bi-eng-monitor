@@ -35,7 +35,6 @@ looker.plugins.visualizations.add({
       if (fl.indexOf('sql_table_fields') !== -1) { fieldsField = fields[i]; break; }
     }
     
-    // Filter state
     var filters = { model: '', dashboard: '', explore: '', view: '', table: '', field: '' };
     var filterOptions = { models: [], dashboards: [], explores: [], views: [], tables: [], fields: [] };
     
@@ -121,7 +120,6 @@ looker.plugins.visualizations.add({
       };
     });
     
-    // Build unique filter options from raw data
     var allModels = {}, allDashboards = {}, allExplores = {}, allViews = {}, allTables = {}, allFields = {};
     allRows.forEach(function(row) {
       if (row.model) allModels[row.model] = true;
@@ -138,7 +136,6 @@ looker.plugins.visualizations.add({
     filterOptions.tables = Object.keys(allTables).sort();
     filterOptions.fields = Object.keys(allFields).sort();
     
-    // Get filtered rows based on current filters
     function getFilteredRows() {
       return allRows.filter(function(row) {
         if (filters.model && row.model !== filters.model) return false;
@@ -151,7 +148,6 @@ looker.plugins.visualizations.add({
       });
     }
     
-    // Get available options based on current filters (cascading)
     function getAvailableOptions() {
       var rows = getFilteredRows();
       var opts = { models: {}, dashboards: {}, explores: {}, views: {}, tables: {}, fields: {} };
@@ -181,13 +177,11 @@ looker.plugins.visualizations.add({
       tables = {}; views = {}; explores = {}; dashboards = {};
       viewToTables = {}; viewToViews = {}; exploreToViews = {}; dashToExplores = {};
       viewModels = {};
-      
       var filteredRows = getFilteredRows();
       
       filteredRows.forEach(function(row) {
         var tbl = row.table, vw = row.view, exp = row.explore, dash = row.dashboard;
         var extVw = row.extendedView, incVw = row.includedView, model = row.model;
-        
         if (tbl && !tables[tbl]) tables[tbl] = { id: 't_' + tbl, name: tbl, type: 'table', sources: [], fields: [], sqlTables: [tbl] };
         if (vw && !views[vw]) views[vw] = { id: 'v_' + vw, name: vw, type: 'view', sources: [], fields: [], sqlTables: [], model: null };
         if (exp && !explores[exp]) explores[exp] = { id: 'e_' + exp, name: exp, type: 'explore', sources: [], fields: [], sqlTables: [], model: model };
@@ -199,7 +193,6 @@ looker.plugins.visualizations.add({
       filteredRows.forEach(function(row) {
         var tbl = row.table, vw = row.view, exp = row.explore, dash = row.dashboard;
         var extVw = row.extendedView, incVw = row.includedView, model = row.model;
-        
         if (vw && model) { if (!viewModels[vw]) viewModels[vw] = {}; viewModels[vw][model] = true; }
         if (tbl && tables[tbl] && row.fields) row.fields.forEach(function(f) { if (f && tables[tbl].fields.indexOf(f) === -1) tables[tbl].fields.push(f); });
         if (vw && views[vw] && row.fields) { 
@@ -233,8 +226,7 @@ looker.plugins.visualizations.add({
     
     var activeTab = 'lineage', searchTerm = '', searchTags = [], selectedNode = null;
     var upstream = [], downstream = [], highlightedEntities = [], expandedDuplicates = {};
-    var similarResults = null, analysisLoading = false, analysisError = null;
-    var showFilters = true;
+    var similarResults = null, analysisLoading = false, analysisError = null, showFilters = true;
     
     var icons = { 
       search: '<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><path d="M21 21l-4.35-4.35"/></svg>', 
@@ -389,7 +381,6 @@ looker.plugins.visualizations.add({
       
       if (showFilters) {
         h += '<div style="padding:12px 16px;display:grid;grid-template-columns:repeat(6,1fr);gap:8px;background:#0f172a;">';
-        
         var filterDefs = [
           { key: 'model', label: 'Model', opts: filters.model ? filterOptions.models : availOpts.models, color: '#22d3ee' },
           { key: 'dashboard', label: 'Dashboard', opts: filters.dashboard ? filterOptions.dashboards : availOpts.dashboards, color: '#f97316' },
@@ -398,7 +389,6 @@ looker.plugins.visualizations.add({
           { key: 'table', label: 'Table', opts: filters.table ? filterOptions.tables : availOpts.tables, color: '#06b6d4' },
           { key: 'field', label: 'Field', opts: filters.field ? filterOptions.fields : availOpts.fields, color: '#10b981' }
         ];
-        
         filterDefs.forEach(function(fd) {
           var isActive = filters[fd.key];
           h += '<div style="display:flex;flex-direction:column;gap:4px;">';
@@ -412,7 +402,6 @@ looker.plugins.visualizations.add({
           });
           h += '</select></div>';
         });
-        
         h += '</div>';
         if (activeCount > 0) {
           h += '<div style="padding:8px 16px;background:#0f172a;border-top:1px solid #1e293b20;">';
@@ -459,12 +448,8 @@ looker.plugins.visualizations.add({
           
           h += '<div class="dup-row" data-idx="' + idx + '" style="border-bottom:1px solid #1e293b;">';
           h += '<div class="dup-header" style="display:flex;align-items:center;gap:10px;padding:10px 16px;cursor:pointer;transition:background 0.15s;" onmouseover="this.style.background=\'#1e293b40\'" onmouseout="this.style.background=\'transparent\'">';
-          
-          // Similarity badge
           h += '<div style="min-width:36px;width:36px;height:36px;border-radius:6px;background:' + simColor + '15;border:1px solid ' + simColor + '40;display:flex;align-items:center;justify-content:center;">';
           h += '<span style="font-size:12px;color:' + simColor + ';font-weight:700;">' + pair.similarity + '%</span></div>';
-          
-          // View names
           h += '<div style="flex:1;min-width:0;">';
           h += '<div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;">';
           h += '<span style="color:#a78bfa;font-size:12px;font-weight:500;">' + pair.v1 + '</span>';
@@ -483,44 +468,37 @@ looker.plugins.visualizations.add({
           if (isExp) {
             h += '<div style="padding:8px 16px 12px;background:#0c1322;">';
             h += '<div style="display:grid;grid-template-columns:1fr 40px 1fr;gap:0;font-size:10px;border-radius:6px;overflow:hidden;border:1px solid #1e293b;">';
-            
-            // Headers
             h += '<div style="padding:8px 10px;background:#1e293b;color:#64748b;font-weight:600;text-transform:uppercase;letter-spacing:0.5px;font-size:9px;">' + pair.v1 + '</div>';
             h += '<div style="padding:8px;background:#1e293b;color:#64748b;text-align:center;"></div>';
             h += '<div style="padding:8px 10px;background:#1e293b;color:#64748b;font-weight:600;text-transform:uppercase;letter-spacing:0.5px;font-size:9px;">' + pair.v2 + '</div>';
             
-            // Exact matches
             pair.exactMatches.forEach(function(m) {
-              h += '<div style="padding:6px 10px;background:#0f172a;color:#e2e8f0;font-family:\'SF Mono\',Monaco,monospace;border-top:1px solid #1e293b30;">' + m.f1 + '</div>';
+              h += '<div style="padding:6px 10px;background:#0f172a;color:#e2e8f0;font-family:monospace;border-top:1px solid #1e293b30;font-size:11px;">' + m.f1 + '</div>';
               h += '<div style="padding:6px;background:#0f172a;color:#10b981;text-align:center;border-top:1px solid #1e293b30;font-weight:600;">=</div>';
-              h += '<div style="padding:6px 10px;background:#0f172a;color:#e2e8f0;font-family:\'SF Mono\',Monaco,monospace;border-top:1px solid #1e293b30;">' + m.f2 + '</div>';
+              h += '<div style="padding:6px 10px;background:#0f172a;color:#e2e8f0;font-family:monospace;border-top:1px solid #1e293b30;font-size:11px;">' + m.f2 + '</div>';
             });
             
-            // Similar matches with better styling
             pair.similarMatches.forEach(function(m) {
-              h += '<div style="padding:6px 10px;background:#0f172a;color:#fbbf24;font-family:\'SF Mono\',Monaco,monospace;border-top:1px solid #1e293b30;font-style:italic;">' + m.f1 + '</div>';
-              h += '<div style="padding:6px;background:#0f172a;color:#eab308;text-align:center;border-top:1px solid #1e293b30;font-size:11px;">≈</div>';
-              h += '<div style="padding:6px 10px;background:#0f172a;color:#fbbf24;font-family:\'SF Mono\',Monaco,monospace;border-top:1px solid #1e293b30;font-style:italic;">' + m.f2 + '</div>';
+              h += '<div style="padding:6px 10px;background:#1e293b20;color:#fbbf24;font-family:monospace;border-top:1px solid #1e293b30;font-size:11px;">' + m.f1 + '</div>';
+              h += '<div style="padding:6px;background:#1e293b20;color:#eab308;text-align:center;border-top:1px solid #1e293b30;font-size:11px;">≈</div>';
+              h += '<div style="padding:6px 10px;background:#1e293b20;color:#fbbf24;font-family:monospace;border-top:1px solid #1e293b30;font-size:11px;">' + m.f2 + '</div>';
             });
             
-            // Unique to v1
             pair.v1Only.slice(0, 10).forEach(function(f) {
-              h += '<div style="padding:6px 10px;background:#0f172a;color:#f87171;font-family:\'SF Mono\',Monaco,monospace;border-top:1px solid #1e293b30;opacity:0.7;">' + f + '</div>';
+              h += '<div style="padding:6px 10px;background:#0f172a;color:#f87171;font-family:monospace;border-top:1px solid #1e293b30;font-size:11px;opacity:0.8;">' + f + '</div>';
               h += '<div style="padding:6px;background:#0f172a;color:#334155;text-align:center;border-top:1px solid #1e293b30;">—</div>';
               h += '<div style="padding:6px 10px;background:#0f172a;color:#334155;border-top:1px solid #1e293b30;"></div>';
             });
             
-            // Unique to v2
             pair.v2Only.slice(0, 10).forEach(function(f) {
               h += '<div style="padding:6px 10px;background:#0f172a;color:#334155;border-top:1px solid #1e293b30;"></div>';
               h += '<div style="padding:6px;background:#0f172a;color:#334155;text-align:center;border-top:1px solid #1e293b30;">—</div>';
-              h += '<div style="padding:6px 10px;background:#0f172a;color:#f87171;font-family:\'SF Mono\',Monaco,monospace;border-top:1px solid #1e293b30;opacity:0.7;">' + f + '</div>';
+              h += '<div style="padding:6px 10px;background:#0f172a;color:#f87171;font-family:monospace;border-top:1px solid #1e293b30;font-size:11px;opacity:0.8;">' + f + '</div>';
             });
             
             if (pair.v1Only.length > 10 || pair.v2Only.length > 10) {
               h += '<div style="grid-column:span 3;padding:6px 10px;background:#0f172a;color:#64748b;text-align:center;font-size:9px;border-top:1px solid #1e293b30;">+ ' + Math.max(0, pair.v1Only.length - 10 + pair.v2Only.length - 10) + ' more unique fields</div>';
             }
-            
             h += '</div></div>';
           }
           h += '</div>';
@@ -684,7 +662,6 @@ looker.plugins.visualizations.add({
         sel.addEventListener('change', function() {
           var key = sel.dataset.filter;
           filters[key] = sel.value;
-          // Reset downstream filters when upstream changes
           if (key === 'model') { filters.dashboard = ''; filters.explore = ''; filters.view = ''; filters.table = ''; filters.field = ''; }
           if (key === 'dashboard') { filters.explore = ''; filters.view = ''; filters.table = ''; filters.field = ''; }
           if (key === 'explore') { filters.view = ''; filters.table = ''; filters.field = ''; }
@@ -729,28 +706,62 @@ looker.plugins.visualizations.add({
       var hasS = searchTags.length > 0 || searchTerm.trim();
       
       var h = '<div style="background:#0f172a;height:100%;display:flex;flex-direction:column;">';
-      
-      // Header with tabs
       h += '<div style="padding:10px 16px;border-bottom:1px solid #1e293b;display:flex;justify-content:space-between;align-items:center;">';
       h += '<div style="display:flex;gap:0;">';
       h += '<button class="tab-btn" data-tab="lineage" style="display:flex;align-items:center;gap:4px;padding:6px 14px;border:none;cursor:pointer;font-size:11px;background:' + (activeTab==='lineage'?'#1e293b':'transparent') + ';color:' + (activeTab==='lineage'?'#10b981':'#64748b') + ';border-radius:6px 0 0 6px;border:1px solid #334155;">' + icons.lineage + ' Lineage</button>';
       h += '<button class="tab-btn" data-tab="duplicates" style="display:flex;align-items:center;gap:4px;padding:6px 14px;border:none;cursor:pointer;font-size:11px;background:' + (activeTab==='duplicates'?'#1e293b':'transparent') + ';color:' + (activeTab==='duplicates'?'#8b5cf6':'#64748b') + ';border-radius:0 6px 6px 0;border:1px solid #334155;border-left:none;">' + icons.overlap + ' Overlap</button>';
       h += '</div>';
-      
-      // Mini search
       h += '<div style="display:flex;align-items:center;gap:8px;background:#1e293b;border:1px solid #334155;border-radius:6px;padding:4px 10px;min-width:200px;">';
       h += '<span style="color:#64748b;">' + icons.search + '</span>';
       h += '<input id="searchInput" type="text" value="' + searchTerm + '" placeholder="Search..." style="flex:1;background:transparent;border:none;color:#e2e8f0;font-size:11px;outline:none;width:100px;"/>';
       if (hasS || selectedNode) h += '<span id="clearAll" style="color:#64748b;cursor:pointer;">' + icons.x + '</span>';
       h += '</div></div>';
-      
-      // Filters
       h += renderFilters();
-      
-      // Search tags
       if (searchTags.length > 0) {
         h += '<div style="padding:8px 16px;display:flex;flex-wrap:wrap;gap:6px;border-bottom:1px solid #1e293b;">' + tags + '</div>';
       }
+      h += '<div id="tab-content" style="flex:1;overflow:auto;">' + (activeTab === 'lineage' ? renderLineageTab() : renderDuplicatesTab()) + '</div></div>';
       
-      // Tab content
-      h += '
+      container.innerHTML = h;
+      
+      var input = container.querySelector('#searchInput');
+      input.addEventListener('input', function(e) { 
+        var val = e.target.value; 
+        if (val.indexOf(',') !== -1) { 
+          var parts = val.split(','); 
+          for (var i = 0; i < parts.length - 1; i++) { var term = parts[i].trim(); if (term && searchTags.indexOf(term) === -1) searchTags.push(term); } 
+          searchTerm = parts[parts.length - 1]; render(); return; 
+        } 
+        searchTerm = val; selectedNode = null; 
+        var tc = container.querySelector('#tab-content'); 
+        if (tc && activeTab === 'lineage') { tc.innerHTML = renderLineageTab(); attachEvents(); } 
+      });
+      
+      input.addEventListener('keydown', function(e) { 
+        if (e.key === 'Enter' && searchTerm.trim()) { if (searchTags.indexOf(searchTerm.trim()) === -1) searchTags.push(searchTerm.trim()); searchTerm = ''; render(); } 
+        else if (e.key === 'Backspace' && !searchTerm && searchTags.length > 0) { searchTags.pop(); render(); } 
+      });
+      
+      var cb = container.querySelector('#clearAll'); 
+      if (cb) cb.addEventListener('click', function() { searchTerm = ''; searchTags = []; selectedNode = null; render(); });
+      
+      container.querySelectorAll('.remove-tag').forEach(function(btn) { 
+        btn.addEventListener('click', function(e) { e.stopPropagation(); searchTags.splice(parseInt(btn.parentElement.dataset.idx), 1); render(); }); 
+      });
+      
+      container.querySelectorAll('.tab-btn').forEach(function(btn) { 
+        btn.addEventListener('click', function() { 
+          activeTab = btn.dataset.tab; 
+          render(); 
+          if (activeTab === 'duplicates' && !similarResults && !analysisLoading) setTimeout(runAnalysis, 100);
+        }); 
+      });
+      
+      attachEvents();
+    }
+    
+    buildEntities();
+    render();
+    done();
+  }
+});
