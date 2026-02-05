@@ -18,7 +18,13 @@ looker.plugins.visualizations.add({
     }
     
     var fields = queryResponse.fields.dimension_like.map(function(f) { return f.name; });
-    console.log('Available fields:', fields);
+    console.log('All available fields:', fields);
+    
+    // Log first row to see actual data structure
+    if (data.length > 0) {
+      console.log('First row keys:', Object.keys(data[0]));
+      console.log('First row data:', data[0]);
+    }
     
     var dashField = fields.find(function(f) { return f.toLowerCase().indexOf('dashboard') !== -1 && f.toLowerCase().indexOf('title') !== -1; });
     var expField = fields.find(function(f) { return f.toLowerCase().indexOf('explore') !== -1 && f.toLowerCase().indexOf('name') !== -1; });
@@ -26,10 +32,18 @@ looker.plugins.visualizations.add({
     var tableField = fields.find(function(f) { return f.toLowerCase().indexOf('sql_table') !== -1 && f.toLowerCase().indexOf('fields') === -1 && f.toLowerCase().indexOf('path') === -1; });
     var extendedViewField = fields.find(function(f) { return f.toLowerCase().indexOf('extended') !== -1 && f.toLowerCase().indexOf('view') !== -1; });
     var includedViewField = fields.find(function(f) { return f.toLowerCase().indexOf('included') !== -1 && f.toLowerCase().indexOf('view') !== -1; });
-    var modelField = fields.find(function(f) { return f.toLowerCase().indexOf('model') !== -1; });
     var fieldsField = fields.find(function(f) { return f.toLowerCase().indexOf('sql_table_fields') !== -1; });
     
-    console.log('Detected - model:', modelField, 'dashboard:', dashField, 'explore:', expField, 'view:', viewField, 'table:', tableField);
+    // Better model field detection - try multiple patterns
+    var modelField = fields.find(function(f) { 
+      var fl = f.toLowerCase();
+      return fl.indexOf('.model') !== -1 || fl.endsWith('model_name') || fl === 'model' || (fl.indexOf('model') !== -1 && fl.indexOf('name') !== -1);
+    });
+    if (!modelField) {
+      modelField = fields.find(function(f) { return f.toLowerCase().indexOf('model') !== -1; });
+    }
+    
+    console.log('Detected fields:', { model: modelField, dashboard: dashField, explore: expField, view: viewField, table: tableField, fields: fieldsField });
     
     var filters = { model: '', dashboard: '', explore: '', view: '', table: '' };
     var filterSearch = { model: '', dashboard: '', explore: '', view: '', table: '' };
@@ -42,34 +56,51 @@ looker.plugins.visualizations.add({
     function extractLevels(vn) {
       if (!vn) return [];
       var nm = vn.toLowerCase(), found = [];
-      levelIndicators.forEach(function(lv) {
-        if (nm.indexOf(lv) !== -1) {
-          var idx = nm.indexOf(lv), bef = idx === 0 ? '_' : nm[idx - 1], aft = idx + lv.length >= nm.length ? '_' : nm[idx + lv.length];
-          if ((bef === '_' || bef === '-' || idx === 0) && (aft === '_' || aft === '-' || idx + lv.length === nm.length)) found.push(lv);
-        }
-      });
+      levelIndicators.forEach(function(lv) { if (nm.indexOf(lv) !== -1) { var idx = nm.indexOf(lv), bef = idx === 0 ? '_' : nm[idx - 1], aft = idx + lv.length >= nm.length ? '_' : nm[idx + lv.length]; if ((bef === '_' || bef === '-' || idx === 0) && (aft === '_' || aft === '-' || idx + lv.length === nm.length)) found.push(lv); } });
       return found;
     }
     
     function hasDifferentLevels(v1, v2) {
       var l1 = extractLevels(v1), l2 = extractLevels(v2);
-      if (l1.length > 0 && l2.length > 0) {
-        var norm = function(l) { if (l.indexOf('ad') === 0) return 'ad'; if (l.indexOf('campaign') === 0) return 'campaign'; if (l.indexOf('account') === 0) return 'account'; if (l.indexOf('user') === 0) return 'user'; return l; };
-        var n1 = l1.map(norm), n2 = l2.map(norm);
-        if (n1.filter(function(x) { return n2.indexOf(x) === -1; }).length > 0 || n2.filter(function(x) { return n1.indexOf(x) === -1; }).length > 0) return true;
-      }
+      if (l1.length > 0 && l2.length > 0) { var norm = function(l) { if (l.indexOf('ad') === 0) return 'ad'; if (l.indexOf('campaign') === 0) return 'campaign'; if (l.indexOf('account') === 0) return 'account'; if (l.indexOf('user') === 0) return 'user'; return l; }; var n1 = l1.map(norm), n2 = l2.map(norm); if (n1.filter(function(x) { return n2.indexOf(x) === -1; }).length > 0 || n2.filter(function(x) { return n1.indexOf(x) === -1; }).length > 0) return true; }
       return false;
     }
     
     function gfc(fn) { if (!fn) return ''; var nm = fn.toLowerCase(), idx = nm.indexOf('_'); return (idx > 0 && idx < 6) ? nm.substring(idx + 1) : nm; }
     function igc(c) { return !c || c.length <= 2 || genericCores.indexOf(c) !== -1; }
     
-    var allRows = data.map(function(row) {
+    var allRows = data.map(function(row, rowIdx) {
       var fv = fieldsField && row[fieldsField] ? row[fieldsField].value || '' : '';
       var rf = fv ? fv.split('|').map(function(f) { return f.trim(); }).filter(function(f) { return f.length > 0 && f.indexOf('.') === -1; }) : [];
+      
+      // Try multiple ways to get model value
       var modelVal = '';
-      if (modelField && row[modelField]) modelVal = row[modelField].value || '';
-      if (!modelVal && expField && row[expField] && row[expField].value && row[expField].value.indexOf('.') !== -1) modelVal = row[expField].value.split('.')[0];
+      
+      // Method 1: Direct model field
+      if (modelField && row[modelField]) {
+        modelVal = row[modelField].value || '';
+      }
+      
+      // Method 2: Try to find model in any field key
+      if (!modelVal) {
+        Object.keys(row).forEach(function(key) {
+          if (key.toLowerCase().indexOf('model') !== -1 && row[key] && row[key].value) {
+            modelVal = row[key].value;
+          }
+        });
+      }
+      
+      // Method 3: Extract from explore name (model.explore format)
+      if (!modelVal && expField && row[expField] && row[expField].value) {
+        var expVal = row[expField].value;
+        if (expVal.indexOf('.') !== -1) modelVal = expVal.split('.')[0];
+      }
+      
+      // Log first few rows for debugging
+      if (rowIdx < 3) {
+        console.log('Row ' + rowIdx + ' model value:', modelVal);
+      }
+      
       return { 
         dashboard: dashField && row[dashField] ? row[dashField].value || '' : '', 
         explore: expField && row[expField] ? row[expField].value || '' : '', 
@@ -81,14 +112,23 @@ looker.plugins.visualizations.add({
       };
     });
     
+    // Collect all unique values
     var ms = {}, ds = {}, es = {}, vs = {}, ts = {};
-    allRows.forEach(function(r) { if (r.model) ms[r.model] = true; if (r.dashboard) ds[r.dashboard] = true; if (r.explore) es[r.explore] = true; if (r.view) vs[r.view] = true; if (r.table) ts[r.table] = true; });
+    allRows.forEach(function(r) { 
+      if (r.model && r.model.trim()) ms[r.model] = true; 
+      if (r.dashboard && r.dashboard.trim()) ds[r.dashboard] = true; 
+      if (r.explore && r.explore.trim()) es[r.explore] = true; 
+      if (r.view && r.view.trim()) vs[r.view] = true; 
+      if (r.table && r.table.trim()) ts[r.table] = true; 
+    });
     allOptions.models = Object.keys(ms).sort();
     allOptions.dashboards = Object.keys(ds).sort();
     allOptions.explores = Object.keys(es).sort();
     allOptions.views = Object.keys(vs).sort();
     allOptions.tables = Object.keys(ts).sort();
-    console.log('Options - models:', allOptions.models.length, 'dashboards:', allOptions.dashboards.length, 'explores:', allOptions.explores.length, 'views:', allOptions.views.length, 'tables:', allOptions.tables.length);
+    
+    console.log('Unique values found:', { models: allOptions.models.length, dashboards: allOptions.dashboards.length, explores: allOptions.explores.length, views: allOptions.views.length, tables: allOptions.tables.length });
+    console.log('Model values:', allOptions.models);
     
     function getFilteredRows() {
       return allRows.filter(function(r) {
@@ -123,7 +163,7 @@ looker.plugins.visualizations.add({
       fr.forEach(function(r) {
         if (r.view && r.model) { if (!viewModels[r.view]) viewModels[r.view] = {}; viewModels[r.view][r.model] = true; }
         if (r.table && tables[r.table]) r.fields.forEach(function(f) { if (tables[r.table].fields.indexOf(f) === -1) tables[r.table].fields.push(f); });
-        if (r.view && views[r.view]) { r.fields.forEach(function(f) { if (views[r.view].fields.indexOf(f) === -1) views[r.view].fields.push(f); }); }
+        if (r.view && views[r.view]) r.fields.forEach(function(f) { if (views[r.view].fields.indexOf(f) === -1) views[r.view].fields.push(f); });
         if (r.explore && explores[r.explore]) r.fields.forEach(function(f) { if (explores[r.explore].fields.indexOf(f) === -1) explores[r.explore].fields.push(f); });
         if (r.dashboard && dashboards[r.dashboard]) r.fields.forEach(function(f) { if (dashboards[r.dashboard].fields.indexOf(f) === -1) dashboards[r.dashboard].fields.push(f); });
         if (r.view && r.table) { if (!viewToTables[r.view]) viewToTables[r.view] = {}; viewToTables[r.view]['t_' + r.table] = true; }
@@ -144,13 +184,13 @@ looker.plugins.visualizations.add({
     var similarResults = null, analysisLoading = false, analysisError = null, showFilters = true, openDropdown = null;
     
     var icons = { 
-      search: '<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><path d="M21 21l-4.35-4.35"/></svg>', 
-      x: '<svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>', 
+      search: '<svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><path d="M21 21l-4.35-4.35"/></svg>', 
+      x: '<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>', 
       lineage: '<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2"><circle cx="5" cy="12" r="2"/><circle cx="19" cy="6" r="2"/><circle cx="19" cy="18" r="2"/><path d="M7 12h4l4-6h2M11 12l4 6h2"/></svg>', 
       overlap: '<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2"><circle cx="9" cy="12" r="5"/><circle cx="15" cy="12" r="5"/></svg>', 
-      chevronDown: '<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 12 15 18 9"/></svg>',
-      chevronUp: '<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2"><polyline points="18 15 12 9 6 15"/></svg>',
-      filter: '<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2"><polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3"/></svg>'
+      chevronDown: '<svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 12 15 18 9"/></svg>',
+      chevronUp: '<svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2"><polyline points="18 15 12 9 6 15"/></svg>',
+      filter: '<svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2"><polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3"/></svg>'
     };
     var typeIcons = { 
       table: '<svg viewBox="0 0 24 24" width="12" height="12" fill="currentColor"><rect x="3" y="3" width="18" height="4" rx="1"/><rect x="3" y="9" width="8" height="3"/><rect x="13" y="9" width="8" height="3"/><rect x="3" y="14" width="8" height="3"/><rect x="13" y="14" width="8" height="3"/></svg>', 
@@ -163,32 +203,17 @@ looker.plugins.visualizations.add({
     function normalize(s) { return s ? s.toLowerCase().replace(/[_\-\s\.]+/g, '') : ''; }
     function smartMatch(t, s) { return t && s && (t.toLowerCase().indexOf(s.toLowerCase()) !== -1 || normalize(t).indexOf(normalize(s)) !== -1); }
     
-    function getUpstream(id, d, v) { 
-      var ae = getAllEntities(); if (d > 15) return []; v = v || {}; if (v[id]) return []; v[id] = true; 
-      var e = ae.find(function(x) { return x.id === id; }); if (!e || !e.sources) return []; 
-      var r = []; e.sources.forEach(function(s) { if (!v[s]) { r.push(s); r = r.concat(getUpstream(s, (d||0)+1, v)); } }); 
-      return r.filter(function(x,i,a) { return a.indexOf(x)===i; }); 
-    }
-    
-    function getDownstream(id, d, v) { 
-      var ae = getAllEntities(); if (d > 15) return []; v = v || {}; if (v[id]) return []; v[id] = true; var r = []; 
-      ae.forEach(function(e) { if (e.sources && e.sources.indexOf(id) !== -1 && !v[e.id]) { r.push(e.id); r = r.concat(getDownstream(e.id, (d||0)+1, v)); } }); 
-      return r.filter(function(x,i,a) { return a.indexOf(x)===i; }); 
-    }
+    function getUpstream(id, d, v) { var ae = getAllEntities(); if (d > 15) return []; v = v || {}; if (v[id]) return []; v[id] = true; var e = ae.find(function(x) { return x.id === id; }); if (!e || !e.sources) return []; var r = []; e.sources.forEach(function(s) { if (!v[s]) { r.push(s); r = r.concat(getUpstream(s, (d||0)+1, v)); } }); return r.filter(function(x,i,a) { return a.indexOf(x)===i; }); }
+    function getDownstream(id, d, v) { var ae = getAllEntities(); if (d > 15) return []; v = v || {}; if (v[id]) return []; v[id] = true; var r = []; ae.forEach(function(e) { if (e.sources && e.sources.indexOf(id) !== -1 && !v[e.id]) { r.push(e.id); r = r.concat(getDownstream(e.id, (d||0)+1, v)); } }); return r.filter(function(x,i,a) { return a.indexOf(x)===i; }); }
     
     function findDuplicateFields(v1, v2) {
       var matches = [], p1 = {}, p2 = {}, v1P = null, v2P = null;
       v1.fields.forEach(function(f) { var p = gfp(f); if (p) p1[p] = (p1[p] || 0) + 1; });
       v2.fields.forEach(function(f) { var p = gfp(f); if (p) p2[p] = (p2[p] || 0) + 1; });
-      var m1 = 0, m2 = 0;
-      Object.keys(p1).forEach(function(p) { if (p1[p] > m1) { m1 = p1[p]; v1P = p; } });
-      Object.keys(p2).forEach(function(p) { if (p2[p] > m2) { m2 = p2[p]; v2P = p; } });
+      var m1 = 0, m2 = 0; Object.keys(p1).forEach(function(p) { if (p1[p] > m1) { m1 = p1[p]; v1P = p; } }); Object.keys(p2).forEach(function(p) { if (p2[p] > m2) { m2 = p2[p]; v2P = p; } });
       var sameDomain = !v1P || !v2P || v1P === v2P, v1M = {}, v2M = {};
       v1.fields.forEach(function(f1) { if (v1M[f1.toLowerCase()]) return; v2.fields.forEach(function(f2) { if (v2M[f2.toLowerCase()]) return; if (f1.toLowerCase() === f2.toLowerCase()) { matches.push({ f1: f1, f2: f2, type: 'exact' }); v1M[f1.toLowerCase()] = true; v2M[f2.toLowerCase()] = true; } }); });
-      if (sameDomain) {
-        var v1ByCore = {}; v1.fields.forEach(function(f) { if (v1M[f.toLowerCase()]) return; var c = gfc(f); if (c && !igc(c)) { if (!v1ByCore[c]) v1ByCore[c] = []; v1ByCore[c].push(f); } });
-        v2.fields.forEach(function(f2) { if (v2M[f2.toLowerCase()]) return; var c = gfc(f2); if (c && !igc(c) && v1ByCore[c] && v1ByCore[c].length > 0) { for (var i = 0; i < v1ByCore[c].length; i++) { var f1 = v1ByCore[c][i]; if (!v1M[f1.toLowerCase()]) { matches.push({ f1: f1, f2: f2, type: 'similar', core: c }); v1M[f1.toLowerCase()] = true; v2M[f2.toLowerCase()] = true; break; } } } });
-      }
+      if (sameDomain) { var v1ByCore = {}; v1.fields.forEach(function(f) { if (v1M[f.toLowerCase()]) return; var c = gfc(f); if (c && !igc(c)) { if (!v1ByCore[c]) v1ByCore[c] = []; v1ByCore[c].push(f); } }); v2.fields.forEach(function(f2) { if (v2M[f2.toLowerCase()]) return; var c = gfc(f2); if (c && !igc(c) && v1ByCore[c] && v1ByCore[c].length > 0) { for (var i = 0; i < v1ByCore[c].length; i++) { var f1 = v1ByCore[c][i]; if (!v1M[f1.toLowerCase()]) { matches.push({ f1: f1, f2: f2, type: 'similar', core: c }); v1M[f1.toLowerCase()] = true; v2M[f2.toLowerCase()] = true; break; } } } }); }
       return { matches: matches, sameDomain: sameDomain, v1Only: v1.fields.filter(function(f) { return !v1M[f.toLowerCase()]; }), v2Only: v2.fields.filter(function(f) { return !v2M[f.toLowerCase()]; }) };
     }
     
@@ -197,13 +222,7 @@ looker.plugins.visualizations.add({
       setTimeout(function() {
         try {
           var results = [], vl = Object.values(views).filter(function(v) { return v.fields && v.fields.length >= 5; });
-          for (var i = 0; i < vl.length; i++) { for (var j = i + 1; j < vl.length; j++) {
-            var v1 = vl[i], v2 = vl[j], a = findDuplicateFields(v1, v2);
-            if (!a.sameDomain || hasDifferentLevels(v1.name, v2.name)) continue;
-            var em = a.matches.filter(function(m) { return m.type === 'exact'; }), sm = a.matches.filter(function(m) { return m.type === 'similar'; });
-            var minF = Math.min(v1.fields.length, v2.fields.length), score = (em.length + sm.length * 0.5) / minF, sim = Math.round(score * 100);
-            if (em.length >= 5 || em.length / minF >= 0.4 || (a.matches.length / minF >= 0.6)) results.push({ v1: v1.name, v2: v2.name, v1Model: v1.model || '-', v2Model: v2.model || '-', similarity: Math.min(sim, 100), exactCount: em.length, similarCount: sm.length, v1FieldCount: v1.fields.length, v2FieldCount: v2.fields.length, exactMatches: em, similarMatches: sm, v1Only: a.v1Only, v2Only: a.v2Only });
-          } }
+          for (var i = 0; i < vl.length; i++) { for (var j = i + 1; j < vl.length; j++) { var v1 = vl[i], v2 = vl[j], a = findDuplicateFields(v1, v2); if (!a.sameDomain || hasDifferentLevels(v1.name, v2.name)) continue; var em = a.matches.filter(function(m) { return m.type === 'exact'; }), sm = a.matches.filter(function(m) { return m.type === 'similar'; }); var minF = Math.min(v1.fields.length, v2.fields.length), score = (em.length + sm.length * 0.5) / minF, sim = Math.round(score * 100); if (em.length >= 5 || em.length / minF >= 0.4 || (a.matches.length / minF >= 0.6)) results.push({ v1: v1.name, v2: v2.name, v1Model: v1.model || '-', v2Model: v2.model || '-', similarity: Math.min(sim, 100), exactCount: em.length, similarCount: sm.length, v1FieldCount: v1.fields.length, v2FieldCount: v2.fields.length, exactMatches: em, similarMatches: sm, v1Only: a.v1Only, v2Only: a.v2Only }); } }
           results.sort(function(a, b) { return b.similarity - a.similarity; }); similarResults = results.slice(0, 100); analysisLoading = false; render();
         } catch(e) { similarResults = []; analysisError = 'Error: ' + e.message; analysisLoading = false; render(); }
       }, 100);
@@ -211,37 +230,44 @@ looker.plugins.visualizations.add({
     
     function renderFilters() {
       var ao = getAvailableOptions(), activeCount = Object.values(filters).filter(function(v) { return v; }).length;
-      var h = '<div style="border-bottom:1px solid #1e293b;"><div class="toggle-filters" style="display:flex;align-items:center;justify-content:space-between;padding:8px 16px;cursor:pointer;background:#0f172a80;"><div style="display:flex;align-items:center;gap:8px;"><span style="color:#64748b;">' + icons.filter + '</span><span style="color:#94a3b8;font-size:11px;font-weight:500;">FILTERS</span>';
-      if (activeCount > 0) h += '<span style="background:#10b981;color:#0f172a;font-size:10px;padding:2px 6px;border-radius:10px;font-weight:600;">' + activeCount + '</span>';
-      h += '</div><span style="color:#475569;">' + (showFilters ? icons.chevronUp : icons.chevronDown) + '</span></div>';
-      if (showFilters) {
-        h += '<div style="padding:12px 16px;display:grid;grid-template-columns:repeat(5,1fr);gap:10px;background:#0f172a;">';
-        var fd = [
-          { key: 'model', label: 'Model', all: allOptions.models, avail: ao.models, color: '#22d3ee' },
-          { key: 'dashboard', label: 'Dashboard', all: allOptions.dashboards, avail: ao.dashboards, color: '#f97316' },
-          { key: 'explore', label: 'Explore', all: allOptions.explores, avail: ao.explores, color: '#ec4899' },
-          { key: 'view', label: 'View', all: allOptions.views, avail: ao.views, color: '#8b5cf6' },
-          { key: 'table', label: 'Table', all: allOptions.tables, avail: ao.tables, color: '#06b6d4' }
-        ];
-        fd.forEach(function(f) {
-          var isActive = filters[f.key], isOpen = openDropdown === f.key, searchVal = filterSearch[f.key] || '';
-          var opts = f.key === 'model' ? f.all : (isActive ? f.all : f.avail);
-          var filteredOpts = opts.filter(function(o) { return !searchVal || o.toLowerCase().indexOf(searchVal.toLowerCase()) !== -1; });
-          h += '<div style="display:flex;flex-direction:column;gap:4px;position:relative;"><label style="font-size:9px;color:' + f.color + ';text-transform:uppercase;letter-spacing:0.5px;font-weight:600;">' + f.label + ' (' + f.all.length + ')</label>';
-          h += '<div class="filter-trigger" data-filter="' + f.key + '" style="background:#1e293b;border:1px solid ' + (isActive ? f.color : '#334155') + ';color:' + (isActive ? '#e2e8f0' : '#94a3b8') + ';padding:6px 8px;border-radius:6px;font-size:11px;cursor:pointer;display:flex;justify-content:space-between;align-items:center;min-height:32px;"><span style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">' + (isActive ? (filters[f.key].length > 18 ? filters[f.key].substring(0,16) + '...' : filters[f.key]) : 'All') + '</span><span style="color:#64748b;flex-shrink:0;">' + icons.chevronDown + '</span></div>';
-          if (isOpen) {
-            h += '<div style="position:absolute;top:100%;left:0;right:0;background:#1e293b;border:1px solid #475569;border-radius:6px;z-index:1000;margin-top:4px;box-shadow:0 10px 25px rgba(0,0,0,0.5);max-height:280px;display:flex;flex-direction:column;min-width:200px;"><div style="padding:8px;border-bottom:1px solid #334155;"><input class="filter-search-input" data-filter="' + f.key + '" type="text" value="' + searchVal + '" placeholder="Search ' + f.label.toLowerCase() + '..." style="width:100%;background:#0f172a;border:1px solid #334155;color:#e2e8f0;padding:6px 8px;border-radius:4px;font-size:11px;outline:none;box-sizing:border-box;"/></div><div style="overflow-y:auto;flex:1;"><div class="filter-option" data-filter="' + f.key + '" data-value="" style="padding:8px 12px;cursor:pointer;font-size:11px;color:#94a3b8;border-bottom:1px solid #33415520;">Clear filter</div>';
-            filteredOpts.slice(0, 200).forEach(function(opt) { var sel = filters[f.key] === opt; h += '<div class="filter-option" data-filter="' + f.key + '" data-value="' + opt.replace(/"/g, '&quot;') + '" style="padding:8px 12px;cursor:pointer;font-size:11px;color:' + (sel ? f.color : '#e2e8f0') + ';background:' + (sel ? f.color + '20' : 'transparent') + ';">' + opt + '</div>'; });
-            if (filteredOpts.length > 200) h += '<div style="padding:8px 12px;font-size:10px;color:#64748b;text-align:center;">+' + (filteredOpts.length - 200) + ' more</div>';
-            if (filteredOpts.length === 0) h += '<div style="padding:12px;font-size:11px;color:#64748b;text-align:center;">No matches</div>';
-            h += '</div></div>';
-          }
-          h += '</div>';
-        });
+      var h = '<div style="display:flex;align-items:center;gap:6px;padding:6px 16px;background:#0f172a;border-bottom:1px solid #1e293b;flex-wrap:wrap;">';
+      h += '<span style="color:#64748b;font-size:10px;display:flex;align-items:center;gap:4px;">' + icons.filter + ' Filters:</span>';
+      
+      var fd = [
+        { key: 'model', label: 'Model', all: allOptions.models, avail: ao.models, color: '#22d3ee' },
+        { key: 'dashboard', label: 'Dashboard', all: allOptions.dashboards, avail: ao.dashboards, color: '#f97316' },
+        { key: 'explore', label: 'Explore', all: allOptions.explores, avail: ao.explores, color: '#ec4899' },
+        { key: 'view', label: 'View', all: allOptions.views, avail: ao.views, color: '#8b5cf6' },
+        { key: 'table', label: 'Table', all: allOptions.tables, avail: ao.tables, color: '#06b6d4' }
+      ];
+      
+      fd.forEach(function(f) {
+        var isActive = filters[f.key], isOpen = openDropdown === f.key, searchVal = filterSearch[f.key] || '';
+        var opts = f.key === 'model' ? f.all : (isActive ? f.all : f.avail);
+        var filteredOpts = opts.filter(function(o) { return !searchVal || o.toLowerCase().indexOf(searchVal.toLowerCase()) !== -1; });
+        
+        h += '<div style="position:relative;">';
+        h += '<div class="filter-trigger" data-filter="' + f.key + '" style="display:flex;align-items:center;gap:4px;background:' + (isActive ? f.color + '20' : '#1e293b') + ';border:1px solid ' + (isActive ? f.color : '#334155') + ';padding:4px 8px;border-radius:4px;cursor:pointer;font-size:10px;color:' + (isActive ? f.color : '#94a3b8') + ';">';
+        h += '<span>' + f.label + '</span>';
+        if (isActive) h += '<span style="color:#e2e8f0;max-width:80px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">: ' + filters[f.key] + '</span>';
+        else h += '<span style="color:#64748b;">(' + f.all.length + ')</span>';
+        h += icons.chevronDown + '</div>';
+        
+        if (isOpen) {
+          h += '<div style="position:absolute;top:100%;left:0;background:#1e293b;border:1px solid #475569;border-radius:6px;z-index:1000;margin-top:4px;box-shadow:0 10px 25px rgba(0,0,0,0.5);max-height:280px;display:flex;flex-direction:column;min-width:180px;">';
+          h += '<div style="padding:6px;border-bottom:1px solid #334155;"><input class="filter-search-input" data-filter="' + f.key + '" type="text" value="' + searchVal + '" placeholder="Search..." style="width:100%;background:#0f172a;border:1px solid #334155;color:#e2e8f0;padding:5px 8px;border-radius:4px;font-size:11px;outline:none;box-sizing:border-box;"/></div>';
+          h += '<div style="overflow-y:auto;flex:1;"><div class="filter-option" data-filter="' + f.key + '" data-value="" style="padding:6px 10px;cursor:pointer;font-size:11px;color:#94a3b8;">Clear</div>';
+          filteredOpts.slice(0, 200).forEach(function(opt) { var sel = filters[f.key] === opt; h += '<div class="filter-option" data-filter="' + f.key + '" data-value="' + opt.replace(/"/g, '&quot;') + '" style="padding:6px 10px;cursor:pointer;font-size:11px;color:' + (sel ? f.color : '#e2e8f0') + ';background:' + (sel ? f.color + '20' : 'transparent') + ';">' + opt + '</div>'; });
+          if (filteredOpts.length > 200) h += '<div style="padding:6px;font-size:10px;color:#64748b;text-align:center;">+' + (filteredOpts.length - 200) + ' more</div>';
+          if (filteredOpts.length === 0) h += '<div style="padding:10px;font-size:11px;color:#64748b;text-align:center;">No matches</div>';
+          h += '</div></div>';
+        }
         h += '</div>';
-        if (activeCount > 0) h += '<div style="padding:8px 16px;background:#0f172a;border-top:1px solid #1e293b20;"><button class="clear-filters" style="background:#ef444420;border:1px solid #ef4444;color:#f87171;padding:4px 12px;border-radius:4px;font-size:10px;cursor:pointer;">Clear All Filters</button></div>';
-      }
-      h += '</div>'; return h;
+      });
+      
+      if (activeCount > 0) h += '<button class="clear-filters" style="background:transparent;border:1px solid #ef4444;color:#f87171;padding:3px 8px;border-radius:4px;font-size:10px;cursor:pointer;margin-left:4px;">Clear All</button>';
+      h += '</div>';
+      return h;
     }
     
     function renderDuplicatesTab() {
@@ -258,14 +284,7 @@ looker.plugins.visualizations.add({
         similarResults.forEach(function(p, idx) {
           var isExp = expandedDuplicates[idx], sc = p.similarity >= 70 ? '#10b981' : p.similarity >= 50 ? '#eab308' : '#f97316';
           h += '<div class="dup-row" data-idx="' + idx + '" style="border-bottom:1px solid #1e293b;"><div class="dup-header" style="display:flex;align-items:center;gap:10px;padding:10px 16px;cursor:pointer;" onmouseover="this.style.background=\'#1e293b40\'" onmouseout="this.style.background=\'transparent\'"><div style="min-width:36px;width:36px;height:36px;border-radius:6px;background:' + sc + '15;border:1px solid ' + sc + '40;display:flex;align-items:center;justify-content:center;"><span style="font-size:12px;color:' + sc + ';font-weight:700;">' + p.similarity + '%</span></div><div style="flex:1;min-width:0;"><div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;"><span style="color:#a78bfa;font-size:12px;font-weight:500;">' + p.v1 + '</span><span style="color:#475569;font-size:10px;">(' + p.v1Model + ')</span><span style="color:#334155;">↔</span><span style="color:#a78bfa;font-size:12px;font-weight:500;">' + p.v2 + '</span><span style="color:#475569;font-size:10px;">(' + p.v2Model + ')</span></div><div style="display:flex;gap:10px;margin-top:4px;font-size:10px;color:#64748b;"><span><span style="color:#10b981;">' + p.exactCount + '</span> exact</span>' + (p.similarCount > 0 ? '<span><span style="color:#eab308;">' + p.similarCount + '</span> similar</span>' : '') + '<span>' + p.v1FieldCount + ' / ' + p.v2FieldCount + ' fields</span></div></div><span style="color:#475569;">' + (isExp ? icons.chevronUp : icons.chevronDown) + '</span></div>';
-          if (isExp) {
-            h += '<div style="padding:8px 16px 12px;background:#0c1322;"><div style="display:grid;grid-template-columns:1fr 40px 1fr;font-size:10px;border-radius:6px;overflow:hidden;border:1px solid #1e293b;"><div style="padding:8px 10px;background:#1e293b;color:#64748b;font-weight:600;font-size:9px;">' + p.v1 + '</div><div style="padding:8px;background:#1e293b;"></div><div style="padding:8px 10px;background:#1e293b;color:#64748b;font-weight:600;font-size:9px;">' + p.v2 + '</div>';
-            p.exactMatches.forEach(function(m) { h += '<div style="padding:6px 10px;background:#0f172a;color:#e2e8f0;font-family:monospace;border-top:1px solid #1e293b30;font-size:11px;">' + m.f1 + '</div><div style="padding:6px;background:#0f172a;color:#10b981;text-align:center;border-top:1px solid #1e293b30;font-weight:600;">=</div><div style="padding:6px 10px;background:#0f172a;color:#e2e8f0;font-family:monospace;border-top:1px solid #1e293b30;font-size:11px;">' + m.f2 + '</div>'; });
-            p.similarMatches.forEach(function(m) { h += '<div style="padding:6px 10px;background:#1e293b20;color:#fbbf24;font-family:monospace;border-top:1px solid #1e293b30;font-size:11px;">' + m.f1 + '</div><div style="padding:6px;background:#1e293b20;color:#eab308;text-align:center;border-top:1px solid #1e293b30;">≈</div><div style="padding:6px 10px;background:#1e293b20;color:#fbbf24;font-family:monospace;border-top:1px solid #1e293b30;font-size:11px;">' + m.f2 + '</div>'; });
-            p.v1Only.slice(0, 8).forEach(function(f) { h += '<div style="padding:6px 10px;background:#0f172a;color:#f87171;font-family:monospace;border-top:1px solid #1e293b30;font-size:11px;opacity:0.8;">' + f + '</div><div style="padding:6px;background:#0f172a;color:#334155;text-align:center;border-top:1px solid #1e293b30;">—</div><div style="padding:6px;background:#0f172a;border-top:1px solid #1e293b30;"></div>'; });
-            p.v2Only.slice(0, 8).forEach(function(f) { h += '<div style="padding:6px;background:#0f172a;border-top:1px solid #1e293b30;"></div><div style="padding:6px;background:#0f172a;color:#334155;text-align:center;border-top:1px solid #1e293b30;">—</div><div style="padding:6px 10px;background:#0f172a;color:#f87171;font-family:monospace;border-top:1px solid #1e293b30;font-size:11px;opacity:0.8;">' + f + '</div>'; });
-            h += '</div></div>';
-          }
+          if (isExp) { h += '<div style="padding:8px 16px 12px;background:#0c1322;"><div style="display:grid;grid-template-columns:1fr 40px 1fr;font-size:10px;border-radius:6px;overflow:hidden;border:1px solid #1e293b;"><div style="padding:8px 10px;background:#1e293b;color:#64748b;font-weight:600;font-size:9px;">' + p.v1 + '</div><div style="padding:8px;background:#1e293b;"></div><div style="padding:8px 10px;background:#1e293b;color:#64748b;font-weight:600;font-size:9px;">' + p.v2 + '</div>'; p.exactMatches.forEach(function(m) { h += '<div style="padding:6px 10px;background:#0f172a;color:#e2e8f0;font-family:monospace;border-top:1px solid #1e293b30;font-size:11px;">' + m.f1 + '</div><div style="padding:6px;background:#0f172a;color:#10b981;text-align:center;border-top:1px solid #1e293b30;font-weight:600;">=</div><div style="padding:6px 10px;background:#0f172a;color:#e2e8f0;font-family:monospace;border-top:1px solid #1e293b30;font-size:11px;">' + m.f2 + '</div>'; }); p.similarMatches.forEach(function(m) { h += '<div style="padding:6px 10px;background:#1e293b20;color:#fbbf24;font-family:monospace;border-top:1px solid #1e293b30;font-size:11px;">' + m.f1 + '</div><div style="padding:6px;background:#1e293b20;color:#eab308;text-align:center;border-top:1px solid #1e293b30;">≈</div><div style="padding:6px 10px;background:#1e293b20;color:#fbbf24;font-family:monospace;border-top:1px solid #1e293b30;font-size:11px;">' + m.f2 + '</div>'; }); p.v1Only.slice(0, 8).forEach(function(f) { h += '<div style="padding:6px 10px;background:#0f172a;color:#f87171;font-family:monospace;border-top:1px solid #1e293b30;font-size:11px;opacity:0.8;">' + f + '</div><div style="padding:6px;background:#0f172a;color:#334155;text-align:center;border-top:1px solid #1e293b30;">—</div><div style="padding:6px;background:#0f172a;border-top:1px solid #1e293b30;"></div>'; }); p.v2Only.slice(0, 8).forEach(function(f) { h += '<div style="padding:6px;background:#0f172a;border-top:1px solid #1e293b30;"></div><div style="padding:6px;background:#0f172a;color:#334155;text-align:center;border-top:1px solid #1e293b30;">—</div><div style="padding:6px 10px;background:#0f172a;color:#f87171;font-family:monospace;border-top:1px solid #1e293b30;font-size:11px;opacity:0.8;">' + f + '</div>'; }); h += '</div></div>'; }
           h += '</div>';
         });
         h += '</div>';
@@ -308,20 +327,44 @@ looker.plugins.visualizations.add({
       container.querySelectorAll('.filter-search-input').forEach(function(inp) { inp.addEventListener('input', function(e) { filterSearch[inp.dataset.filter] = e.target.value; render(); setTimeout(function() { var newInp = container.querySelector('.filter-search-input[data-filter="' + inp.dataset.filter + '"]'); if (newInp) { newInp.focus(); newInp.selectionStart = newInp.selectionEnd = newInp.value.length; } }, 10); }); inp.addEventListener('click', function(e) { e.stopPropagation(); }); });
       container.querySelectorAll('.filter-option').forEach(function(opt) { opt.addEventListener('click', function(e) { e.stopPropagation(); var key = opt.dataset.filter, val = opt.dataset.value; filters[key] = val; filterSearch[key] = ''; openDropdown = null; var keys = ['model','dashboard','explore','view','table']; var idx = keys.indexOf(key); for (var i = idx + 1; i < keys.length; i++) filters[keys[i]] = ''; buildEntities(); similarResults = null; selectedNode = null; render(); if (activeTab === 'duplicates') setTimeout(runAnalysis, 100); }); opt.addEventListener('mouseover', function() { opt.style.background = '#334155'; }); opt.addEventListener('mouseout', function() { opt.style.background = filters[opt.dataset.filter] === opt.dataset.value ? '#334155' : 'transparent'; }); });
       var clearBtn = container.querySelector('.clear-filters'); if (clearBtn) clearBtn.addEventListener('click', function() { filters = { model: '', dashboard: '', explore: '', view: '', table: '' }; buildEntities(); similarResults = null; selectedNode = null; render(); if (activeTab === 'duplicates') setTimeout(runAnalysis, 100); });
-      var toggleBtn = container.querySelector('.toggle-filters'); if (toggleBtn) toggleBtn.addEventListener('click', function() { showFilters = !showFilters; render(); });
     }
     
     document.addEventListener('click', function(e) { if (openDropdown && !e.target.closest('.filter-trigger') && !e.target.closest('.filter-search-input') && !e.target.closest('.filter-option')) { openDropdown = null; render(); } });
     
     function render() {
       buildEntities();
-      var tags = searchTags.map(function(tag, i) { return '<span class="search-tag" data-idx="' + i + '" style="display:inline-flex;align-items:center;gap:4px;background:#10b98120;border:1px solid #10b981;padding:4px 8px;border-radius:6px;font-size:10px;color:#6ee7b7;">' + tag + '<span class="remove-tag" style="cursor:pointer;">' + icons.x + '</span></span>'; }).join('');
+      var tags = searchTags.map(function(tag, i) { return '<span class="search-tag" data-idx="' + i + '" style="display:inline-flex;align-items:center;gap:4px;background:#10b98120;border:1px solid #10b981;padding:4px 8px;border-radius:6px;font-size:11px;color:#6ee7b7;">' + tag + '<span class="remove-tag" style="cursor:pointer;">' + icons.x + '</span></span>'; }).join('');
       var hasS = searchTags.length > 0 || searchTerm.trim();
-      var h = '<div style="background:#0f172a;height:100%;display:flex;flex-direction:column;"><div style="padding:10px 16px;border-bottom:1px solid #1e293b;display:flex;justify-content:space-between;align-items:center;"><div style="display:flex;gap:0;"><button class="tab-btn" data-tab="lineage" style="display:flex;align-items:center;gap:4px;padding:6px 14px;border:none;cursor:pointer;font-size:11px;background:' + (activeTab==='lineage'?'#1e293b':'transparent') + ';color:' + (activeTab==='lineage'?'#10b981':'#64748b') + ';border-radius:6px 0 0 6px;border:1px solid #334155;">' + icons.lineage + ' Lineage</button><button class="tab-btn" data-tab="duplicates" style="display:flex;align-items:center;gap:4px;padding:6px 14px;border:none;cursor:pointer;font-size:11px;background:' + (activeTab==='duplicates'?'#1e293b':'transparent') + ';color:' + (activeTab==='duplicates'?'#8b5cf6':'#64748b') + ';border-radius:0 6px 6px 0;border:1px solid #334155;border-left:none;">' + icons.overlap + ' Overlap</button></div><div style="display:flex;align-items:center;gap:8px;background:#1e293b;border:1px solid #334155;border-radius:6px;padding:4px 10px;min-width:250px;"><span style="color:#64748b;">' + icons.search + '</span><input id="searchInput" type="text" value="' + searchTerm + '" placeholder="Search tables, views, explores, dashboards, fields..." style="flex:1;background:transparent;border:none;color:#e2e8f0;font-size:11px;outline:none;"/>' + (hasS || selectedNode ? '<span id="clearAll" style="color:#64748b;cursor:pointer;">' + icons.x + '</span>' : '') + '</div></div>';
+      
+      var h = '<div style="background:#0f172a;height:100%;display:flex;flex-direction:column;">';
+      
+      // Header row with tabs on left
+      h += '<div style="padding:8px 16px;border-bottom:1px solid #1e293b;display:flex;align-items:center;gap:12px;">';
+      h += '<div style="display:flex;gap:0;">';
+      h += '<button class="tab-btn" data-tab="lineage" style="display:flex;align-items:center;gap:4px;padding:6px 12px;border:none;cursor:pointer;font-size:11px;background:' + (activeTab==='lineage'?'#1e293b':'transparent') + ';color:' + (activeTab==='lineage'?'#10b981':'#64748b') + ';border-radius:6px 0 0 6px;border:1px solid #334155;">' + icons.lineage + ' Lineage</button>';
+      h += '<button class="tab-btn" data-tab="duplicates" style="display:flex;align-items:center;gap:4px;padding:6px 12px;border:none;cursor:pointer;font-size:11px;background:' + (activeTab==='duplicates'?'#1e293b':'transparent') + ';color:' + (activeTab==='duplicates'?'#8b5cf6':'#64748b') + ';border-radius:0 6px 6px 0;border:1px solid #334155;border-left:none;">' + icons.overlap + ' Overlap</button>';
+      h += '</div>';
+      
+      // Big centered search box
+      h += '<div style="flex:1;display:flex;justify-content:center;">';
+      h += '<div style="display:flex;align-items:center;gap:10px;background:#1e293b;border:2px solid #334155;border-radius:10px;padding:8px 16px;width:100%;max-width:600px;">';
+      h += '<span style="color:#10b981;">' + icons.search + '</span>';
+      h += '<input id="searchInput" type="text" value="' + searchTerm + '" placeholder="Search tables, views, explores, dashboards, or fields..." style="flex:1;background:transparent;border:none;color:#e2e8f0;font-size:14px;outline:none;"/>';
+      if (hasS || selectedNode) h += '<span id="clearAll" style="color:#64748b;cursor:pointer;padding:4px;">' + icons.x + '</span>';
+      h += '</div></div>';
+      h += '</div>';
+      
+      // Compact filter row
       h += renderFilters();
+      
+      // Search tags
       if (searchTags.length > 0) h += '<div style="padding:8px 16px;display:flex;flex-wrap:wrap;gap:6px;border-bottom:1px solid #1e293b;">' + tags + '</div>';
+      
+      // Tab content
       h += '<div id="tab-content" style="flex:1;overflow:auto;">' + (activeTab === 'lineage' ? renderLineageTab() : renderDuplicatesTab()) + '</div></div>';
+      
       container.innerHTML = h;
+      
       var input = container.querySelector('#searchInput');
       input.addEventListener('input', function(e) { var val = e.target.value; if (val.indexOf(',') !== -1) { var parts = val.split(','); for (var i = 0; i < parts.length - 1; i++) { var term = parts[i].trim(); if (term && searchTags.indexOf(term) === -1) searchTags.push(term); } searchTerm = parts[parts.length - 1]; render(); return; } searchTerm = val; selectedNode = null; var tc = container.querySelector('#tab-content'); if (tc && activeTab === 'lineage') { tc.innerHTML = renderLineageTab(); attachEvents(); } });
       input.addEventListener('keydown', function(e) { if (e.key === 'Enter' && searchTerm.trim()) { if (searchTags.indexOf(searchTerm.trim()) === -1) searchTags.push(searchTerm.trim()); searchTerm = ''; render(); } else if (e.key === 'Backspace' && !searchTerm && searchTags.length > 0) { searchTags.pop(); render(); } });
