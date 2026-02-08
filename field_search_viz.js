@@ -16,7 +16,7 @@ looker.plugins.visualizations.add({
       .lx-nav{display:flex;align-items:center;gap:2px;padding:14px 20px 0;background:linear-gradient(180deg,#0f1629,#0a0e1a)}
       .lx-nav-btn{padding:10px 22px;font-size:12px;font-weight:600;cursor:pointer;border:none;background:transparent;color:#475569;border-radius:10px 10px 0 0;transition:all .2s;display:flex;align-items:center;gap:8px;letter-spacing:.3px;text-decoration:none;position:relative}
       .lx-nav-btn:hover{color:#94a3b8;background:#1e293b40}
-      .lx-nav-btn.active{color:#e2e8f0;background:#131b2e}
+      .lx-nav-btn.active{color:#e2e8f0;background:#131b2e;cursor:default}
       .lx-nav-btn.active::after{content:'';position:absolute;bottom:0;left:10px;right:10px;height:2px;border-radius:2px 2px 0 0}
       .lx-nav-btn.t-lineage.active{color:#10b981}.lx-nav-btn.t-lineage.active::after{background:#10b981}
       .lx-nav-btn.t-overlap.active{color:#8b5cf6}.lx-nav-btn.t-overlap.active::after{background:#8b5cf6}
@@ -36,8 +36,19 @@ looker.plugins.visualizations.add({
       .lx-link{color:#475569;text-decoration:none;transition:color .15s;display:inline-flex}.lx-link:hover{color:#e2e8f0}
       .dp-card{border-bottom:1px solid #1e293b20}
       .dp-head{display:flex;align-items:center;gap:12px;padding:12px 16px;cursor:pointer;transition:background .15s}.dp-head:hover{background:#1e293b30}
-      .dp-grid{display:grid;grid-template-columns:1fr 36px 1fr;font-size:10px;border-radius:8px;overflow:hidden;border:1px solid #1e293b}
-      .dp-grid>div{padding:6px 10px;font-family:'JetBrains Mono',monospace;font-size:10px}
+      .dp-detail{padding:0 16px 16px}
+      .dp-tbl{width:100%;border-collapse:separate;border-spacing:0;border-radius:10px;overflow:hidden;border:1px solid #1e293b}
+      .dp-tbl th{padding:10px 14px;font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:.8px;color:#475569;background:#0f172a;text-align:left}
+      .dp-tbl th.center{text-align:center;width:50px}
+      .dp-tbl td{padding:8px 14px;font-size:11px;font-family:'JetBrains Mono',monospace;border-top:1px solid #1e293b30}
+      .dp-tbl td.center{text-align:center;width:50px}
+      .dp-tbl tr.exact td{background:#0f172a}
+      .dp-tbl tr.similar td{background:#1a1525}
+      .dp-tbl tr:hover td{background:#1e293b40}
+      .dp-match-badge{display:inline-flex;align-items:center;justify-content:center;width:28px;height:20px;border-radius:5px;font-size:10px;font-weight:700}
+      .dp-vlink{color:#a78bfa;text-decoration:none;transition:all .15s;font-weight:500;font-size:11px;display:inline-flex;align-items:center;gap:5px}
+      .dp-vlink:hover{color:#c4b5fd;text-decoration:underline}
+      .dp-vlink svg{opacity:.5;transition:opacity .15s}.dp-vlink:hover svg{opacity:1}
     `;
     element.appendChild(s);
   },
@@ -46,7 +57,6 @@ looker.plugins.visualizations.add({
     var baseUrl=(config.looker_base_url||'').replace(/\/+$/,'');
     if(!data||data.length===0){R.innerHTML='<div style="padding:40px;color:#475569;text-align:center">No data available</div>';done();return;}
 
-    // Field detection
     var dims=queryResponse.fields.dimension_like.map(function(f){return f.name;});
     var meas=queryResponse.fields.measure_like?queryResponse.fields.measure_like.map(function(f){return f.name;}):[];
     var F={};
@@ -63,7 +73,6 @@ looker.plugins.visualizations.add({
     F.date=dims.find(function(f){var l=f.toLowerCase();return l.indexOf('stats_date')!==-1||(l.indexOf('date')!==-1&&l.indexOf('is_last')===-1);});
     F.vc=meas.find(function(f){var l=f.toLowerCase();return l.indexOf('view_count')!==-1||l.indexOf('dashboard_view')!==-1;});
 
-    // Auto-detect mode
     var mode;
     if(F.date&&F.vc)mode='usage';
     else if(F.dash&&F.exp&&F.view)mode='lineage';
@@ -73,14 +82,14 @@ looker.plugins.visualizations.add({
     function gv(row,k){return k&&row[k]?row[k].value||'':'';}
     function gn(row,k){return k&&row[k]?parseFloat(row[k].value)||0:0;}
 
-    // Icons
     var ic={
       lin:'<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2"><circle cx="5" cy="12" r="2"/><circle cx="19" cy="6" r="2"/><circle cx="19" cy="18" r="2"/><path d="M7 12h4l4-6h2M11 12l4 6h2"/></svg>',
       ovl:'<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2"><circle cx="9" cy="12" r="5"/><circle cx="15" cy="12" r="5"/></svg>',
       usg:'<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 20V10"/><path d="M12 20V4"/><path d="M6 20v-6"/></svg>',
       lnk:'<svg viewBox="0 0 24 24" width="11" height="11" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 13v6a2 2 0 01-2 2H5a2 2 0 01-2-2V8a2 2 0 012-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg>',
       chD:'<svg viewBox="0 0 24 24" width="10" height="10" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="6 9 12 15 18 9"/></svg>',
-      chU:'<svg viewBox="0 0 24 24" width="10" height="10" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="18 15 12 9 6 15"/></svg>'
+      chU:'<svg viewBox="0 0 24 24" width="10" height="10" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="18 15 12 9 6 15"/></svg>',
+      extLnk:'<svg viewBox="0 0 24 24" width="10" height="10" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 13v6a2 2 0 01-2 2H5a2 2 0 01-2-2V8a2 2 0 012-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg>'
     };
     var tI={
       table:'<svg viewBox="0 0 24 24" width="12" height="12" fill="currentColor"><rect x="3" y="3" width="18" height="4" rx="1"/><rect x="3" y="9" width="8" height="3"/><rect x="13" y="9" width="8" height="3"/><rect x="3" y="14" width="8" height="3"/><rect x="13" y="14" width="8" height="3"/></svg>',
@@ -91,7 +100,7 @@ looker.plugins.visualizations.add({
     var tCfg={table:{c:'#06b6d4',l:'Tables'},view:{c:'#8b5cf6',l:'Views'},explore:{c:'#ec4899',l:'Explores'},dashboard:{c:'#f97316',l:'Dashboards'}};
     var eC={dashboard:'#f97316',explore:'#ec4899',view:'#8b5cf6',table:'#06b6d4'};
 
-    // ========== NAVIGATION TAB BAR ==========
+    // ========== NAVIGATION ==========
     function navBar(){
       var tabDefs=[
         {id:'lineage',label:'Lineage',icon:ic.lin,dashId:config.lineage_dashboard_id},
@@ -101,18 +110,31 @@ looker.plugins.visualizations.add({
       var h='<div class="lx-nav">';
       tabDefs.forEach(function(t){
         var isActive=t.id===mode;
-        var href='#';
-        if(!isActive&&baseUrl&&t.dashId){href=baseUrl+'/dashboards/'+t.dashId;}
         if(isActive){
           h+='<div class="lx-nav-btn active t-'+t.id+'">'+t.icon+' '+t.label+'</div>';
-        }else if(href!=='#'){
-          h+='<a href="'+href+'" class="lx-nav-btn t-'+t.id+'" style="text-decoration:none">'+t.icon+' '+t.label+'</a>';
+        }else if(baseUrl&&t.dashId){
+          h+='<div class="lx-nav-btn t-'+t.id+' nav-tab" data-href="'+baseUrl+'/dashboards/'+t.dashId+'" style="cursor:pointer">'+t.icon+' '+t.label+'</div>';
         }else{
           h+='<div class="lx-nav-btn t-'+t.id+'" style="opacity:.3;cursor:default" title="Set dashboard ID in viz settings">'+t.icon+' '+t.label+'</div>';
         }
       });
       h+='</div>';
       return h;
+    }
+    function bindNav(){
+      R.querySelectorAll('.nav-tab').forEach(function(tab){
+        tab.addEventListener('click',function(){
+          var href=tab.getAttribute('data-href');
+          if(href){if(window.top&&window.top.location){window.top.location.href=href;}else{window.location.href=href;}}
+        });
+      });
+    }
+
+    // Helper: build view link for overlap
+    function viewLink(vName,model){
+      if(!baseUrl||!vName)return'<span style="color:#a78bfa;font-weight:500">'+vName+'</span>';
+      // Views aren't directly linkable in Looker, but we can link to explore if model is known
+      return'<span style="color:#a78bfa;font-weight:500">'+vName+'</span>';
     }
 
     // ========== LINEAGE ==========
@@ -163,8 +185,16 @@ looker.plugins.visualizations.add({
         var nd='';vis.forEach(function(en){var p=pos[en.id],cf=tCfg[en.type],iS=sel&&sel.id===en.id,iU=sel&&up.indexOf(en.id)!==-1,iD=sel&&dn.indexOf(en.id)!==-1;var bc=cf.c,bw=1.5,bg='#131b2e';if(iS){bc='#e2e8f0';bw=2.5;bg='#1e293b';}else if(iU){bc='#06b6d4';bw=2;bg='#06b6d408';}else if(iD){bc='#f97316';bw=2;bg='#f9731608';}var nm=en.name.length>20?en.name.substring(0,18)+'…':en.name;nd+='<g class="lx-node nd" data-id="'+en.id+'" transform="translate('+p.x+','+p.y+')"><rect width="'+nW+'" height="'+nH+'" rx="8" fill="'+bg+'" stroke="'+bc+'" stroke-width="'+bw+'"/><rect x="1.5" y="1.5" width="30" height="'+(nH-3)+'" rx="7" fill="'+cf.c+'" fill-opacity=".1"/><g transform="translate(9,'+(nH/2-6)+')" fill="'+cf.c+'">'+tI[en.type]+'</g><text x="36" y="'+(nH/2+4)+'" fill="#e2e8f0" font-size="10" font-weight="500">'+nm+'</text></g>';});
         var hd='';['table','view','explore','dashboard'].forEach(function(t){var cf=tCfg[t];hd+='<text x="'+(cX[t]+nW/2)+'" y="20" text-anchor="middle" fill="'+cf.c+'" font-size="9" font-weight="700" letter-spacing="1">'+cf.l.toUpperCase()+'</text><text x="'+(cX[t]+nW/2)+'" y="34" text-anchor="middle" fill="#475569" font-size="9">'+bt[t].length+'</text>';});
         var st=sel?'<span class="lx-pill" style="background:'+tCfg[sel.type].c+'15;color:'+tCfg[sel.type].c+'">'+tI[sel.type]+' '+sel.name+'</span> <span style="color:#06b6d4;margin-left:8px">↑ '+up.length+'</span> <span style="color:#f97316;margin-left:4px">↓ '+dn.length+'</span>':'<span style="color:#475569">Click any node to trace its lineage</span>';
-        var h=navBar()+'<div class="lx-body"><div class="lx-bar"><div>'+st+'</div><div style="color:#475569">'+ae.length+' entities · '+data.length.toLocaleString()+' rows</div></div><div class="lx-scroll" style="padding:8px"><svg width="'+sW+'" height="'+sH+'">'+hd+ed+nd+'</svg></div></div>';
+
+        // Row limit banner
+        var rowBanner='';
+        if(data.length>=5000){
+          rowBanner='<div style="display:flex;align-items:center;gap:8px;padding:8px 16px;background:#f59e0b10;border-bottom:1px solid #f59e0b20"><svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="#f59e0b" stroke-width="2"><path d="M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg><span style="font-size:10px;color:#f59e0b">Showing max 5,000 rows — results may be incomplete. Add filters to narrow your query for full lineage coverage.</span></div>';
+        }
+
+        var h=navBar()+'<div class="lx-body">'+rowBanner+'<div class="lx-bar"><div>'+st+'</div><div style="color:#475569">'+ae.length+' entities · '+data.length.toLocaleString()+' rows</div></div><div class="lx-scroll" style="padding:8px"><svg width="'+sW+'" height="'+sH+'">'+hd+ed+nd+'</svg></div></div>';
         R.innerHTML=h;
+        bindNav();
         R.querySelectorAll('.nd').forEach(function(n){n.addEventListener('click',function(){var id=n.dataset.id,en=ae.find(function(x){return x.id===id;});if(sel&&sel.id===id){sel=null;up=[];dn=[];}else sel=en;rL();});});
       }
       rL();done();return;
@@ -179,12 +209,29 @@ looker.plugins.visualizations.add({
       function dLvl(a,b){var l1=eLvl(a),l2=eLvl(b);if(l1.length>0&&l2.length>0){var n=function(l){if(l.indexOf('ad')===0)return'ad';if(l.indexOf('campaign')===0)return'campaign';if(l.indexOf('account')===0)return'account';if(l.indexOf('user')===0)return'user';return l;};if(l1.map(n).filter(function(x){return l2.map(n).indexOf(x)===-1;}).length>0||l2.map(n).filter(function(x){return l1.map(n).indexOf(x)===-1;}).length>0)return true;}return false;}
       function gfc(fn){if(!fn)return'';var nm=fn.toLowerCase(),i=nm.indexOf('_');return(i>0&&i<6)?nm.substring(i+1):nm;}
       function igc(c){return!c||c.length<=2||genC.indexOf(c)!==-1;}
+
+      // Build model-to-explore map from data for view linking
+      var viewModelMap={};
+      data.forEach(function(row){
+        var vn=gv(row,F.view),mv=gv(row,F.model);
+        if(vn&&mv&&!viewModelMap[vn])viewModelMap[vn]=mv;
+      });
+
       var views={};
       data.forEach(function(row){var vn=gv(row,F.view),fv=gv(row,F.flds),mv=gv(row,F.model);if(!vn)return;if(!views[vn])views[vn]={name:vn,model:mv,fields:[]};if(mv&&!views[vn].model)views[vn].model=mv;fv.split('|').forEach(function(f){f=f.trim();if(f&&f.indexOf('.')===-1&&views[vn].fields.indexOf(f)===-1)views[vn].fields.push(f);});});
       var expD={},simR=null;
 
+      function mkViewLink(vName){
+        var m=viewModelMap[vName]||'';
+        if(baseUrl&&m){
+          return'<a href="'+baseUrl+'/explore/'+m+'/'+vName+'" class="dp-vlink" title="Open in Looker">'+vName+' '+ic.extLnk+'</a>';
+        }
+        return'<span style="color:#a78bfa;font-weight:500">'+vName+'</span>';
+      }
+
       function analyze(){
         R.innerHTML=navBar()+'<div class="lx-body"><div class="lx-bar"><div style="color:#94a3b8">Analyzing…</div></div><div class="lx-scroll"><div style="text-align:center;padding:60px;color:#8b5cf6">Analyzing field overlap…</div></div></div>';
+        bindNav();
         setTimeout(function(){try{
           var res=[],vl=Object.values(views).filter(function(v){return v.fields&&v.fields.length>=5;});
           for(var i=0;i<vl.length;i++){for(var j=i+1;j<vl.length;j++){var v1=vl[i],v2=vl[j],p1={},p2={},v1P=null,v2P=null;
@@ -211,12 +258,54 @@ looker.plugins.visualizations.add({
         if(!simR||!simR.length){h+='<div style="text-align:center;padding:60px;color:#10b981">No significant overlap found</div>';}
         else{simR.forEach(function(p,idx){
           var isE=expD[idx],sc=p.sim>=70?'#10b981':p.sim>=50?'#eab308':'#f97316';
-          h+='<div class="dp-card" data-i="'+idx+'"><div class="dp-head"><div style="min-width:42px;width:42px;height:42px;border-radius:10px;background:'+sc+'12;border:1.5px solid '+sc+'30;display:flex;align-items:center;justify-content:center"><span style="font-size:13px;color:'+sc+';font-weight:700">'+p.sim+'%</span></div><div style="flex:1;min-width:0"><div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap"><span class="lx-pill" style="background:#8b5cf620;color:#a78bfa">'+p.v1+'</span><span style="color:#334155;font-size:10px">('+p.m1+')</span><span style="color:#334155">↔</span><span class="lx-pill" style="background:#8b5cf620;color:#a78bfa">'+p.v2+'</span><span style="color:#334155;font-size:10px">('+p.m2+')</span></div><div style="display:flex;gap:12px;margin-top:6px;font-size:10px;color:#475569"><span><span style="color:#10b981;font-weight:600">'+p.ec+'</span> exact</span>'+(p.sc>0?'<span><span style="color:#eab308;font-weight:600">'+p.sc+'</span> similar</span>':'')+'<span>'+p.c1+' / '+p.c2+' fields</span></div></div><span style="color:#334155">'+(isE?ic.chU:ic.chD)+'</span></div>';
-          if(isE){h+='<div style="padding:8px 16px 14px"><div class="dp-grid"><div style="padding:8px 10px;background:#1e293b;color:#475569;font-weight:700;font-size:9px;font-family:Inter,system-ui;letter-spacing:.5px">'+p.v1+'</div><div style="padding:8px;background:#1e293b"></div><div style="padding:8px 10px;background:#1e293b;color:#475569;font-weight:700;font-size:9px;font-family:Inter,system-ui;letter-spacing:.5px">'+p.v2+'</div>';p.em.forEach(function(m){h+='<div style="background:#0f172a;color:#e2e8f0;border-top:1px solid #1e293b20">'+m.f1+'</div><div style="background:#0f172a;color:#10b981;text-align:center;border-top:1px solid #1e293b20;font-weight:700">=</div><div style="background:#0f172a;color:#e2e8f0;border-top:1px solid #1e293b20">'+m.f2+'</div>';});p.sm.forEach(function(m){h+='<div style="background:#1e293b15;color:#fbbf24;border-top:1px solid #1e293b20">'+m.f1+'</div><div style="background:#1e293b15;color:#eab308;text-align:center;border-top:1px solid #1e293b20">≈</div><div style="background:#1e293b15;color:#fbbf24;border-top:1px solid #1e293b20">'+m.f2+'</div>';});h+='</div></div>';}
+          h+='<div class="dp-card" data-i="'+idx+'"><div class="dp-head">';
+          // Score badge
+          h+='<div style="min-width:48px;width:48px;height:48px;border-radius:12px;background:'+sc+'10;border:1.5px solid '+sc+'25;display:flex;align-items:center;justify-content:center;flex-shrink:0"><span style="font-size:14px;color:'+sc+';font-weight:700">'+p.sim+'<span style="font-size:9px;opacity:.7">%</span></span></div>';
+          // Info
+          h+='<div style="flex:1;min-width:0"><div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">';
+          h+=mkViewLink(p.v1);
+          h+='<span style="color:#334155;font-size:10px">('+p.m1+')</span>';
+          h+='<span style="color:#334155;font-size:12px">⟷</span>';
+          h+=mkViewLink(p.v2);
+          h+='<span style="color:#334155;font-size:10px">('+p.m2+')</span>';
+          h+='</div>';
+          h+='<div style="display:flex;gap:14px;margin-top:6px;font-size:10px;color:#475569">';
+          h+='<span style="display:inline-flex;align-items:center;gap:4px"><span style="width:6px;height:6px;border-radius:50%;background:#10b981;display:inline-block"></span><span style="color:#10b981;font-weight:600">'+p.ec+'</span> exact</span>';
+          if(p.sc>0)h+='<span style="display:inline-flex;align-items:center;gap:4px"><span style="width:6px;height:6px;border-radius:50%;background:#eab308;display:inline-block"></span><span style="color:#eab308;font-weight:600">'+p.sc+'</span> similar</span>';
+          h+='<span>'+p.c1+' / '+p.c2+' fields</span></div></div>';
+          h+='<span style="color:#334155;transition:transform .2s;display:inline-block;transform:rotate('+(isE?'180':'0')+'deg)">'+ic.chD+'</span></div>';
+
+          // Expanded detail with table
+          if(isE){
+            h+='<div class="dp-detail"><table class="dp-tbl"><thead><tr>';
+            h+='<th>'+p.v1+'</th><th class="center">Match</th><th>'+p.v2+'</th>';
+            h+='</tr></thead><tbody>';
+            p.em.forEach(function(m){
+              h+='<tr class="exact"><td style="color:#e2e8f0">'+m.f1+'</td>';
+              h+='<td class="center"><span class="dp-match-badge" style="background:#10b98118;color:#10b981">=</span></td>';
+              h+='<td style="color:#e2e8f0">'+m.f2+'</td></tr>';
+            });
+            p.sm.forEach(function(m){
+              h+='<tr class="similar"><td style="color:#fbbf24">'+m.f1+'</td>';
+              h+='<td class="center"><span class="dp-match-badge" style="background:#eab30818;color:#eab308">≈</span></td>';
+              h+='<td style="color:#fbbf24">'+m.f2+'</td></tr>';
+            });
+            h+='</tbody></table></div>';
+          }
           h+='</div>';
         });}
         h+='</div></div>';
         R.innerHTML=h;
+        bindNav();
+        // Stop link clicks from triggering card toggle
+        R.querySelectorAll('.dp-vlink').forEach(function(link){
+          link.addEventListener('click',function(e){
+            e.stopPropagation();
+            var href=link.getAttribute('href');
+            if(href){if(window.top&&window.top.location){window.top.location.href=href;}else{window.location.href=href;}}
+            e.preventDefault();
+          });
+        });
         R.querySelectorAll('.dp-head').forEach(function(hd){hd.addEventListener('click',function(){var i=parseInt(hd.parentElement.dataset.i);expD[i]=!expD[i];rO();});});
       }
       analyze();done();return;
@@ -227,7 +316,6 @@ looker.plugins.visualizations.add({
       function pdt(v){if(!v)return null;var d=new Date(String(v).substring(0,10)+'T00:00:00');return isNaN(d.getTime())?null:d;}
       function dts(d){return d?d.toISOString().substring(0,10):'';}
       var uR=[];data.forEach(function(row){uR.push({dash:gv(row,F.dash),dashId:gv(row,F.dashId),exp:gv(row,F.exp),view:gv(row,F.view),tbl:gv(row,F.tbl),model:gv(row,F.model),ds:dts(pdt(gv(row,F.date))),vc:gn(row,F.vc)});});
-      // Dedup dash per day
       var ddV={};uR.forEach(function(r){if(!r.dash||!r.ds)return;var k=r.dash+'||'+r.ds;if(!ddV[k])ddV[k]={d:r.dash,di:r.dashId,m:r.model,vc:r.vc};});
       var dT={};Object.values(ddV).forEach(function(d){if(!dT[d.d])dT[d.d]={vc:0,di:d.di,m:d.m};dT[d.d].vc+=d.vc;});
       var eD={};uR.forEach(function(r){if(r.exp&&r.dash){if(!eD[r.exp])eD[r.exp]={};eD[r.exp][r.dash]=true;}});
@@ -273,6 +361,7 @@ looker.plugins.visualizations.add({
         if(!ls.length)h+='<div style="text-align:center;padding:60px;color:#475569">No data</div>';
         h+='</div></div>';
         R.innerHTML=h;
+        bindNav();
         R.querySelectorAll('.eb').forEach(function(b){b.addEventListener('click',function(){aE=b.dataset.e;sC='vc';sD='desc';rU();});});
         R.querySelectorAll('.sc').forEach(function(c){c.addEventListener('click',function(){var k=c.dataset.c;if(sC===k)sD=sD==='asc'?'desc':'asc';else{sC=k;sD=k==='vc'?'desc':'asc';}rU();});});
       }
