@@ -36,19 +36,8 @@ looker.plugins.visualizations.add({
       .lx-link{color:#475569;text-decoration:none;transition:color .15s;display:inline-flex}.lx-link:hover{color:#e2e8f0}
       .dp-card{border-bottom:1px solid #1e293b20}
       .dp-head{display:flex;align-items:center;gap:12px;padding:12px 16px;cursor:pointer;transition:background .15s}.dp-head:hover{background:#1e293b30}
-      .dp-detail{padding:0 16px 16px}
-      .dp-tbl{width:100%;border-collapse:separate;border-spacing:0;border-radius:10px;overflow:hidden;border:1px solid #1e293b}
-      .dp-tbl th{padding:10px 14px;font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:.8px;color:#475569;background:#0f172a;text-align:left}
-      .dp-tbl th.center{text-align:center;width:50px}
-      .dp-tbl td{padding:8px 14px;font-size:11px;font-family:'JetBrains Mono',monospace;border-top:1px solid #1e293b30}
-      .dp-tbl td.center{text-align:center;width:50px}
-      .dp-tbl tr.exact td{background:#0f172a}
-      .dp-tbl tr.similar td{background:#1a1525}
-      .dp-tbl tr:hover td{background:#1e293b40}
-      .dp-match-badge{display:inline-flex;align-items:center;justify-content:center;width:28px;height:20px;border-radius:5px;font-size:10px;font-weight:700}
-      .dp-vlink{color:#a78bfa;text-decoration:none;transition:all .15s;font-weight:500;font-size:11px;display:inline-flex;align-items:center;gap:5px}
-      .dp-vlink:hover{color:#c4b5fd;text-decoration:underline}
-      .dp-vlink svg{opacity:.5;transition:opacity .15s}.dp-vlink:hover svg{opacity:1}
+      .dp-grid{display:grid;grid-template-columns:1fr 36px 1fr;font-size:10px;border-radius:8px;overflow:hidden;border:1px solid #1e293b}
+      .dp-grid>div{padding:6px 10px;font-family:'JetBrains Mono',monospace;font-size:10px}
     `;
     element.appendChild(s);
   },
@@ -82,6 +71,9 @@ looker.plugins.visualizations.add({
     function gv(row,k){return k&&row[k]?row[k].value||'':'';}
     function gn(row,k){return k&&row[k]?parseFloat(row[k].value)||0:0;}
 
+    // DEBUG: log to console so we can verify code is running
+    console.log('[LineageExplorer] mode='+mode+', rows='+data.length+', baseUrl='+baseUrl+', lineageId='+config.lineage_dashboard_id+', overlapId='+config.overlap_dashboard_id+', usageId='+config.usage_dashboard_id);
+
     var ic={
       lin:'<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2"><circle cx="5" cy="12" r="2"/><circle cx="19" cy="6" r="2"/><circle cx="19" cy="18" r="2"/><path d="M7 12h4l4-6h2M11 12l4 6h2"/></svg>',
       ovl:'<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2"><circle cx="9" cy="12" r="5"/><circle cx="15" cy="12" r="5"/></svg>',
@@ -100,7 +92,36 @@ looker.plugins.visualizations.add({
     var tCfg={table:{c:'#06b6d4',l:'Tables'},view:{c:'#8b5cf6',l:'Views'},explore:{c:'#ec4899',l:'Explores'},dashboard:{c:'#f97316',l:'Dashboards'}};
     var eC={dashboard:'#f97316',explore:'#ec4899',view:'#8b5cf6',table:'#06b6d4'};
 
-    // ========== NAVIGATION ==========
+    // ========== NAVIGATION - uses LookerCharts.Utils.openUrl for same-page nav ==========
+    function doNav(url) {
+      console.log('[LineageExplorer] navigating to: '+url);
+      // Method 1: Looker's built-in navigation (works inside viz iframes)
+      try {
+        if (typeof LookerCharts !== 'undefined' && LookerCharts.Utils && LookerCharts.Utils.openUrl) {
+          LookerCharts.Utils.openUrl(url);
+          return;
+        }
+      } catch(e) { console.log('[LineageExplorer] LookerCharts not available'); }
+      // Method 2: Looker openUrl via details callback
+      try {
+        if (details && details.crossfilterSelection) {
+          // Not available, fall through
+        }
+      } catch(e) {}
+      // Method 3: window.top (may be blocked by CSP)
+      try {
+        window.top.location.href = url;
+        return;
+      } catch(e) { console.log('[LineageExplorer] window.top blocked'); }
+      // Method 4: parent
+      try {
+        window.parent.location.href = url;
+        return;
+      } catch(e) { console.log('[LineageExplorer] window.parent blocked'); }
+      // Method 5: fallback open in same tab
+      window.location.href = url;
+    }
+
     function navBar(){
       var tabDefs=[
         {id:'lineage',label:'Lineage',icon:ic.lin,dashId:config.lineage_dashboard_id},
@@ -121,20 +142,16 @@ looker.plugins.visualizations.add({
       h+='</div>';
       return h;
     }
+
     function bindNav(){
       R.querySelectorAll('.nav-tab').forEach(function(tab){
-        tab.addEventListener('click',function(){
+        tab.addEventListener('click',function(e){
+          e.preventDefault();
+          e.stopPropagation();
           var href=tab.getAttribute('data-href');
-          if(href){if(window.top&&window.top.location){window.top.location.href=href;}else{window.location.href=href;}}
+          if(href) doNav(href);
         });
       });
-    }
-
-    // Helper: build view link for overlap
-    function viewLink(vName,model){
-      if(!baseUrl||!vName)return'<span style="color:#a78bfa;font-weight:500">'+vName+'</span>';
-      // Views aren't directly linkable in Looker, but we can link to explore if model is known
-      return'<span style="color:#a78bfa;font-weight:500">'+vName+'</span>';
     }
 
     // ========== LINEAGE ==========
@@ -186,10 +203,14 @@ looker.plugins.visualizations.add({
         var hd='';['table','view','explore','dashboard'].forEach(function(t){var cf=tCfg[t];hd+='<text x="'+(cX[t]+nW/2)+'" y="20" text-anchor="middle" fill="'+cf.c+'" font-size="9" font-weight="700" letter-spacing="1">'+cf.l.toUpperCase()+'</text><text x="'+(cX[t]+nW/2)+'" y="34" text-anchor="middle" fill="#475569" font-size="9">'+bt[t].length+'</text>';});
         var st=sel?'<span class="lx-pill" style="background:'+tCfg[sel.type].c+'15;color:'+tCfg[sel.type].c+'">'+tI[sel.type]+' '+sel.name+'</span> <span style="color:#06b6d4;margin-left:8px">↑ '+up.length+'</span> <span style="color:#f97316;margin-left:4px">↓ '+dn.length+'</span>':'<span style="color:#475569">Click any node to trace its lineage</span>';
 
-        // Row limit banner
+        // Row limit banner - show at 5000 rows
         var rowBanner='';
         if(data.length>=5000){
-          rowBanner='<div style="display:flex;align-items:center;gap:8px;padding:8px 16px;background:#f59e0b10;border-bottom:1px solid #f59e0b20"><svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="#f59e0b" stroke-width="2"><path d="M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg><span style="font-size:10px;color:#f59e0b">Showing max 5,000 rows — results may be incomplete. Add filters to narrow your query for full lineage coverage.</span></div>';
+          rowBanner='<div style="display:flex;align-items:center;gap:8px;padding:8px 16px;background:rgba(245,158,11,0.06);border-bottom:1px solid rgba(245,158,11,0.12)"><svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="#f59e0b" stroke-width="2"><path d="M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg><span style="font-size:10px;color:#f59e0b">Showing max 5,000 rows — results may be incomplete. Add filters to narrow your query for full lineage coverage.</span></div>';
+        }
+        // Also show a softer info banner for large result sets below 5000
+        else if(data.length>=3000){
+          rowBanner='<div style="display:flex;align-items:center;gap:8px;padding:8px 16px;background:rgba(59,130,246,0.06);border-bottom:1px solid rgba(59,130,246,0.12)"><svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="#3b82f6" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg><span style="font-size:10px;color:#3b82f6">Showing '+data.length.toLocaleString()+' rows. If results seem incomplete, try adding filters or increasing the row limit.</span></div>';
         }
 
         var h=navBar()+'<div class="lx-body">'+rowBanner+'<div class="lx-bar"><div>'+st+'</div><div style="color:#475569">'+ae.length+' entities · '+data.length.toLocaleString()+' rows</div></div><div class="lx-scroll" style="padding:8px"><svg width="'+sW+'" height="'+sH+'">'+hd+ed+nd+'</svg></div></div>';
@@ -210,7 +231,6 @@ looker.plugins.visualizations.add({
       function gfc(fn){if(!fn)return'';var nm=fn.toLowerCase(),i=nm.indexOf('_');return(i>0&&i<6)?nm.substring(i+1):nm;}
       function igc(c){return!c||c.length<=2||genC.indexOf(c)!==-1;}
 
-      // Build model-to-explore map from data for view linking
       var viewModelMap={};
       data.forEach(function(row){
         var vn=gv(row,F.view),mv=gv(row,F.model);
@@ -224,9 +244,9 @@ looker.plugins.visualizations.add({
       function mkViewLink(vName){
         var m=viewModelMap[vName]||'';
         if(baseUrl&&m){
-          return'<a href="'+baseUrl+'/explore/'+m+'/'+vName+'" class="dp-vlink" title="Open in Looker">'+vName+' '+ic.extLnk+'</a>';
+          return '<span class="ov-vlink" data-href="'+baseUrl+'/explore/'+m+'/'+vName+'" style="color:#a78bfa;font-weight:500;cursor:pointer;text-decoration:none;display:inline-flex;align-items:center;gap:5px" title="Open in Looker">'+vName+' '+ic.extLnk+'</span>';
         }
-        return'<span style="color:#a78bfa;font-weight:500">'+vName+'</span>';
+        return '<span style="color:#a78bfa;font-weight:500">'+vName+'</span>';
       }
 
       function analyze(){
@@ -246,7 +266,7 @@ looker.plugins.visualizations.add({
             if(em.length>=5||em.length/mn>=.4||mt.length/mn>=.6)res.push({v1:v1.name,v2:v2.name,m1:v1.model||'-',m2:v2.model||'-',sim:Math.min(sc,100),ec:em.length,sc:sm.length,c1:v1.fields.length,c2:v2.fields.length,em:em,sm:sm,o1:v1.fields.filter(function(f){return!v1M[f.toLowerCase()];}),o2:v2.fields.filter(function(f){return!v2M[f.toLowerCase()];})});
           }}
           res.sort(function(a,b){return b.sim-a.sim;});simR=res.slice(0,100);rO();
-        }catch(e){simR=[];rO();}},100);
+        }catch(e){console.log('[LineageExplorer] overlap error:',e);simR=[];rO();}},100);
       }
 
       function rO(){
@@ -259,13 +279,11 @@ looker.plugins.visualizations.add({
         else{simR.forEach(function(p,idx){
           var isE=expD[idx],sc=p.sim>=70?'#10b981':p.sim>=50?'#eab308':'#f97316';
           h+='<div class="dp-card" data-i="'+idx+'"><div class="dp-head">';
-          // Score badge
-          h+='<div style="min-width:48px;width:48px;height:48px;border-radius:12px;background:'+sc+'10;border:1.5px solid '+sc+'25;display:flex;align-items:center;justify-content:center;flex-shrink:0"><span style="font-size:14px;color:'+sc+';font-weight:700">'+p.sim+'<span style="font-size:9px;opacity:.7">%</span></span></div>';
-          // Info
+          h+='<div style="min-width:48px;width:48px;height:48px;border-radius:12px;background:rgba('+(p.sim>=70?'16,185,129':p.sim>=50?'234,179,8':'249,115,22')+',0.08);border:1.5px solid rgba('+(p.sim>=70?'16,185,129':p.sim>=50?'234,179,8':'249,115,22')+',0.15);display:flex;align-items:center;justify-content:center;flex-shrink:0"><span style="font-size:14px;color:'+sc+';font-weight:700">'+p.sim+'<span style="font-size:9px;opacity:.7">%</span></span></div>';
           h+='<div style="flex:1;min-width:0"><div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">';
           h+=mkViewLink(p.v1);
           h+='<span style="color:#334155;font-size:10px">('+p.m1+')</span>';
-          h+='<span style="color:#334155;font-size:12px">⟷</span>';
+          h+='<span style="color:#334155;font-size:12px">&#x27F7;</span>';
           h+=mkViewLink(p.v2);
           h+='<span style="color:#334155;font-size:10px">('+p.m2+')</span>';
           h+='</div>';
@@ -275,20 +293,24 @@ looker.plugins.visualizations.add({
           h+='<span>'+p.c1+' / '+p.c2+' fields</span></div></div>';
           h+='<span style="color:#334155;transition:transform .2s;display:inline-block;transform:rotate('+(isE?'180':'0')+'deg)">'+ic.chD+'</span></div>';
 
-          // Expanded detail with table
+          // Expanded detail - inline styled table (no external CSS classes needed)
           if(isE){
-            h+='<div class="dp-detail"><table class="dp-tbl"><thead><tr>';
-            h+='<th>'+p.v1+'</th><th class="center">Match</th><th>'+p.v2+'</th>';
+            h+='<div style="padding:0 16px 16px">';
+            h+='<table style="width:100%;border-collapse:separate;border-spacing:0;border-radius:10px;overflow:hidden;border:1px solid #1e293b">';
+            h+='<thead><tr>';
+            h+='<th style="padding:10px 14px;font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:.8px;color:#475569;background:#0f172a;text-align:left">'+p.v1+'</th>';
+            h+='<th style="padding:10px 14px;font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:.8px;color:#475569;background:#0f172a;text-align:center;width:50px">Match</th>';
+            h+='<th style="padding:10px 14px;font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:.8px;color:#475569;background:#0f172a;text-align:left">'+p.v2+'</th>';
             h+='</tr></thead><tbody>';
             p.em.forEach(function(m){
-              h+='<tr class="exact"><td style="color:#e2e8f0">'+m.f1+'</td>';
-              h+='<td class="center"><span class="dp-match-badge" style="background:#10b98118;color:#10b981">=</span></td>';
-              h+='<td style="color:#e2e8f0">'+m.f2+'</td></tr>';
+              h+='<tr><td style="padding:8px 14px;font-size:11px;font-family:monospace;border-top:1px solid rgba(30,41,59,0.2);background:#0f172a;color:#e2e8f0">'+m.f1+'</td>';
+              h+='<td style="padding:8px 14px;font-size:11px;border-top:1px solid rgba(30,41,59,0.2);background:#0f172a;text-align:center;width:50px"><span style="display:inline-flex;align-items:center;justify-content:center;width:28px;height:20px;border-radius:5px;font-size:10px;font-weight:700;background:rgba(16,185,129,0.1);color:#10b981">=</span></td>';
+              h+='<td style="padding:8px 14px;font-size:11px;font-family:monospace;border-top:1px solid rgba(30,41,59,0.2);background:#0f172a;color:#e2e8f0">'+m.f2+'</td></tr>';
             });
             p.sm.forEach(function(m){
-              h+='<tr class="similar"><td style="color:#fbbf24">'+m.f1+'</td>';
-              h+='<td class="center"><span class="dp-match-badge" style="background:#eab30818;color:#eab308">≈</span></td>';
-              h+='<td style="color:#fbbf24">'+m.f2+'</td></tr>';
+              h+='<tr><td style="padding:8px 14px;font-size:11px;font-family:monospace;border-top:1px solid rgba(30,41,59,0.2);background:#1a1525;color:#fbbf24">'+m.f1+'</td>';
+              h+='<td style="padding:8px 14px;font-size:11px;border-top:1px solid rgba(30,41,59,0.2);background:#1a1525;text-align:center;width:50px"><span style="display:inline-flex;align-items:center;justify-content:center;width:28px;height:20px;border-radius:5px;font-size:10px;font-weight:700;background:rgba(234,179,8,0.1);color:#eab308">&#x2248;</span></td>';
+              h+='<td style="padding:8px 14px;font-size:11px;font-family:monospace;border-top:1px solid rgba(30,41,59,0.2);background:#1a1525;color:#fbbf24">'+m.f2+'</td></tr>';
             });
             h+='</tbody></table></div>';
           }
@@ -297,13 +319,13 @@ looker.plugins.visualizations.add({
         h+='</div></div>';
         R.innerHTML=h;
         bindNav();
-        // Stop link clicks from triggering card toggle
-        R.querySelectorAll('.dp-vlink').forEach(function(link){
+        // Bind view links - use event delegation to avoid issues
+        R.querySelectorAll('.ov-vlink').forEach(function(link){
           link.addEventListener('click',function(e){
             e.stopPropagation();
-            var href=link.getAttribute('href');
-            if(href){if(window.top&&window.top.location){window.top.location.href=href;}else{window.location.href=href;}}
             e.preventDefault();
+            var href=link.getAttribute('data-href');
+            if(href) doNav(href);
           });
         });
         R.querySelectorAll('.dp-head').forEach(function(hd){hd.addEventListener('click',function(){var i=parseInt(hd.parentElement.dataset.i);expD[i]=!expD[i];rO();});});
