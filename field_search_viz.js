@@ -213,99 +213,83 @@ looker.plugins.visualizations.add({
             // --- Card header ---
             h+='<div class="dp-head dp-toggle" data-idx="'+idx+'">';
             h+='<div style="min-width:44px;width:44px;height:44px;border-radius:10px;background:rgba('+rgb+',0.06);border:1px solid rgba('+rgb+',0.1);display:flex;align-items:center;justify-content:center;flex-shrink:0"><span style="font-size:13px;color:'+sc+';font-weight:700">'+p.sim+'<span style="font-size:8px;opacity:.6">%</span></span></div>';
+            var v1HUrl=baseUrl&&viewModelMap[p.v1]?baseUrl+'/explore/'+viewModelMap[p.v1]+'/'+p.v1:'';
+            var v2HUrl=baseUrl&&viewModelMap[p.v2]?baseUrl+'/explore/'+viewModelMap[p.v2]+'/'+p.v2:'';
             h+='<div style="flex:1;min-width:0"><div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">';
-            h+=mkVL(p.v1);
-            h+='<span style="color:#334155;font-size:9px">('+p.m1+')</span>';
+            if(v1HUrl){h+='<a href="'+v1HUrl+'" target="_parent" class="ov-vlink" style="color:#c4b5fd;font-weight:600;font-size:12px;text-decoration:none;display:inline-flex;align-items:center;gap:4px" onmouseover="this.style.color=\'#e0d5ff\'" onmouseout="this.style.color=\'#c4b5fd\'">'+p.v1+' '+ic.ext+'</a>';}
+            else{h+='<span style="color:#c4b5fd;font-weight:600;font-size:12px">'+p.v1+'</span>';}
+            h+='<span style="color:#2d3748;font-size:9px">'+p.m1+'</span>';
             h+='<span style="color:#2d3748;font-size:11px">\u2194</span>';
-            h+=mkVL(p.v2);
-            h+='<span style="color:#334155;font-size:9px">('+p.m2+')</span>';
+            if(v2HUrl){h+='<a href="'+v2HUrl+'" target="_parent" class="ov-vlink" style="color:#c4b5fd;font-weight:600;font-size:12px;text-decoration:none;display:inline-flex;align-items:center;gap:4px" onmouseover="this.style.color=\'#e0d5ff\'" onmouseout="this.style.color=\'#c4b5fd\'">'+p.v2+' '+ic.ext+'</a>';}
+            else{h+='<span style="color:#c4b5fd;font-weight:600;font-size:12px">'+p.v2+'</span>';}
+            h+='<span style="color:#2d3748;font-size:9px">'+p.m2+'</span>';
             h+='</div>';
             h+='<div style="display:flex;gap:12px;margin-top:5px;font-size:10px;color:#475569">';
-            h+='<span><span style="color:#10b981;font-weight:600">'+p.ec+'</span> exact</span>';
-            if(p.sc>0)h+='<span><span style="color:#eab308;font-weight:600">'+p.sc+'</span> similar</span>';
+            h+='<span><span style="color:#34d399;font-weight:600">'+p.ec+'</span> exact</span>';
+            if(p.sc>0)h+='<span><span style="color:#fbbf24;font-weight:600">'+p.sc+'</span> similar</span>';
             h+='<span style="color:#334155">'+p.um1.length+' / '+p.um2.length+' unmatched</span>';
-            h+='<span style="color:#334155">'+p.c1+' / '+p.c2+' total</span>';
+            h+='<span style="color:#334155">'+p.c1+' / '+p.c2+' fields</span>';
             h+='</div></div>';
             h+='<span style="color:#334155;display:inline-flex;transform:rotate('+(isE?'180':'0')+'deg);transition:transform .2s">'+ic.chD+'</span></div>';
 
             // --- Expanded detail ---
             if(isE){
-              h+='<div style="padding:0 16px 16px">';
+              h+='<div style="padding:0 16px 20px">';
+              h+='<div style="background:#0b1120;border:1px solid #162032;border-radius:10px;overflow:hidden">';
 
-              // Two-column field comparison
               var allM=p.em.concat(p.sm);
               var maxUm=Math.max(p.um1.length,p.um2.length);
+              var v1Url=baseUrl&&viewModelMap[p.v1]?baseUrl+'/explore/'+viewModelMap[p.v1]+'/'+p.v1:'';
+              var v2Url=baseUrl&&viewModelMap[p.v2]?baseUrl+'/explore/'+viewModelMap[p.v2]+'/'+p.v2:'';
 
-              h+='<div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">';
-
-              // Left column header
-              h+='<div style="padding:10px 12px 8px;border-bottom:1px solid #1e293b;display:flex;align-items:center;justify-content:space-between">';
-              h+='<div>'+mkVL(p.v1)+'</div>';
-              h+='<span style="color:#334155;font-size:9px">'+p.c1+' fields</span>';
+              // Column headers
+              h+='<div style="display:grid;grid-template-columns:1fr 40px 1fr;border-bottom:1px solid #162032">';
+              h+='<div style="padding:12px 16px;display:flex;align-items:center;justify-content:space-between">';
+              if(v1Url){h+='<a href="'+v1Url+'" target="_parent" style="color:#c4b5fd;font-size:11px;font-weight:600;text-decoration:none;display:flex;align-items:center;gap:5px;transition:color .15s" onmouseover="this.style.color=\'#e0d5ff\'" onmouseout="this.style.color=\'#c4b5fd\'">'+p.v1+' <span style="opacity:.5">'+ic.ext+'</span></a>';}
+              else{h+='<span style="color:#c4b5fd;font-size:11px;font-weight:600">'+p.v1+'</span>';}
+              h+='<span style="color:#2d3748;font-size:9px">'+p.c1+'</span></div>';
+              h+='<div></div>';
+              h+='<div style="padding:12px 16px;display:flex;align-items:center;justify-content:space-between">';
+              if(v2Url){h+='<a href="'+v2Url+'" target="_parent" style="color:#c4b5fd;font-size:11px;font-weight:600;text-decoration:none;display:flex;align-items:center;gap:5px;transition:color .15s" onmouseover="this.style.color=\'#e0d5ff\'" onmouseout="this.style.color=\'#c4b5fd\'">'+p.v2+' <span style="opacity:.5">'+ic.ext+'</span></a>';}
+              else{h+='<span style="color:#c4b5fd;font-size:11px;font-weight:600">'+p.v2+'</span>';}
+              h+='<span style="color:#2d3748;font-size:9px">'+p.c2+'</span></div>';
               h+='</div>';
 
-              // Right column header
-              h+='<div style="padding:10px 12px 8px;border-bottom:1px solid #1e293b;display:flex;align-items:center;justify-content:space-between">';
-              h+='<div>'+mkVL(p.v2)+'</div>';
-              h+='<span style="color:#334155;font-size:9px">'+p.c2+' fields</span>';
-              h+='</div>';
-
-              // --- Matched fields section ---
+              // Matched rows
               if(allM.length>0){
-                // Section label spanning both columns
-                h+='<div style="grid-column:1/-1;padding:8px 12px 4px;font-size:9px;font-weight:600;color:#475569;text-transform:uppercase;letter-spacing:.8px">Matched Fields <span style="color:#10b981;font-weight:700">'+allM.length+'</span></div>';
-
+                h+='<div style="padding:6px 16px 2px"><span style="font-size:8px;font-weight:600;color:#334155;text-transform:uppercase;letter-spacing:1px">Matched \u00B7 '+allM.length+'</span></div>';
                 allM.forEach(function(m){
                   var isExact=m.t==='e';
-                  var clr=isExact?'#10b981':'#eab308';
-                  var bg=isExact?'rgba(16,185,129,0.04)':'rgba(234,179,8,0.04)';
-                  var bdr=isExact?'rgba(16,185,129,0.1)':'rgba(234,179,8,0.1)';
-                  var tag=isExact?'exact':'similar';
-
-                  // Left field
-                  h+='<div style="display:flex;align-items:center;gap:8px;padding:6px 12px;background:'+bg+';border:1px solid '+bdr+';border-radius:6px">';
-                  h+='<span style="width:5px;height:5px;border-radius:50%;background:'+clr+';flex-shrink:0;opacity:.6"></span>';
-                  h+='<span style="font-size:11px;color:#c9d1d9;font-family:\'SF Mono\',SFMono-Regular,Menlo,Consolas,monospace;flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="'+m.f1+'">'+m.f1+'</span>';
-                  h+='<span style="font-size:8px;color:'+clr+';background:rgba(0,0,0,0.2);padding:1px 5px;border-radius:3px;flex-shrink:0">'+tag+'</span>';
-                  h+='</div>';
-
-                  // Right field
-                  h+='<div style="display:flex;align-items:center;gap:8px;padding:6px 12px;background:'+bg+';border:1px solid '+bdr+';border-radius:6px">';
-                  h+='<span style="width:5px;height:5px;border-radius:50%;background:'+clr+';flex-shrink:0;opacity:.6"></span>';
-                  h+='<span style="font-size:11px;color:#c9d1d9;font-family:\'SF Mono\',SFMono-Regular,Menlo,Consolas,monospace;flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="'+m.f2+'">'+m.f2+'</span>';
-                  h+='<span style="font-size:8px;color:'+clr+';background:rgba(0,0,0,0.2);padding:1px 5px;border-radius:3px;flex-shrink:0">'+tag+'</span>';
+                  var dotC=isExact?'#34d399':'#fbbf24';
+                  var lbl=isExact?'=':'\u2248';
+                  var lblC=isExact?'#10b981':'#eab308';
+                  var lblBg=isExact?'rgba(16,185,129,0.08)':'rgba(234,179,8,0.08)';
+                  h+='<div style="display:grid;grid-template-columns:1fr 40px 1fr;align-items:center;padding:0 16px">';
+                  h+='<div style="padding:5px 0;display:flex;align-items:center;gap:6px;overflow:hidden"><span style="width:4px;height:4px;border-radius:50%;background:'+dotC+';flex-shrink:0"></span><span style="font-size:11px;color:#94a3b8;font-family:\'SF Mono\',Menlo,Consolas,monospace;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="'+m.f1+'">'+m.f1+'</span></div>';
+                  h+='<div style="text-align:center"><span style="font-size:9px;font-weight:700;color:'+lblC+';background:'+lblBg+';padding:2px 6px;border-radius:4px;display:inline-block">'+lbl+'</span></div>';
+                  h+='<div style="padding:5px 0;display:flex;align-items:center;gap:6px;overflow:hidden"><span style="width:4px;height:4px;border-radius:50%;background:'+dotC+';flex-shrink:0"></span><span style="font-size:11px;color:#94a3b8;font-family:\'SF Mono\',Menlo,Consolas,monospace;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="'+m.f2+'">'+m.f2+'</span></div>';
                   h+='</div>';
                 });
               }
 
-              // --- Unmatched fields section ---
+              // Unmatched rows
               if(p.um1.length>0||p.um2.length>0){
-                h+='<div style="grid-column:1/-1;padding:10px 12px 4px;font-size:9px;font-weight:600;color:#475569;text-transform:uppercase;letter-spacing:.8px;border-top:1px solid rgba(30,41,59,0.15);margin-top:4px">Unmatched Fields <span style="color:#64748b;font-weight:700">'+(p.um1.length+p.um2.length)+'</span></div>';
-
+                h+='<div style="border-top:1px solid #162032;margin-top:4px;padding:6px 16px 2px"><span style="font-size:8px;font-weight:600;color:#1e293b;text-transform:uppercase;letter-spacing:1px">Unmatched \u00B7 '+(p.um1.length+p.um2.length)+'</span></div>';
                 for(var ui=0;ui<maxUm;ui++){
-                  // Left unmatched
+                  h+='<div style="display:grid;grid-template-columns:1fr 40px 1fr;align-items:center;padding:0 16px">';
                   if(ui<p.um1.length){
-                    h+='<div style="display:flex;align-items:center;gap:8px;padding:6px 12px;background:rgba(100,116,139,0.03);border:1px solid rgba(30,41,59,0.12);border-radius:6px">';
-                    h+='<span style="width:5px;height:5px;border-radius:50%;background:#334155;flex-shrink:0;opacity:.4"></span>';
-                    h+='<span style="font-size:11px;color:#64748b;font-family:\'SF Mono\',SFMono-Regular,Menlo,Consolas,monospace;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="'+p.um1[ui]+'">'+p.um1[ui]+'</span>';
-                    h+='</div>';
-                  }else{
-                    h+='<div></div>';
-                  }
-
-                  // Right unmatched
+                    h+='<div style="padding:4px 0;display:flex;align-items:center;gap:6px;overflow:hidden"><span style="width:4px;height:4px;border-radius:50%;background:#1e293b;flex-shrink:0"></span><span style="font-size:10px;color:#3e4c5e;font-family:\'SF Mono\',Menlo,Consolas,monospace;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="'+p.um1[ui]+'">'+p.um1[ui]+'</span></div>';
+                  }else{h+='<div></div>';}
+                  h+='<div></div>';
                   if(ui<p.um2.length){
-                    h+='<div style="display:flex;align-items:center;gap:8px;padding:6px 12px;background:rgba(100,116,139,0.03);border:1px solid rgba(30,41,59,0.12);border-radius:6px">';
-                    h+='<span style="width:5px;height:5px;border-radius:50%;background:#334155;flex-shrink:0;opacity:.4"></span>';
-                    h+='<span style="font-size:11px;color:#64748b;font-family:\'SF Mono\',SFMono-Regular,Menlo,Consolas,monospace;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="'+p.um2[ui]+'">'+p.um2[ui]+'</span>';
-                    h+='</div>';
-                  }else{
-                    h+='<div></div>';
-                  }
+                    h+='<div style="padding:4px 0;display:flex;align-items:center;gap:6px;overflow:hidden"><span style="width:4px;height:4px;border-radius:50%;background:#1e293b;flex-shrink:0"></span><span style="font-size:10px;color:#3e4c5e;font-family:\'SF Mono\',Menlo,Consolas,monospace;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="'+p.um2[ui]+'">'+p.um2[ui]+'</span></div>';
+                  }else{h+='<div></div>';}
+                  h+='</div>';
                 }
               }
 
-              h+='</div>'; // close grid
+              h+='<div style="height:8px"></div>';
+              h+='</div>'; // close bg container
               h+='</div>'; // close padding wrapper
             }
             h+='</div>'; // close dp-card
