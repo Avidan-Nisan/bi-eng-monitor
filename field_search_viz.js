@@ -63,30 +63,12 @@ looker.plugins.visualizations.add({
     var tCfg={table:{c:'#06b6d4',l:'Tables'},view:{c:'#8b5cf6',l:'Views'},explore:{c:'#ec4899',l:'Explores'},dashboard:{c:'#f97316',l:'Dashboards'}};
     var eC={dashboard:'#f97316',explore:'#ec4899',view:'#8b5cf6',table:'#06b6d4'};
 
-    // ===== NAVIGATE: uses Looker drills API to stay in same page =====
     function doNav(url){
       console.log('LEX_V3 nav: '+url);
-      // Looker custom viz can use the drilling mechanism to navigate
-      // The most reliable way inside Looker iframe is to use the Looker event system
-      try{
-        // Method 1: Use Looker's built-in openUrl if available
-        if(typeof LookerCharts!=='undefined'&&LookerCharts.Utils&&LookerCharts.Utils.openUrl){
-          LookerCharts.Utils.openUrl(url);return;
-        }
-      }catch(e){}
-      try{
-        // Method 2: Post message to parent Looker frame
-        window.parent.postMessage({type:'page-changed',url:url},'*');
-      }catch(e){}
-      try{
-        // Method 3: Direct parent location change
-        window.parent.location.href=url;return;
-      }catch(e){}
-      try{
-        // Method 4: Top-level location
-        window.top.location.href=url;return;
-      }catch(e){}
-      // Method 5: Last resort - same window
+      try{if(typeof LookerCharts!=='undefined'&&LookerCharts.Utils&&LookerCharts.Utils.openUrl){LookerCharts.Utils.openUrl(url);return;}}catch(e){}
+      try{window.parent.postMessage({type:'page-changed',url:url},'*');}catch(e){}
+      try{window.parent.location.href=url;return;}catch(e){}
+      try{window.top.location.href=url;return;}catch(e){}
       window.location.href=url;
     }
 
@@ -101,7 +83,6 @@ looker.plugins.visualizations.add({
         if(t.id===mode){
           h+='<div class="lx-nav-btn active t-'+t.id+'">'+t.icon+' '+t.label+'</div>';
         }else if(baseUrl&&t.did){
-          // Use an <a> tag with target _parent so Looker navigates in same page
           h+='<a href="'+baseUrl+'/dashboards/'+t.did+'" target="_parent" class="lx-nav-btn t-'+t.id+'" style="text-decoration:none">'+t.icon+' '+t.label+'</a>';
         }else{
           h+='<div class="lx-nav-btn t-'+t.id+'" style="opacity:.3;cursor:default" title="Set dashboard ID in viz settings">'+t.icon+' '+t.label+'</div>';
@@ -191,13 +172,20 @@ looker.plugins.visualizations.add({
       data.forEach(function(row){var vn=gv(row,F.view),fv=gv(row,F.flds),mv=gv(row,F.model);if(!vn)return;if(!views[vn])views[vn]={name:vn,model:mv,fields:[]};if(mv&&!views[vn].model)views[vn].model=mv;fv.split('|').forEach(function(f){f=f.trim();if(f&&f.indexOf('.')===-1&&views[vn].fields.indexOf(f)===-1)views[vn].fields.push(f);});});
       var expD={},simR=null;
 
-      // Build a view link as <a target="_parent"> so it stays in same Looker page
       function mkVL(vn){
         var m=viewModelMap[vn]||'';
         if(baseUrl&&m){
           return '<a href="'+baseUrl+'/explore/'+m+'/'+vn+'" target="_parent" style="color:#a78bfa;font-weight:500;text-decoration:none;display:inline-flex;align-items:center;gap:4px;transition:color .15s" onmouseover="this.style.color=\'#c4b5fd\';this.style.textDecoration=\'underline\'" onmouseout="this.style.color=\'#a78bfa\';this.style.textDecoration=\'none\'">'+vn+' '+ic.ext+'</a>';
         }
         return '<span style="color:#a78bfa;font-weight:500">'+vn+'</span>';
+      }
+
+      function mkVLHead(vn){
+        var m=viewModelMap[vn]||'';
+        if(baseUrl&&m){
+          return '<a href="'+baseUrl+'/explore/'+m+'/'+vn+'" target="_parent" style="color:#a78bfa;font-weight:700;font-size:10px;text-decoration:none;display:inline-flex;align-items:center;gap:4px;text-transform:uppercase;letter-spacing:.8px;transition:color .15s" onmouseover="this.style.color=\'#c4b5fd\';this.style.textDecoration=\'underline\'" onmouseout="this.style.color=\'#a78bfa\';this.style.textDecoration=\'none\'">'+vn+' '+ic.ext+'</a>';
+        }
+        return '<span style="color:#a78bfa;font-weight:700;font-size:10px;text-transform:uppercase;letter-spacing:.8px">'+vn+'</span>';
       }
 
       function analyze(){
@@ -227,8 +215,6 @@ looker.plugins.visualizations.add({
         h+='</div><div class="lx-scroll">';
         if(!simR||!simR.length){h+='<div style="text-align:center;padding:60px;color:#10b981">No significant overlap found</div>';}
         else{
-          var thS='padding:10px 14px;font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:.8px;color:#475569;background:#0f172a;text-align:left';
-          var thC=thS+';text-align:center;width:50px';
           simR.forEach(function(p,idx){
             var isE=expD[idx],sc=p.sim>=70?'#10b981':p.sim>=50?'#eab308':'#f97316';
             var rgb=p.sim>=70?'16,185,129':p.sim>=50?'234,179,8':'249,115,22';
@@ -248,30 +234,74 @@ looker.plugins.visualizations.add({
             h+='<span style="color:#334155;display:inline-block;transform:rotate('+(isE?'180':'0')+'deg);transition:transform .2s">'+ic.chD+'</span></div>';
 
             if(isE){
-              h+='<div style="padding:0 16px 16px"><table style="width:100%;border-collapse:separate;border-spacing:0;border-radius:10px;overflow:hidden;border:1px solid #1e293b"><thead><tr>';
-              h+='<th style="'+thS+'">'+p.v1+'</th><th style="'+thC+'">Match</th><th style="'+thS+'">'+p.v2+'</th>';
-              h+='</tr></thead><tbody>';
-              p.em.forEach(function(m){
-                h+='<tr><td style="padding:8px 14px;font-size:11px;font-family:monospace;border-top:1px solid rgba(30,41,59,0.2);background:#0f172a;color:#e2e8f0">'+m.f1+'</td>';
-                h+='<td style="padding:8px 14px;border-top:1px solid rgba(30,41,59,0.2);background:#0f172a;text-align:center;width:50px"><span style="display:inline-flex;align-items:center;justify-content:center;width:28px;height:20px;border-radius:5px;font-size:10px;font-weight:700;background:rgba(16,185,129,0.1);color:#10b981">=</span></td>';
-                h+='<td style="padding:8px 14px;font-size:11px;font-family:monospace;border-top:1px solid rgba(30,41,59,0.2);background:#0f172a;color:#e2e8f0">'+m.f2+'</td></tr>';
+              h+='<div style="padding:0 16px 16px">';
+              // New field comparison design - side by side columns with connected lines
+              h+='<div style="background:#0c1021;border:1px solid #1e293b;border-radius:12px;overflow:hidden">';
+
+              // Header row with linked view names
+              h+='<div style="display:grid;grid-template-columns:1fr 60px 1fr;border-bottom:1px solid #1e293b">';
+              h+='<div style="padding:12px 16px;display:flex;align-items:center;gap:6px">'+mkVLHead(p.v1)+'<span style="font-size:9px;color:#475569;font-weight:400;text-transform:none;letter-spacing:0">'+p.c1+' fields</span></div>';
+              h+='<div style="padding:12px 8px;display:flex;align-items:center;justify-content:center"><span style="font-size:9px;color:#334155;font-weight:600;text-transform:uppercase;letter-spacing:.5px">Match</span></div>';
+              h+='<div style="padding:12px 16px;display:flex;align-items:center;gap:6px">'+mkVLHead(p.v2)+'<span style="font-size:9px;color:#475569;font-weight:400;text-transform:none;letter-spacing:0">'+p.c2+' fields</span></div>';
+              h+='</div>';
+
+              // Exact matches
+              p.em.forEach(function(m,mi){
+                var isLast=mi===p.em.length-1&&p.sm.length===0;
+                var bb=isLast?'none':'1px solid rgba(30,41,59,0.15)';
+                h+='<div style="display:grid;grid-template-columns:1fr 60px 1fr;border-bottom:'+bb+';transition:background .12s" onmouseover="this.style.background=\'rgba(16,185,129,0.03)\'" onmouseout="this.style.background=\'transparent\'">';
+                h+='<div style="padding:9px 16px;display:flex;align-items:center;gap:8px">';
+                h+='<span style="width:4px;height:4px;border-radius:50%;background:#10b981;flex-shrink:0;opacity:.6"></span>';
+                h+='<span style="font-size:11px;font-family:\'SF Mono\',SFMono-Regular,Menlo,Consolas,monospace;color:#e2e8f0;letter-spacing:-.2px">'+m.f1+'</span>';
+                h+='</div>';
+                h+='<div style="padding:9px 8px;display:flex;align-items:center;justify-content:center">';
+                h+='<span style="display:inline-flex;align-items:center;justify-content:center;width:32px;height:22px;border-radius:6px;font-size:10px;font-weight:700;background:rgba(16,185,129,0.1);color:#10b981;border:1px solid rgba(16,185,129,0.15)">=</span>';
+                h+='</div>';
+                h+='<div style="padding:9px 16px;display:flex;align-items:center;gap:8px">';
+                h+='<span style="width:4px;height:4px;border-radius:50%;background:#10b981;flex-shrink:0;opacity:.6"></span>';
+                h+='<span style="font-size:11px;font-family:\'SF Mono\',SFMono-Regular,Menlo,Consolas,monospace;color:#e2e8f0;letter-spacing:-.2px">'+m.f2+'</span>';
+                h+='</div>';
+                h+='</div>';
               });
-              p.sm.forEach(function(m){
-                h+='<tr><td style="padding:8px 14px;font-size:11px;font-family:monospace;border-top:1px solid rgba(30,41,59,0.2);background:#1a1525;color:#fbbf24">'+m.f1+'</td>';
-                h+='<td style="padding:8px 14px;border-top:1px solid rgba(30,41,59,0.2);background:#1a1525;text-align:center;width:50px"><span style="display:inline-flex;align-items:center;justify-content:center;width:28px;height:20px;border-radius:5px;font-size:10px;font-weight:700;background:rgba(234,179,8,0.1);color:#eab308">\u2248</span></td>';
-                h+='<td style="padding:8px 14px;font-size:11px;font-family:monospace;border-top:1px solid rgba(30,41,59,0.2);background:#1a1525;color:#fbbf24">'+m.f2+'</td></tr>';
+
+              // Divider between exact and similar if both exist
+              if(p.em.length>0&&p.sm.length>0){
+                h+='<div style="display:grid;grid-template-columns:1fr 60px 1fr;border-bottom:1px solid rgba(30,41,59,0.15)">';
+                h+='<div style="padding:2px 16px;border-top:1px solid rgba(234,179,8,0.1)"></div>';
+                h+='<div style="padding:2px 8px;display:flex;align-items:center;justify-content:center;border-top:1px solid rgba(234,179,8,0.1)"><span style="font-size:8px;color:#92400e;text-transform:uppercase;letter-spacing:.8px;font-weight:600">Similar</span></div>';
+                h+='<div style="padding:2px 16px;border-top:1px solid rgba(234,179,8,0.1)"></div>';
+                h+='</div>';
+              }
+
+              // Similar matches
+              p.sm.forEach(function(m,mi){
+                var isLast=mi===p.sm.length-1;
+                var bb=isLast?'none':'1px solid rgba(30,41,59,0.15)';
+                h+='<div style="display:grid;grid-template-columns:1fr 60px 1fr;border-bottom:'+bb+';transition:background .12s" onmouseover="this.style.background=\'rgba(234,179,8,0.03)\'" onmouseout="this.style.background=\'transparent\'">';
+                h+='<div style="padding:9px 16px;display:flex;align-items:center;gap:8px">';
+                h+='<span style="width:4px;height:4px;border-radius:2px;background:#eab308;flex-shrink:0;opacity:.6"></span>';
+                h+='<span style="font-size:11px;font-family:\'SF Mono\',SFMono-Regular,Menlo,Consolas,monospace;color:#fbbf24;letter-spacing:-.2px">'+m.f1+'</span>';
+                h+='</div>';
+                h+='<div style="padding:9px 8px;display:flex;align-items:center;justify-content:center">';
+                h+='<span style="display:inline-flex;align-items:center;justify-content:center;width:32px;height:22px;border-radius:6px;font-size:10px;font-weight:700;background:rgba(234,179,8,0.1);color:#eab308;border:1px solid rgba(234,179,8,0.15)">\u2248</span>';
+                h+='</div>';
+                h+='<div style="padding:9px 16px;display:flex;align-items:center;gap:8px">';
+                h+='<span style="width:4px;height:4px;border-radius:2px;background:#eab308;flex-shrink:0;opacity:.6"></span>';
+                h+='<span style="font-size:11px;font-family:\'SF Mono\',SFMono-Regular,Menlo,Consolas,monospace;color:#fbbf24;letter-spacing:-.2px">'+m.f2+'</span>';
+                h+='</div>';
+                h+='</div>';
               });
-              h+='</tbody></table></div>';
+
+              h+='</div></div>';
             }
             h+='</div>';
           });
         }
         h+='</div></div>';
         R.innerHTML=h;
-        // Bind card expand/collapse - stop propagation on links inside head
         R.querySelectorAll('.dp-head').forEach(function(hd){
           hd.addEventListener('click',function(e){
-            if(e.target.closest('a'))return; // let links work normally
+            if(e.target.closest('a'))return;
             var i=parseInt(hd.parentElement.dataset.i);expD[i]=!expD[i];rO();
           });
         });
