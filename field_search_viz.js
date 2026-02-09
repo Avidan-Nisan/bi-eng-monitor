@@ -234,65 +234,62 @@ looker.plugins.visualizations.add({
             h+='<span style="color:#334155;display:inline-block;transform:rotate('+(isE?'180':'0')+'deg);transition:transform .2s">'+ic.chD+'</span></div>';
 
             if(isE){
-              h+='<div style="padding:0 16px 16px">';
-              // New field comparison design - side by side columns with connected lines
-              h+='<div style="background:#0c1021;border:1px solid #1e293b;border-radius:12px;overflow:hidden">';
+              h+='<div style="padding:4px 16px 16px">';
 
-              // Header row with linked view names
-              h+='<div style="display:grid;grid-template-columns:1fr 60px 1fr;border-bottom:1px solid #1e293b">';
-              h+='<div style="padding:12px 16px;display:flex;align-items:center;gap:6px">'+mkVLHead(p.v1)+'<span style="font-size:9px;color:#475569;font-weight:400;text-transform:none;letter-spacing:0">'+p.c1+' fields</span></div>';
-              h+='<div style="padding:12px 8px;display:flex;align-items:center;justify-content:center"><span style="font-size:9px;color:#334155;font-weight:600;text-transform:uppercase;letter-spacing:.5px">Match</span></div>';
-              h+='<div style="padding:12px 16px;display:flex;align-items:center;gap:6px">'+mkVLHead(p.v2)+'<span style="font-size:9px;color:#475569;font-weight:400;text-transform:none;letter-spacing:0">'+p.c2+' fields</span></div>';
-              h+='</div>';
+              // SVG-based field mapping visualization
+              var allM=p.em.concat(p.sm);
+              var rH=28,rGap=4,colW=220,midW=100,padT=48,padB=12,padX=16;
+              var svgW=padX+colW+midW+colW+padX;
+              var svgH=padT+allM.length*(rH+rGap)+padB;
 
-              // Exact matches
-              p.em.forEach(function(m,mi){
-                var isLast=mi===p.em.length-1&&p.sm.length===0;
-                var bb=isLast?'none':'1px solid rgba(30,41,59,0.15)';
-                h+='<div style="display:grid;grid-template-columns:1fr 60px 1fr;border-bottom:'+bb+';transition:background .12s" onmouseover="this.style.background=\'rgba(16,185,129,0.03)\'" onmouseout="this.style.background=\'transparent\'">';
-                h+='<div style="padding:9px 16px;display:flex;align-items:center;gap:8px">';
-                h+='<span style="width:4px;height:4px;border-radius:50%;background:#10b981;flex-shrink:0;opacity:.6"></span>';
-                h+='<span style="font-size:11px;font-family:\'SF Mono\',SFMono-Regular,Menlo,Consolas,monospace;color:#e2e8f0;letter-spacing:-.2px">'+m.f1+'</span>';
-                h+='</div>';
-                h+='<div style="padding:9px 8px;display:flex;align-items:center;justify-content:center">';
-                h+='<span style="display:inline-flex;align-items:center;justify-content:center;width:32px;height:22px;border-radius:6px;font-size:10px;font-weight:700;background:rgba(16,185,129,0.1);color:#10b981;border:1px solid rgba(16,185,129,0.15)">=</span>';
-                h+='</div>';
-                h+='<div style="padding:9px 16px;display:flex;align-items:center;gap:8px">';
-                h+='<span style="width:4px;height:4px;border-radius:50%;background:#10b981;flex-shrink:0;opacity:.6"></span>';
-                h+='<span style="font-size:11px;font-family:\'SF Mono\',SFMono-Regular,Menlo,Consolas,monospace;color:#e2e8f0;letter-spacing:-.2px">'+m.f2+'</span>';
-                h+='</div>';
-                h+='</div>';
+              h+='<svg width="100%" viewBox="0 0 '+svgW+' '+svgH+'" style="display:block;max-width:680px">';
+
+              // Background
+              h+='<rect width="'+svgW+'" height="'+svgH+'" rx="10" fill="#0a0f1e" stroke="#1e293b" stroke-width="1"/>';
+
+              // Left column header
+              h+='<a href="'+(baseUrl&&viewModelMap[p.v1]?baseUrl+'/explore/'+viewModelMap[p.v1]+'/'+p.v1:'#')+'" target="_parent">';
+              h+='<text x="'+(padX+12)+'" y="22" fill="#a78bfa" font-size="10" font-weight="700" letter-spacing=".5" style="cursor:pointer;text-decoration:none">'+p.v1+'</text>';
+              h+='<text x="'+(padX+12)+'" y="34" fill="#475569" font-size="8">'+p.c1+' fields</text>';
+              h+='</a>';
+
+              // Right column header
+              h+='<a href="'+(baseUrl&&viewModelMap[p.v2]?baseUrl+'/explore/'+viewModelMap[p.v2]+'/'+p.v2:'#')+'" target="_parent">';
+              h+='<text x="'+(padX+colW+midW+12)+'" y="22" fill="#a78bfa" font-size="10" font-weight="700" letter-spacing=".5" style="cursor:pointer;text-decoration:none">'+p.v2+'</text>';
+              h+='<text x="'+(padX+colW+midW+12)+'" y="34" fill="#475569" font-size="8">'+p.c2+' fields</text>';
+              h+='</a>';
+
+              // Draw each match row
+              allM.forEach(function(m,mi){
+                var isExact=m.t==='e';
+                var y=padT+mi*(rH+rGap);
+                var clr=isExact?'#10b981':'#eab308';
+                var clrDim=isExact?'rgba(16,185,129,0.08)':'rgba(234,179,8,0.08)';
+                var clrLine=isExact?'rgba(16,185,129,0.35)':'rgba(234,179,8,0.35)';
+                var lx1=padX,lx2=padX+colW,rx1=padX+colW+midW,rx2=svgW-padX;
+
+                // Left pill
+                h+='<rect x="'+lx1+'" y="'+y+'" width="'+colW+'" height="'+rH+'" rx="6" fill="'+clrDim+'" stroke="'+clrLine+'" stroke-width=".5"/>';
+                h+='<circle cx="'+(lx1+14)+'" cy="'+(y+rH/2)+'" r="2.5" fill="'+clr+'" opacity=".7"/>';
+                h+='<text x="'+(lx1+24)+'" y="'+(y+rH/2+3.5)+'" fill="#e2e8f0" font-size="10" font-family="SF Mono,SFMono-Regular,Menlo,Consolas,monospace">'+m.f1+'</text>';
+
+                // Right pill
+                h+='<rect x="'+rx1+'" y="'+y+'" width="'+colW+'" height="'+rH+'" rx="6" fill="'+clrDim+'" stroke="'+clrLine+'" stroke-width=".5"/>';
+                h+='<circle cx="'+(rx1+14)+'" cy="'+(y+rH/2)+'" r="2.5" fill="'+clr+'" opacity=".7"/>';
+                h+='<text x="'+(rx1+24)+'" y="'+(y+rH/2+3.5)+'" fill="#e2e8f0" font-size="10" font-family="SF Mono,SFMono-Regular,Menlo,Consolas,monospace">'+m.f2+'</text>';
+
+                // Connecting line with curve
+                var cy1=y+rH/2,cx1=lx2,cx2=rx1;
+                var cmx=(cx1+cx2)/2;
+                h+='<path d="M'+cx1+' '+cy1+' C'+cmx+' '+cy1+','+cmx+' '+cy1+','+cx2+' '+cy1+'" stroke="'+clr+'" stroke-width="1.5" fill="none" stroke-opacity=".5" stroke-dasharray="'+(isExact?'none':'3,3')+'"/>';
+
+                // Center badge
+                var bW=isExact?22:22,bx=(cx1+cx2)/2-bW/2,by=y+(rH-16)/2;
+                h+='<rect x="'+bx+'" y="'+by+'" width="'+bW+'" height="16" rx="4" fill="'+clrDim+'" stroke="'+clr+'" stroke-width="1" stroke-opacity=".4"/>';
+                h+='<text x="'+(bx+bW/2)+'" y="'+(by+11.5)+'" text-anchor="middle" fill="'+clr+'" font-size="9" font-weight="700">'+(isExact?'=':'\u2248')+'</text>';
               });
 
-              // Divider between exact and similar if both exist
-              if(p.em.length>0&&p.sm.length>0){
-                h+='<div style="display:grid;grid-template-columns:1fr 60px 1fr;border-bottom:1px solid rgba(30,41,59,0.15)">';
-                h+='<div style="padding:2px 16px;border-top:1px solid rgba(234,179,8,0.1)"></div>';
-                h+='<div style="padding:2px 8px;display:flex;align-items:center;justify-content:center;border-top:1px solid rgba(234,179,8,0.1)"><span style="font-size:8px;color:#92400e;text-transform:uppercase;letter-spacing:.8px;font-weight:600">Similar</span></div>';
-                h+='<div style="padding:2px 16px;border-top:1px solid rgba(234,179,8,0.1)"></div>';
-                h+='</div>';
-              }
-
-              // Similar matches
-              p.sm.forEach(function(m,mi){
-                var isLast=mi===p.sm.length-1;
-                var bb=isLast?'none':'1px solid rgba(30,41,59,0.15)';
-                h+='<div style="display:grid;grid-template-columns:1fr 60px 1fr;border-bottom:'+bb+';transition:background .12s" onmouseover="this.style.background=\'rgba(234,179,8,0.03)\'" onmouseout="this.style.background=\'transparent\'">';
-                h+='<div style="padding:9px 16px;display:flex;align-items:center;gap:8px">';
-                h+='<span style="width:4px;height:4px;border-radius:2px;background:#eab308;flex-shrink:0;opacity:.6"></span>';
-                h+='<span style="font-size:11px;font-family:\'SF Mono\',SFMono-Regular,Menlo,Consolas,monospace;color:#fbbf24;letter-spacing:-.2px">'+m.f1+'</span>';
-                h+='</div>';
-                h+='<div style="padding:9px 8px;display:flex;align-items:center;justify-content:center">';
-                h+='<span style="display:inline-flex;align-items:center;justify-content:center;width:32px;height:22px;border-radius:6px;font-size:10px;font-weight:700;background:rgba(234,179,8,0.1);color:#eab308;border:1px solid rgba(234,179,8,0.15)">\u2248</span>';
-                h+='</div>';
-                h+='<div style="padding:9px 16px;display:flex;align-items:center;gap:8px">';
-                h+='<span style="width:4px;height:4px;border-radius:2px;background:#eab308;flex-shrink:0;opacity:.6"></span>';
-                h+='<span style="font-size:11px;font-family:\'SF Mono\',SFMono-Regular,Menlo,Consolas,monospace;color:#fbbf24;letter-spacing:-.2px">'+m.f2+'</span>';
-                h+='</div>';
-                h+='</div>';
-              });
-
-              h+='</div></div>';
+              h+='</svg></div>';
             }
             h+='</div>';
           });
