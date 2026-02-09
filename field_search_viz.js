@@ -44,8 +44,6 @@ looker.plugins.visualizations.add({
     function gv(row,k){return k&&row[k]?row[k].value||'':'';}
     function gn(row,k){return k&&row[k]?parseFloat(row[k].value)||0:0;}
 
-    console.log('LEX_V3 mode='+mode+' rows='+data.length+' base='+baseUrl);
-
     var ic={
       lin:'<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2"><circle cx="5" cy="12" r="2"/><circle cx="19" cy="6" r="2"/><circle cx="19" cy="18" r="2"/><path d="M7 12h4l4-6h2M11 12l4 6h2"/></svg>',
       ovl:'<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2"><circle cx="9" cy="12" r="5"/><circle cx="15" cy="12" r="5"/></svg>',
@@ -64,7 +62,6 @@ looker.plugins.visualizations.add({
     var eC={dashboard:'#f97316',explore:'#ec4899',view:'#8b5cf6',table:'#06b6d4'};
 
     function doNav(url){
-      console.log('LEX_V3 nav: '+url);
       try{if(typeof LookerCharts!=='undefined'&&LookerCharts.Utils&&LookerCharts.Utils.openUrl){LookerCharts.Utils.openUrl(url);return;}}catch(e){}
       try{window.parent.postMessage({type:'page-changed',url:url},'*');}catch(e){}
       try{window.parent.location.href=url;return;}catch(e){}
@@ -140,14 +137,12 @@ looker.plugins.visualizations.add({
         var nd='';vis.forEach(function(en){var p=pos[en.id],cf=tCfg[en.type],iS=sel&&sel.id===en.id,iU=sel&&up.indexOf(en.id)!==-1,iD=sel&&dn.indexOf(en.id)!==-1;var bc=cf.c,bw=1.5,bg='#131b2e';if(iS){bc='#e2e8f0';bw=2.5;bg='#1e293b';}else if(iU){bc='#06b6d4';bw=2;bg='#06b6d408';}else if(iD){bc='#f97316';bw=2;bg='#f9731608';}var nm=en.name.length>20?en.name.substring(0,18)+'\u2026':en.name;nd+='<g class="lx-node nd" data-id="'+en.id+'" transform="translate('+p.x+','+p.y+')"><rect width="'+nW+'" height="'+nH+'" rx="8" fill="'+bg+'" stroke="'+bc+'" stroke-width="'+bw+'"/><rect x="1.5" y="1.5" width="30" height="'+(nH-3)+'" rx="7" fill="'+cf.c+'" fill-opacity=".1"/><g transform="translate(9,'+(nH/2-6)+')" fill="'+cf.c+'">'+tI[en.type]+'</g><text x="36" y="'+(nH/2+4)+'" fill="#e2e8f0" font-size="10" font-weight="500">'+nm+'</text></g>';});
         var hd='';['table','view','explore','dashboard'].forEach(function(t){var cf=tCfg[t];hd+='<text x="'+(cX[t]+nW/2)+'" y="20" text-anchor="middle" fill="'+cf.c+'" font-size="9" font-weight="700" letter-spacing="1">'+cf.l.toUpperCase()+'</text><text x="'+(cX[t]+nW/2)+'" y="34" text-anchor="middle" fill="#475569" font-size="9">'+bt[t].length+'</text>';});
         var st=sel?'<span class="lx-pill" style="background:'+tCfg[sel.type].c+'15;color:'+tCfg[sel.type].c+'">'+tI[sel.type]+' '+sel.name+'</span> <span style="color:#06b6d4;margin-left:8px">\u2191 '+up.length+'</span> <span style="color:#f97316;margin-left:4px">\u2193 '+dn.length+'</span>':'<span style="color:#475569">Click any node to trace its lineage</span>';
-
         var rowBanner='';
         if(data.length>=5000){
-          rowBanner='<div style="display:flex;align-items:center;gap:8px;padding:8px 16px;background:rgba(245,158,11,0.06);border-bottom:1px solid rgba(245,158,11,0.12)"><svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="#f59e0b" stroke-width="2"><path d="M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg><span style="font-size:10px;color:#f59e0b">Showing max 5,000 rows. Results may be incomplete. Add filters for full coverage.</span></div>';
+          rowBanner='<div style="display:flex;align-items:center;gap:8px;padding:8px 16px;background:rgba(245,158,11,0.06);border-bottom:1px solid rgba(245,158,11,0.12)"><svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="#f59e0b" stroke-width="2"><path d="M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg><span style="font-size:10px;color:#f59e0b">Showing max 5,000 rows. Results may be incomplete.</span></div>';
         }else if(data.length>=3000){
-          rowBanner='<div style="display:flex;align-items:center;gap:8px;padding:8px 16px;background:rgba(59,130,246,0.06);border-bottom:1px solid rgba(59,130,246,0.12)"><svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="#3b82f6" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg><span style="font-size:10px;color:#3b82f6">Showing '+data.length.toLocaleString()+' rows. Add filters or increase row limit if results seem incomplete.</span></div>';
+          rowBanner='<div style="display:flex;align-items:center;gap:8px;padding:8px 16px;background:rgba(59,130,246,0.06);border-bottom:1px solid rgba(59,130,246,0.12)"><svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="#3b82f6" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg><span style="font-size:10px;color:#3b82f6">Showing '+data.length.toLocaleString()+' rows.</span></div>';
         }
-
         var h=navBar()+'<div class="lx-body">'+rowBanner+'<div class="lx-bar"><div>'+st+'</div><div style="color:#475569">'+ae.length+' entities \u00B7 '+data.length.toLocaleString()+' rows</div></div><div class="lx-scroll" style="padding:8px"><svg width="'+sW+'" height="'+sH+'">'+hd+ed+nd+'</svg></div></div>';
         R.innerHTML=h;
         R.querySelectorAll('.nd').forEach(function(n){n.addEventListener('click',function(){var id=n.dataset.id,en=ae.find(function(x){return x.id===id;});if(sel&&sel.id===id){sel=null;up=[];dn=[];}else sel=en;rL();});});
@@ -175,17 +170,9 @@ looker.plugins.visualizations.add({
       function mkVL(vn){
         var m=viewModelMap[vn]||'';
         if(baseUrl&&m){
-          return '<a href="'+baseUrl+'/explore/'+m+'/'+vn+'" target="_parent" style="color:#a78bfa;font-weight:500;text-decoration:none;display:inline-flex;align-items:center;gap:4px;transition:color .15s" onmouseover="this.style.color=\'#c4b5fd\';this.style.textDecoration=\'underline\'" onmouseout="this.style.color=\'#a78bfa\';this.style.textDecoration=\'none\'">'+vn+' '+ic.ext+'</a>';
+          return '<a href="'+baseUrl+'/explore/'+m+'/'+vn+'" target="_parent" class="ov-vlink" style="color:#a78bfa;font-weight:500;text-decoration:none;display:inline-flex;align-items:center;gap:4px;transition:color .15s" onmouseover="this.style.color=\'#c4b5fd\'" onmouseout="this.style.color=\'#a78bfa\'">'+vn+' '+ic.ext+'</a>';
         }
         return '<span style="color:#a78bfa;font-weight:500">'+vn+'</span>';
-      }
-
-      function mkVLHead(vn){
-        var m=viewModelMap[vn]||'';
-        if(baseUrl&&m){
-          return '<a href="'+baseUrl+'/explore/'+m+'/'+vn+'" target="_parent" style="color:#a78bfa;font-weight:700;font-size:10px;text-decoration:none;display:inline-flex;align-items:center;gap:4px;text-transform:uppercase;letter-spacing:.8px;transition:color .15s" onmouseover="this.style.color=\'#c4b5fd\';this.style.textDecoration=\'underline\'" onmouseout="this.style.color=\'#a78bfa\';this.style.textDecoration=\'none\'">'+vn+' '+ic.ext+'</a>';
-        }
-        return '<span style="color:#a78bfa;font-weight:700;font-size:10px;text-transform:uppercase;letter-spacing:.8px">'+vn+'</span>';
       }
 
       function analyze(){
@@ -200,8 +187,11 @@ looker.plugins.visualizations.add({
             v1.fields.forEach(function(f1){if(v1M[f1.toLowerCase()])return;v2.fields.forEach(function(f2){if(v2M[f2.toLowerCase()])return;if(f1.toLowerCase()===f2.toLowerCase()){mt.push({f1:f1,f2:f2,t:'e'});v1M[f1.toLowerCase()]=true;v2M[f2.toLowerCase()]=true;}});});
             var bc={};v1.fields.forEach(function(f){if(v1M[f.toLowerCase()])return;var c=gfc(f);if(c&&!igc(c)){if(!bc[c])bc[c]=[];bc[c].push(f);}});v2.fields.forEach(function(f2){if(v2M[f2.toLowerCase()])return;var c=gfc(f2);if(c&&!igc(c)&&bc[c]&&bc[c].length>0){for(var k=0;k<bc[c].length;k++){var f1=bc[c][k];if(!v1M[f1.toLowerCase()]){mt.push({f1:f1,f2:f2,t:'s'});v1M[f1.toLowerCase()]=true;v2M[f2.toLowerCase()]=true;break;}}}});
             var em=mt.filter(function(m){return m.t==='e';}),sm=mt.filter(function(m){return m.t==='s';});
+            // Collect unmatched fields
+            var um1=v1.fields.filter(function(f){return !v1M[f.toLowerCase()];});
+            var um2=v2.fields.filter(function(f){return !v2M[f.toLowerCase()];});
             var mn=Math.min(v1.fields.length,v2.fields.length),sc=Math.round((em.length+sm.length*.5)/mn*100);
-            if(em.length>=5||em.length/mn>=.4||mt.length/mn>=.6)res.push({v1:v1.name,v2:v2.name,m1:v1.model||'-',m2:v2.model||'-',sim:Math.min(sc,100),ec:em.length,sc:sm.length,c1:v1.fields.length,c2:v2.fields.length,em:em,sm:sm});
+            if(em.length>=5||em.length/mn>=.4||mt.length/mn>=.6)res.push({v1:v1.name,v2:v2.name,m1:v1.model||'-',m2:v2.model||'-',sim:Math.min(sc,100),ec:em.length,sc:sm.length,c1:v1.fields.length,c2:v2.fields.length,em:em,sm:sm,um1:um1,um2:um2});
           }}
           res.sort(function(a,b){return b.sim-a.sim;});simR=res.slice(0,100);rO();
         }catch(e){console.log('LEX_V3 overlap error:',e);simR=[];rO();}},100);
@@ -218,88 +208,126 @@ looker.plugins.visualizations.add({
           simR.forEach(function(p,idx){
             var isE=expD[idx],sc=p.sim>=70?'#10b981':p.sim>=50?'#eab308':'#f97316';
             var rgb=p.sim>=70?'16,185,129':p.sim>=50?'234,179,8':'249,115,22';
-            h+='<div class="dp-card" data-i="'+idx+'"><div class="dp-head">';
-            h+='<div style="min-width:48px;width:48px;height:48px;border-radius:12px;background:rgba('+rgb+',0.08);border:1.5px solid rgba('+rgb+',0.15);display:flex;align-items:center;justify-content:center;flex-shrink:0"><span style="font-size:14px;color:'+sc+';font-weight:700">'+p.sim+'<span style="font-size:9px;opacity:.7">%</span></span></div>';
+            h+='<div class="dp-card" data-i="'+idx+'">';
+
+            // --- Card header ---
+            h+='<div class="dp-head dp-toggle" data-idx="'+idx+'">';
+            h+='<div style="min-width:44px;width:44px;height:44px;border-radius:10px;background:rgba('+rgb+',0.06);border:1px solid rgba('+rgb+',0.1);display:flex;align-items:center;justify-content:center;flex-shrink:0"><span style="font-size:13px;color:'+sc+';font-weight:700">'+p.sim+'<span style="font-size:8px;opacity:.6">%</span></span></div>';
             h+='<div style="flex:1;min-width:0"><div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">';
             h+=mkVL(p.v1);
-            h+='<span style="color:#334155;font-size:10px">('+p.m1+')</span>';
-            h+='<span style="color:#334155;font-size:12px">\u27F7</span>';
+            h+='<span style="color:#334155;font-size:9px">('+p.m1+')</span>';
+            h+='<span style="color:#2d3748;font-size:11px">\u2194</span>';
             h+=mkVL(p.v2);
-            h+='<span style="color:#334155;font-size:10px">('+p.m2+')</span>';
+            h+='<span style="color:#334155;font-size:9px">('+p.m2+')</span>';
             h+='</div>';
-            h+='<div style="display:flex;gap:14px;margin-top:6px;font-size:10px;color:#475569">';
-            h+='<span style="display:inline-flex;align-items:center;gap:4px"><span style="width:6px;height:6px;border-radius:50%;background:#10b981;display:inline-block"></span><span style="color:#10b981;font-weight:600">'+p.ec+'</span> exact</span>';
-            if(p.sc>0)h+='<span style="display:inline-flex;align-items:center;gap:4px"><span style="width:6px;height:6px;border-radius:50%;background:#eab308;display:inline-block"></span><span style="color:#eab308;font-weight:600">'+p.sc+'</span> similar</span>';
-            h+='<span>'+p.c1+' / '+p.c2+' fields</span></div></div>';
-            h+='<span style="color:#334155;display:inline-block;transform:rotate('+(isE?'180':'0')+'deg);transition:transform .2s">'+ic.chD+'</span></div>';
+            h+='<div style="display:flex;gap:12px;margin-top:5px;font-size:10px;color:#475569">';
+            h+='<span><span style="color:#10b981;font-weight:600">'+p.ec+'</span> exact</span>';
+            if(p.sc>0)h+='<span><span style="color:#eab308;font-weight:600">'+p.sc+'</span> similar</span>';
+            h+='<span style="color:#334155">'+p.um1.length+' / '+p.um2.length+' unmatched</span>';
+            h+='<span style="color:#334155">'+p.c1+' / '+p.c2+' total</span>';
+            h+='</div></div>';
+            h+='<span style="color:#334155;display:inline-flex;transform:rotate('+(isE?'180':'0')+'deg);transition:transform .2s">'+ic.chD+'</span></div>';
 
+            // --- Expanded detail ---
             if(isE){
-              h+='<div style="padding:4px 16px 16px">';
+              h+='<div style="padding:0 16px 16px">';
 
-              // SVG-based field mapping visualization
+              // Two-column field comparison
               var allM=p.em.concat(p.sm);
-              var rH=28,rGap=4,colW=220,midW=100,padT=48,padB=12,padX=16;
-              var svgW=padX+colW+midW+colW+padX;
-              var svgH=padT+allM.length*(rH+rGap)+padB;
+              var maxUm=Math.max(p.um1.length,p.um2.length);
 
-              h+='<svg width="100%" viewBox="0 0 '+svgW+' '+svgH+'" style="display:block;max-width:680px">';
-
-              // Background
-              h+='<rect width="'+svgW+'" height="'+svgH+'" rx="10" fill="#0a0f1e" stroke="#1e293b" stroke-width="1"/>';
+              h+='<div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">';
 
               // Left column header
-              h+='<a href="'+(baseUrl&&viewModelMap[p.v1]?baseUrl+'/explore/'+viewModelMap[p.v1]+'/'+p.v1:'#')+'" target="_parent">';
-              h+='<text x="'+(padX+12)+'" y="22" fill="#a78bfa" font-size="10" font-weight="700" letter-spacing=".5" style="cursor:pointer;text-decoration:none">'+p.v1+'</text>';
-              h+='<text x="'+(padX+12)+'" y="34" fill="#475569" font-size="8">'+p.c1+' fields</text>';
-              h+='</a>';
+              h+='<div style="padding:10px 12px 8px;border-bottom:1px solid #1e293b;display:flex;align-items:center;justify-content:space-between">';
+              h+='<div>'+mkVL(p.v1)+'</div>';
+              h+='<span style="color:#334155;font-size:9px">'+p.c1+' fields</span>';
+              h+='</div>';
 
               // Right column header
-              h+='<a href="'+(baseUrl&&viewModelMap[p.v2]?baseUrl+'/explore/'+viewModelMap[p.v2]+'/'+p.v2:'#')+'" target="_parent">';
-              h+='<text x="'+(padX+colW+midW+12)+'" y="22" fill="#a78bfa" font-size="10" font-weight="700" letter-spacing=".5" style="cursor:pointer;text-decoration:none">'+p.v2+'</text>';
-              h+='<text x="'+(padX+colW+midW+12)+'" y="34" fill="#475569" font-size="8">'+p.c2+' fields</text>';
-              h+='</a>';
+              h+='<div style="padding:10px 12px 8px;border-bottom:1px solid #1e293b;display:flex;align-items:center;justify-content:space-between">';
+              h+='<div>'+mkVL(p.v2)+'</div>';
+              h+='<span style="color:#334155;font-size:9px">'+p.c2+' fields</span>';
+              h+='</div>';
 
-              // Draw each match row
-              allM.forEach(function(m,mi){
-                var isExact=m.t==='e';
-                var y=padT+mi*(rH+rGap);
-                var clr=isExact?'#10b981':'#eab308';
-                var clrDim=isExact?'rgba(16,185,129,0.08)':'rgba(234,179,8,0.08)';
-                var clrLine=isExact?'rgba(16,185,129,0.35)':'rgba(234,179,8,0.35)';
-                var lx1=padX,lx2=padX+colW,rx1=padX+colW+midW,rx2=svgW-padX;
+              // --- Matched fields section ---
+              if(allM.length>0){
+                // Section label spanning both columns
+                h+='<div style="grid-column:1/-1;padding:8px 12px 4px;font-size:9px;font-weight:600;color:#475569;text-transform:uppercase;letter-spacing:.8px">Matched Fields <span style="color:#10b981;font-weight:700">'+allM.length+'</span></div>';
 
-                // Left pill
-                h+='<rect x="'+lx1+'" y="'+y+'" width="'+colW+'" height="'+rH+'" rx="6" fill="'+clrDim+'" stroke="'+clrLine+'" stroke-width=".5"/>';
-                h+='<circle cx="'+(lx1+14)+'" cy="'+(y+rH/2)+'" r="2.5" fill="'+clr+'" opacity=".7"/>';
-                h+='<text x="'+(lx1+24)+'" y="'+(y+rH/2+3.5)+'" fill="#e2e8f0" font-size="10" font-family="SF Mono,SFMono-Regular,Menlo,Consolas,monospace">'+m.f1+'</text>';
+                allM.forEach(function(m){
+                  var isExact=m.t==='e';
+                  var clr=isExact?'#10b981':'#eab308';
+                  var bg=isExact?'rgba(16,185,129,0.04)':'rgba(234,179,8,0.04)';
+                  var bdr=isExact?'rgba(16,185,129,0.1)':'rgba(234,179,8,0.1)';
+                  var tag=isExact?'exact':'similar';
 
-                // Right pill
-                h+='<rect x="'+rx1+'" y="'+y+'" width="'+colW+'" height="'+rH+'" rx="6" fill="'+clrDim+'" stroke="'+clrLine+'" stroke-width=".5"/>';
-                h+='<circle cx="'+(rx1+14)+'" cy="'+(y+rH/2)+'" r="2.5" fill="'+clr+'" opacity=".7"/>';
-                h+='<text x="'+(rx1+24)+'" y="'+(y+rH/2+3.5)+'" fill="#e2e8f0" font-size="10" font-family="SF Mono,SFMono-Regular,Menlo,Consolas,monospace">'+m.f2+'</text>';
+                  // Left field
+                  h+='<div style="display:flex;align-items:center;gap:8px;padding:6px 12px;background:'+bg+';border:1px solid '+bdr+';border-radius:6px">';
+                  h+='<span style="width:5px;height:5px;border-radius:50%;background:'+clr+';flex-shrink:0;opacity:.6"></span>';
+                  h+='<span style="font-size:11px;color:#c9d1d9;font-family:\'SF Mono\',SFMono-Regular,Menlo,Consolas,monospace;flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="'+m.f1+'">'+m.f1+'</span>';
+                  h+='<span style="font-size:8px;color:'+clr+';background:rgba(0,0,0,0.2);padding:1px 5px;border-radius:3px;flex-shrink:0">'+tag+'</span>';
+                  h+='</div>';
 
-                // Connecting line with curve
-                var cy1=y+rH/2,cx1=lx2,cx2=rx1;
-                var cmx=(cx1+cx2)/2;
-                h+='<path d="M'+cx1+' '+cy1+' C'+cmx+' '+cy1+','+cmx+' '+cy1+','+cx2+' '+cy1+'" stroke="'+clr+'" stroke-width="1.5" fill="none" stroke-opacity=".5" stroke-dasharray="'+(isExact?'none':'3,3')+'"/>';
+                  // Right field
+                  h+='<div style="display:flex;align-items:center;gap:8px;padding:6px 12px;background:'+bg+';border:1px solid '+bdr+';border-radius:6px">';
+                  h+='<span style="width:5px;height:5px;border-radius:50%;background:'+clr+';flex-shrink:0;opacity:.6"></span>';
+                  h+='<span style="font-size:11px;color:#c9d1d9;font-family:\'SF Mono\',SFMono-Regular,Menlo,Consolas,monospace;flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="'+m.f2+'">'+m.f2+'</span>';
+                  h+='<span style="font-size:8px;color:'+clr+';background:rgba(0,0,0,0.2);padding:1px 5px;border-radius:3px;flex-shrink:0">'+tag+'</span>';
+                  h+='</div>';
+                });
+              }
 
-                // Center badge
-                var bW=isExact?22:22,bx=(cx1+cx2)/2-bW/2,by=y+(rH-16)/2;
-                h+='<rect x="'+bx+'" y="'+by+'" width="'+bW+'" height="16" rx="4" fill="'+clrDim+'" stroke="'+clr+'" stroke-width="1" stroke-opacity=".4"/>';
-                h+='<text x="'+(bx+bW/2)+'" y="'+(by+11.5)+'" text-anchor="middle" fill="'+clr+'" font-size="9" font-weight="700">'+(isExact?'=':'\u2248')+'</text>';
-              });
+              // --- Unmatched fields section ---
+              if(p.um1.length>0||p.um2.length>0){
+                h+='<div style="grid-column:1/-1;padding:10px 12px 4px;font-size:9px;font-weight:600;color:#475569;text-transform:uppercase;letter-spacing:.8px;border-top:1px solid rgba(30,41,59,0.15);margin-top:4px">Unmatched Fields <span style="color:#64748b;font-weight:700">'+(p.um1.length+p.um2.length)+'</span></div>';
 
-              h+='</svg></div>';
+                for(var ui=0;ui<maxUm;ui++){
+                  // Left unmatched
+                  if(ui<p.um1.length){
+                    h+='<div style="display:flex;align-items:center;gap:8px;padding:6px 12px;background:rgba(100,116,139,0.03);border:1px solid rgba(30,41,59,0.12);border-radius:6px">';
+                    h+='<span style="width:5px;height:5px;border-radius:50%;background:#334155;flex-shrink:0;opacity:.4"></span>';
+                    h+='<span style="font-size:11px;color:#64748b;font-family:\'SF Mono\',SFMono-Regular,Menlo,Consolas,monospace;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="'+p.um1[ui]+'">'+p.um1[ui]+'</span>';
+                    h+='</div>';
+                  }else{
+                    h+='<div></div>';
+                  }
+
+                  // Right unmatched
+                  if(ui<p.um2.length){
+                    h+='<div style="display:flex;align-items:center;gap:8px;padding:6px 12px;background:rgba(100,116,139,0.03);border:1px solid rgba(30,41,59,0.12);border-radius:6px">';
+                    h+='<span style="width:5px;height:5px;border-radius:50%;background:#334155;flex-shrink:0;opacity:.4"></span>';
+                    h+='<span style="font-size:11px;color:#64748b;font-family:\'SF Mono\',SFMono-Regular,Menlo,Consolas,monospace;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="'+p.um2[ui]+'">'+p.um2[ui]+'</span>';
+                    h+='</div>';
+                  }else{
+                    h+='<div></div>';
+                  }
+                }
+              }
+
+              h+='</div>'; // close grid
+              h+='</div>'; // close padding wrapper
             }
-            h+='</div>';
+            h+='</div>'; // close dp-card
           });
         }
         h+='</div></div>';
         R.innerHTML=h;
-        R.querySelectorAll('.dp-head').forEach(function(hd){
+
+        // Toggle handler - use dp-toggle class, ignore clicks on links
+        R.querySelectorAll('.dp-toggle').forEach(function(hd){
           hd.addEventListener('click',function(e){
-            if(e.target.closest('a'))return;
-            var i=parseInt(hd.parentElement.dataset.i);expD[i]=!expD[i];rO();
+            // If the click was on a link (view link), don't toggle
+            var t=e.target;
+            while(t&&t!==hd){
+              if(t.tagName==='A')return;
+              t=t.parentElement;
+            }
+            var idx=parseInt(hd.getAttribute('data-idx'));
+            if(!isNaN(idx)){
+              expD[idx]=!expD[idx];
+              rO();
+            }
           });
         });
       }
