@@ -60,30 +60,37 @@ looker.plugins.visualizations.add({
       };
     });
 
-    // --- Compute KPIs ---
+    // --- KPI Computation ---
     var total = rows.length;
-    var approved = rows.filter(function(r) { return r.action === "Approved to Delete"; });
-    var archives = rows.filter(function(r) { return r.action === "Archive"; });
+    var archived = rows.filter(function(r) { return r.action === "Archive"; });
+    var approvedDel = rows.filter(function(r) { return r.action === "Approved to Delete"; });
     var warnings = rows.filter(function(r) { return r.action === "Warning"; });
     var doNotDelete = rows.filter(function(r) { return r.action === "Do Not Delete"; });
     var stale = rows.filter(function(r) { return r.indictment && r.indictment.indexOf("Stale") !== -1; });
     var neverUsed = rows.filter(function(r) { return r.indictment && r.indictment.indexOf("Never") !== -1; });
 
-    var totalSize = 0, totalCost = 0, totalRisk = 0;
-    var approvedCost = 0, archiveCost = 0, approvedSize = 0, archiveSize = 0, warningCost = 0, warningSize = 0;
-    for (var i = 0; i < rows.length; i++) {
-      totalSize += rows[i].size;
-      totalCost += rows[i].cost;
-      totalRisk += rows[i].risk;
-    }
-    for (var i = 0; i < approved.length; i++) { approvedCost += approved[i].cost; approvedSize += approved[i].size; }
-    for (var i = 0; i < archives.length; i++) { archiveCost += archives[i].cost; archiveSize += archives[i].size; }
-    for (var i = 0; i < warnings.length; i++) { warningCost += warnings[i].cost; warningSize += warnings[i].size; }
-    var avgRisk = total ? Math.round(totalRisk / total) : 0;
-    var savingsCost = approvedCost + archiveCost;
-    var actionableRate = total ? Math.round((approved.length + archives.length) / total * 100) : 0;
+    // Candidates = everything except Do Not Delete (tables that could/should be archived)
+    var candidates = rows.filter(function(r) { return r.action !== "Do Not Delete"; });
 
-    // Risk distribution
+    var totalSize = 0, totalCost = 0, totalRisk = 0;
+    var archivedCost = 0, archivedSize = 0;
+    var approvedCost = 0, approvedSize = 0;
+    var warningCost = 0, warningSize = 0;
+    var candidateCost = 0, candidateSize = 0;
+    for (var i = 0; i < rows.length; i++) { totalSize += rows[i].size; totalCost += rows[i].cost; totalRisk += rows[i].risk; }
+    for (var i = 0; i < archived.length; i++) { archivedCost += archived[i].cost; archivedSize += archived[i].size; }
+    for (var i = 0; i < approvedDel.length; i++) { approvedCost += approvedDel[i].cost; approvedSize += approvedDel[i].size; }
+    for (var i = 0; i < warnings.length; i++) { warningCost += warnings[i].cost; warningSize += warnings[i].size; }
+    for (var i = 0; i < candidates.length; i++) { candidateCost += candidates[i].cost; candidateSize += candidates[i].size; }
+    var avgRisk = total ? Math.round(totalRisk / total) : 0;
+
+    // Archive progress
+    var archiveRate = candidates.length ? Math.round(archived.length / candidates.length * 100) : 0;
+    var savingsAchieved = archivedCost;
+    var savingsPotential = candidateCost;
+    var savingsRemaining = approvedCost + warningCost;
+
+    // Risk buckets
     var riskHigh = rows.filter(function(r) { return r.risk >= 80; });
     var riskMed = rows.filter(function(r) { return r.risk >= 50 && r.risk < 80; });
     var riskLow = rows.filter(function(r) { return r.risk < 50; });
@@ -91,20 +98,28 @@ looker.plugins.visualizations.add({
     // Schema distribution
     var schemaMap = {};
     rows.forEach(function(r) {
-      if (!schemaMap[r.schema]) schemaMap[r.schema] = { count: 0, size: 0, cost: 0, approved: 0, arch: 0, warn: 0, keep: 0 };
-      schemaMap[r.schema].count++;
-      schemaMap[r.schema].size += r.size;
-      schemaMap[r.schema].cost += r.cost;
-      if (r.action === "Approved to Delete") schemaMap[r.schema].approved++;
-      else if (r.action === "Archive") schemaMap[r.schema].arch++;
-      else if (r.action === "Warning") schemaMap[r.schema].warn++;
-      else schemaMap[r.schema].keep++;
+      if (!schemaMap[r.schema]) schemaMap[r.schema] = { count: 0, size: 0, cost: 0, archived: 0, archivedCost: 0, approved: 0, warn: 0, keep: 0, pendingCost: 0 };
+      var s = schemaMap[r.schema];
+      s.count++; s.size += r.size; s.cost += r.cost;
+      if (r.action === "Archive") { s.archived++; s.archivedCost += r.cost; }
+      else if (r.action === "Approved to Delete") { s.approved++; s.pendingCost += r.cost; }
+      else if (r.action === "Warning") { s.warn++; s.pendingCost += r.cost; }
+      else s.keep++;
     });
-    var schemas = Object.keys(schemaMap).sort(function(a, b) { return schemaMap[b].size - schemaMap[a].size; });
+    var schemas = Object.keys(schemaMap).sort(function(a, b) { return schemaMap[b].cost - schemaMap[a].cost; });
 
-    // Top tables
-    var topCost = rows.slice().sort(function(a, b) { return b.cost - a.cost; }).slice(0, 5);
-    var topSize = rows.slice().sort(function(a, b) { return b.size - a.size; }).slice(0, 5);
+    // Schema size distribution for visual bar
+    var schemaColors = { prod: "#ef4444", stg: "#f59e0b", test: "#3b82f6", dev: "#a855f7", raw: "#06b6d4", analytics: "#f472b6" };
+    var defaultSchemaClrs = ["#8b5cf6","#ec4899","#14b8a6","#f97316","#6366f1","#84cc16"];
+    var schemaClrIdx = 0;
+    schemas.forEach(function(s) {
+      if (!schemaColors[s]) { schemaColors[s] = defaultSchemaClrs[schemaClrIdx % defaultSchemaClrs.length]; schemaClrIdx++; }
+    });
+
+    // Top tables by savings opportunity (not yet archived)
+    var pendingTables = rows.filter(function(r) { return r.action !== "Archive" && r.action !== "Do Not Delete"; });
+    var topOpportunity = pendingTables.slice().sort(function(a, b) { return b.cost - a.cost; }).slice(0, 7);
+    var topArchived = archived.slice().sort(function(a, b) { return b.cost - a.cost; }).slice(0, 7);
 
     var self = this;
     var activeTab = "overview";
@@ -123,235 +138,253 @@ looker.plugins.visualizations.add({
       var accentAmber = "#f59e0b";
       var accentPurple= "#a855f7";
       var accentOrange= "#f97316";
+      var accentEmerald= "#10b981";
       var barTrackBg  = isDark ? "#1e293b" : "#e2e8f0";
       var dividerColor= isDark ? "rgba(148,163,184,0.08)" : "rgba(0,0,0,0.06)";
+
+      var actionColors = { "Archive": accentEmerald, "Approved to Delete": accentRed, "Warning": accentOrange, "Do Not Delete": accentBlue };
 
       function fmt(n) { return n.toLocaleString(undefined, { maximumFractionDigits: 0 }); }
       function fmtMoney(n) { return "$" + n.toLocaleString(undefined, { maximumFractionDigits: 0 }); }
       function fmtTB(n) { return (n / 1000).toFixed(1) + " TB"; }
       function pct(n, d) { return d ? Math.round(n / d * 100) : 0; }
 
-      function kpiCard(icon, label, value, sub, accent, extra) {
-        return '<div style="background:' + cardBg + ';border-radius:16px;padding:24px;border:1px solid ' + cardBorder + ';flex:1;min-width:180px;position:relative;overflow:hidden">' +
-          '<div style="position:absolute;top:-20px;right:-20px;width:80px;height:80px;border-radius:50%;background:' + accent + ';opacity:0.06"></div>' +
-          '<div style="display:flex;align-items:center;gap:10px;margin-bottom:14px">' +
-            '<div style="width:36px;height:36px;border-radius:10px;background:' + accent + '15;display:flex;align-items:center;justify-content:center;font-size:18px">' + icon + '</div>' +
-            '<div style="font-size:11px;color:' + textMuted + ';font-weight:700;letter-spacing:1.2px;text-transform:uppercase">' + label + '</div>' +
-          '</div>' +
-          '<div style="font-size:34px;font-weight:800;color:' + textPrimary + ';line-height:1;margin-bottom:6px;font-variant-numeric:tabular-nums">' + value + '</div>' +
-          (sub ? '<div style="font-size:12px;color:' + textSecond + ';margin-top:4px">' + sub + '</div>' : '') +
-          (extra || '') +
-          '</div>';
-      }
-
       function miniBar(val, max, color, w) {
-        var pw = max ? (val / max * 100) : 0;
+        var pw = max ? Math.min(val / max * 100, 100) : 0;
         return '<div style="width:' + (w || '100%') + ';height:6px;background:' + barTrackBg + ';border-radius:3px;overflow:hidden">' +
-          '<div style="width:' + pw + '%;height:100%;background:' + color + ';border-radius:3px;transition:width 0.3s"></div></div>';
+          '<div style="width:' + pw + '%;height:100%;background:' + color + ';border-radius:3px"></div></div>';
       }
 
       function donutSVG(slices, size, thickness) {
         var r = (size - thickness) / 2, cx = size / 2, cy = size / 2;
-        var total = 0;
-        slices.forEach(function(s) { total += s.value; });
-        if (total === 0) return '<svg width="' + size + '" height="' + size + '"><circle cx="' + cx + '" cy="' + cy + '" r="' + r + '" fill="none" stroke="' + barTrackBg + '" stroke-width="' + thickness + '"/></svg>';
+        var tot = 0; slices.forEach(function(s) { tot += s.value; });
+        if (tot === 0) return '<svg width="' + size + '" height="' + size + '"><circle cx="' + cx + '" cy="' + cy + '" r="' + r + '" fill="none" stroke="' + barTrackBg + '" stroke-width="' + thickness + '"/></svg>';
         var svg = '<svg width="' + size + '" height="' + size + '" viewBox="0 0 ' + size + ' ' + size + '">';
-        var cumAngle = -90;
+        var cum = -90;
         slices.forEach(function(s) {
           if (s.value === 0) return;
-          var angle = (s.value / total) * 360;
-          var startRad = cumAngle * Math.PI / 180;
-          var endRad = (cumAngle + angle) * Math.PI / 180;
-          var x1 = cx + r * Math.cos(startRad), y1 = cy + r * Math.sin(startRad);
-          var x2 = cx + r * Math.cos(endRad), y2 = cy + r * Math.sin(endRad);
-          var large = angle > 180 ? 1 : 0;
-          svg += '<path d="M ' + x1 + ' ' + y1 + ' A ' + r + ' ' + r + ' 0 ' + large + ' 1 ' + x2 + ' ' + y2 + '" fill="none" stroke="' + s.color + '" stroke-width="' + thickness + '" stroke-linecap="round"/>';
-          cumAngle += angle;
+          var a = (s.value / tot) * 360;
+          var s1 = cum * Math.PI / 180, s2 = (cum + a) * Math.PI / 180;
+          var x1 = cx + r * Math.cos(s1), y1 = cy + r * Math.sin(s1);
+          var x2 = cx + r * Math.cos(s2), y2 = cy + r * Math.sin(s2);
+          svg += '<path d="M ' + x1 + ' ' + y1 + ' A ' + r + ' ' + r + ' 0 ' + (a > 180 ? 1 : 0) + ' 1 ' + x2 + ' ' + y2 + '" fill="none" stroke="' + s.color + '" stroke-width="' + thickness + '" stroke-linecap="round"/>';
+          cum += a;
         });
         svg += '</svg>';
         return svg;
       }
 
-      function sectionTitle(text) {
+      function sectionTitle(text, icon) {
         return '<div style="font-size:13px;font-weight:700;color:' + textSecond + ';letter-spacing:1px;text-transform:uppercase;margin-bottom:16px;display:flex;align-items:center;gap:8px">' +
-          '<div style="width:3px;height:16px;border-radius:2px;background:' + accentBlue + '"></div>' + text + '</div>';
+          (icon ? '<span style="font-size:15px">' + icon + '</span>' : '<div style="width:3px;height:16px;border-radius:2px;background:' + accentEmerald + '"></div>') + text + '</div>';
       }
 
       function tabBtn(id, label) {
-        var isActive = activeTab === id;
-        var tabBg = isActive ? accentBlue : "transparent";
-        var tabColor = isActive ? "#fff" : textSecond;
-        return '<button data-tab="' + id + '" style="padding:8px 20px;border-radius:8px;font-size:13px;font-weight:600;cursor:pointer;background:' + tabBg + ';color:' + tabColor + ';border:none;transition:all 0.2s">' + label + '</button>';
+        var act = activeTab === id;
+        return '<button data-tab="' + id + '" style="padding:8px 20px;border-radius:8px;font-size:13px;font-weight:600;cursor:pointer;background:' + (act ? accentEmerald : "transparent") + ';color:' + (act ? "#fff" : textSecond) + ';border:none">' + label + '</button>';
       }
 
-      // Action colors mapping
-      var actionColors = {
-        "Approved to Delete": accentRed,
-        "Archive": accentPurple,
-        "Warning": accentOrange,
-        "Do Not Delete": accentGreen
-      };
-
-      // --- Action Funnel ---
-      function actionFunnel() {
-        var items = [
-          { label: "Scanned", count: total, color: accentBlue, icon: "🔍" },
-          { label: "Warning", count: warnings.length, color: accentOrange, icon: "⚠️" },
-          { label: "Approved to Delete", count: approved.length, color: accentRed, icon: "✅🗑️" },
-          { label: "Archived", count: archives.length, color: accentPurple, icon: "📦" },
-          { label: "Do Not Delete", count: doNotDelete.length, color: accentGreen, icon: "🛡️" },
-        ];
-        var h = '';
-        for (var i = 0; i < items.length; i++) {
-          var it = items[i];
-          var w = total ? Math.max(it.count / total * 100, 14) : 20;
-          h += '<div style="display:flex;align-items:center;gap:12px;margin-bottom:8px">' +
-            '<div style="width:120px;text-align:right;font-size:11px;font-weight:700;color:' + textSecond + ';text-transform:uppercase;letter-spacing:0.3px;white-space:nowrap">' + it.icon + ' ' + it.label + '</div>' +
-            '<div style="flex:1;position:relative">' +
-              '<div style="height:32px;background:' + barTrackBg + ';border-radius:8px;overflow:hidden">' +
-                '<div style="width:' + w + '%;height:100%;background:' + it.color + '20;border-left:3px solid ' + it.color + ';display:flex;align-items:center;padding-left:12px">' +
-                  '<span style="font-size:14px;font-weight:800;color:' + it.color + '">' + it.count + '</span>' +
-                '</div>' +
+      // === HERO: Archive Progress ===
+      function archiveHero() {
+        var progressPct = archiveRate;
+        var barW = Math.max(progressPct, 2);
+        return '<div style="background:linear-gradient(135deg,' + (isDark ? '#064e3b' : '#ecfdf5') + ',' + (isDark ? '#0f172a' : '#f0fdf4') + ');border-radius:16px;padding:28px;border:1px solid ' + accentEmerald + '30;margin-bottom:24px;position:relative;overflow:hidden">' +
+          '<div style="position:absolute;top:-40px;right:-40px;width:160px;height:160px;border-radius:50%;background:' + accentEmerald + ';opacity:0.05"></div>' +
+          '<div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:20px">' +
+            // Left: progress
+            '<div style="flex:1;min-width:300px">' +
+              '<div style="font-size:12px;font-weight:700;color:' + accentEmerald + ';letter-spacing:1.5px;text-transform:uppercase;margin-bottom:8px">📦 Archive Progress</div>' +
+              '<div style="display:flex;align-items:baseline;gap:8px;margin-bottom:12px">' +
+                '<span style="font-size:48px;font-weight:900;color:' + accentEmerald + ';line-height:1">' + archived.length + '</span>' +
+                '<span style="font-size:20px;color:' + textMuted + ';font-weight:600">/ ' + candidates.length + ' candidates archived</span>' +
+              '</div>' +
+              '<div style="height:14px;background:' + barTrackBg + ';border-radius:7px;overflow:hidden;margin-bottom:8px">' +
+                '<div style="width:' + barW + '%;height:100%;background:linear-gradient(90deg,' + accentEmerald + ',' + accentGreen + ');border-radius:7px;transition:width 0.5s"></div>' +
+              '</div>' +
+              '<div style="display:flex;justify-content:space-between;font-size:12px;color:' + textSecond + '">' +
+                '<span>' + progressPct + '% complete</span>' +
+                '<span>' + (candidates.length - archived.length) + ' tables remaining</span>' +
               '</div>' +
             '</div>' +
-            '<div style="width:50px;font-size:12px;color:' + textMuted + ';text-align:right">' + pct(it.count, total) + '%</div>' +
+            // Right: savings summary
+            '<div style="display:flex;gap:16px;flex-wrap:wrap">' +
+              '<div style="text-align:center;min-width:120px">' +
+                '<div style="font-size:10px;font-weight:700;color:' + accentEmerald + ';letter-spacing:1px;margin-bottom:4px">SAVINGS ACHIEVED</div>' +
+                '<div style="font-size:30px;font-weight:900;color:' + accentEmerald + '">' + fmtMoney(savingsAchieved) + '</div>' +
+                '<div style="font-size:11px;color:' + textMuted + '">per month</div>' +
+              '</div>' +
+              '<div style="width:1px;background:' + accentEmerald + '20;margin:4px 0"></div>' +
+              '<div style="text-align:center;min-width:120px">' +
+                '<div style="font-size:10px;font-weight:700;color:' + accentAmber + ';letter-spacing:1px;margin-bottom:4px">REMAINING POTENTIAL</div>' +
+                '<div style="font-size:30px;font-weight:900;color:' + accentAmber + '">' + fmtMoney(savingsRemaining) + '</div>' +
+                '<div style="font-size:11px;color:' + textMuted + '">per month</div>' +
+              '</div>' +
+              '<div style="width:1px;background:' + accentEmerald + '20;margin:4px 0"></div>' +
+              '<div style="text-align:center;min-width:120px">' +
+                '<div style="font-size:10px;font-weight:700;color:' + textMuted + ';letter-spacing:1px;margin-bottom:4px">ANNUAL PROJECTION</div>' +
+                '<div style="font-size:30px;font-weight:900;color:' + textPrimary + '">' + fmtMoney(savingsAchieved * 12) + '</div>' +
+                '<div style="font-size:11px;color:' + textMuted + '">if sustained</div>' +
+              '</div>' +
+            '</div>' +
+          '</div>' +
+        '</div>';
+      }
+
+      // === KPI Cards Row ===
+      function kpiRow() {
+        function kpi(icon, label, value, sub, accent) {
+          return '<div style="background:' + cardBg + ';border-radius:14px;padding:20px;border:1px solid ' + cardBorder + ';flex:1;min-width:155px;border-top:3px solid ' + accent + '">' +
+            '<div style="font-size:11px;color:' + textMuted + ';font-weight:700;letter-spacing:1px;text-transform:uppercase;margin-bottom:10px">' + icon + ' ' + label + '</div>' +
+            '<div style="font-size:28px;font-weight:800;color:' + textPrimary + ';line-height:1;margin-bottom:4px">' + value + '</div>' +
+            (sub ? '<div style="font-size:11px;color:' + textSecond + ';margin-top:6px">' + sub + '</div>' : '') +
           '</div>';
         }
+        return '<div style="display:flex;gap:12px;margin-bottom:24px;flex-wrap:wrap">' +
+          kpi("🔍", "Tables Scanned", fmt(total), schemas.length + " schemas", accentBlue) +
+          kpi("📦", "Archived", fmt(archived.length), fmtTB(archivedSize) + " freed", accentEmerald) +
+          kpi("⚠️", "Pending Warning", fmt(warnings.length), fmtMoney(warningCost) + "/mo at stake", accentOrange) +
+          kpi("✅", "Approved to Delete", fmt(approvedDel.length), fmtMoney(approvedCost) + "/mo recoverable", accentRed) +
+          kpi("🛡️", "Do Not Delete", fmt(doNotDelete.length), pct(doNotDelete.length, total) + "% of total", accentBlue) +
+          kpi("📊", "Avg Risk", '' + avgRisk, avgRisk >= 70 ? "⚠ High" : avgRisk >= 50 ? "Moderate" : "Low", avgRisk >= 70 ? accentRed : avgRisk >= 50 ? accentAmber : accentGreen) +
+        '</div>';
+      }
+
+      // === Pipeline / Action Flow ===
+      function actionPipeline() {
+        var stages = [
+          { label: "Warning", desc: "Awaiting user review", count: warnings.length, cost: warningCost, size: warningSize, color: accentOrange, icon: "⚠️" },
+          { label: "Approved to Delete", desc: "User confirmed deletion", count: approvedDel.length, cost: approvedCost, size: approvedSize, color: accentRed, icon: "✅" },
+          { label: "Archived", desc: "Moved to archive", count: archived.length, cost: archivedCost, size: archivedSize, color: accentEmerald, icon: "📦" },
+        ];
+        var h = '';
+        var maxCount = Math.max(warnings.length, approvedDel.length, archived.length, 1);
+        for (var i = 0; i < stages.length; i++) {
+          var s = stages[i];
+          var w = Math.max(s.count / maxCount * 100, 8);
+          var isLast = i === stages.length - 1;
+          h += '<div style="display:flex;align-items:stretch;gap:14px;margin-bottom:' + (isLast ? '0' : '6') + 'px">' +
+            '<div style="width:160px;padding:14px 0;text-align:right">' +
+              '<div style="font-size:12px;font-weight:700;color:' + s.color + '">' + s.icon + ' ' + s.label + '</div>' +
+              '<div style="font-size:10px;color:' + textMuted + ';margin-top:2px">' + s.desc + '</div>' +
+            '</div>' +
+            '<div style="flex:1;display:flex;align-items:center">' +
+              '<div style="width:' + w + '%;min-width:60px;height:44px;background:' + s.color + '15;border:1px solid ' + s.color + '30;border-radius:10px;display:flex;align-items:center;padding:0 16px;gap:12px">' +
+                '<span style="font-size:20px;font-weight:900;color:' + s.color + '">' + s.count + '</span>' +
+                '<div style="width:1px;height:20px;background:' + s.color + '30"></div>' +
+                '<span style="font-size:12px;color:' + textSecond + '">' + fmtMoney(s.cost) + '/mo</span>' +
+                '<span style="font-size:11px;color:' + textMuted + '">•</span>' +
+                '<span style="font-size:12px;color:' + textSecond + '">' + fmtTB(s.size) + '</span>' +
+              '</div>' +
+            '</div>' +
+          '</div>';
+          if (!isLast) {
+            h += '<div style="margin-left:167px;padding-left:4px"><div style="width:2px;height:12px;background:' + textMuted + ';margin-left:20px;border-radius:1px;opacity:0.3"></div></div>';
+          }
+        }
+        // Do Not Delete sits outside the pipeline
+        h += '<div style="margin-top:14px;padding-top:14px;border-top:1px dashed ' + dividerColor + ';display:flex;align-items:center;gap:14px">' +
+          '<div style="width:160px;text-align:right;font-size:12px;font-weight:700;color:' + accentBlue + '">🛡️ Do Not Delete</div>' +
+          '<div style="padding:8px 16px;background:' + accentBlue + '10;border:1px solid ' + accentBlue + '25;border-radius:8px;font-size:13px;color:' + textSecond + '">' +
+            '<span style="font-weight:800;color:' + accentBlue + '">' + doNotDelete.length + '</span> tables excluded from archiving' +
+          '</div>' +
+        '</div>';
         return h;
       }
 
-      // --- Schema Breakdown Table ---
+      // === Schema Breakdown ===
       function schemaBreakdown() {
         var h = '<div style="overflow-x:auto"><table style="width:100%;border-collapse:collapse;font-size:13px">';
         h += '<thead><tr style="border-bottom:2px solid ' + dividerColor + '">';
-        var cols = ["Schema", "Tables", "Size", "Cost/mo", "Approved Delete", "Archive", "Warning", "Do Not Delete"];
-        cols.forEach(function(c) {
+        ["Schema","Tables","Cost/mo","Archived","Savings Achieved","Pending","Archive Rate"].forEach(function(c) {
           h += '<th style="padding:10px 12px;text-align:left;font-size:10px;font-weight:700;color:' + textMuted + ';letter-spacing:0.8px;text-transform:uppercase;white-space:nowrap">' + c + '</th>';
         });
         h += '</tr></thead><tbody>';
-        var schemaClr = { prod: accentRed, stg: accentAmber, test: accentBlue };
         schemas.forEach(function(s) {
           var d = schemaMap[s];
-          var sc = schemaClr[s] || "#475569";
+          var sc = schemaColors[s] || "#475569";
+          var archivable = d.count - d.keep;
+          var rate = archivable ? Math.round(d.archived / archivable * 100) : 0;
+          var pending = d.approved + d.warn;
           h += '<tr style="border-bottom:1px solid ' + dividerColor + '">' +
             '<td style="padding:10px 12px"><span style="padding:3px 10px;border-radius:6px;font-size:11px;font-weight:700;background:' + sc + '18;color:' + sc + ';border:1px solid ' + sc + '30">' + s.toUpperCase() + '</span></td>' +
             '<td style="padding:10px 12px;font-weight:600;color:' + textPrimary + '">' + d.count + '</td>' +
-            '<td style="padding:10px 12px;color:' + textSecond + '">' + fmtTB(d.size) + '</td>' +
             '<td style="padding:10px 12px;color:#fbbf24;font-weight:600">' + fmtMoney(d.cost) + '</td>' +
-            '<td style="padding:10px 12px;color:' + accentRed + ';font-weight:600">' + d.approved + '</td>' +
-            '<td style="padding:10px 12px;color:' + accentPurple + ';font-weight:600">' + d.arch + '</td>' +
-            '<td style="padding:10px 12px;color:' + accentOrange + ';font-weight:600">' + d.warn + '</td>' +
-            '<td style="padding:10px 12px;color:' + accentGreen + ';font-weight:600">' + d.keep + '</td>' +
+            '<td style="padding:10px 12px;color:' + accentEmerald + ';font-weight:700">' + d.archived + '</td>' +
+            '<td style="padding:10px 12px;color:' + accentEmerald + ';font-weight:600">' + fmtMoney(d.archivedCost) + '/mo</td>' +
+            '<td style="padding:10px 12px;color:' + accentOrange + ';font-weight:600">' + pending + ' <span style="font-weight:400;color:' + textMuted + '">(' + fmtMoney(d.pendingCost) + ')</span></td>' +
+            '<td style="padding:10px 12px"><div style="display:flex;align-items:center;gap:8px">' +
+              miniBar(rate, 100, rate >= 70 ? accentEmerald : rate >= 40 ? accentAmber : accentOrange, "80px") +
+              '<span style="font-size:12px;font-weight:700;color:' + (rate >= 70 ? accentEmerald : rate >= 40 ? accentAmber : accentOrange) + '">' + rate + '%</span>' +
+            '</div></td>' +
           '</tr>';
         });
         h += '</tbody></table></div>';
         return h;
       }
 
-      // --- Risk Distribution ---
-      function riskDistribution() {
+      // === Risk Distribution ===
+      function riskSection() {
         var slices = [
           { value: riskHigh.length, color: accentRed },
           { value: riskMed.length, color: accentAmber },
           { value: riskLow.length, color: accentGreen },
         ];
-        var donut = donutSVG(slices, 120, 14);
+        var donut = donutSVG(slices, 110, 13);
         return '<div style="display:flex;align-items:center;gap:24px">' +
-          '<div style="position:relative;width:120px;height:120px">' + donut +
+          '<div style="position:relative;width:110px;height:110px">' + donut +
             '<div style="position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center">' +
-              '<div style="font-size:28px;font-weight:800;color:' + textPrimary + '">' + avgRisk + '</div>' +
-              '<div style="font-size:10px;color:' + textMuted + ';font-weight:600">AVG RISK</div>' +
+              '<div style="font-size:26px;font-weight:800;color:' + textPrimary + '">' + avgRisk + '</div>' +
+              '<div style="font-size:9px;color:' + textMuted + ';font-weight:700">AVG RISK</div>' +
             '</div>' +
           '</div>' +
           '<div style="flex:1">' +
-            '<div style="display:flex;align-items:center;gap:8px;margin-bottom:10px">' +
-              '<div style="width:10px;height:10px;border-radius:3px;background:' + accentRed + '"></div>' +
-              '<span style="font-size:12px;color:' + textSecond + '">High (80+)</span>' +
-              '<span style="font-size:14px;font-weight:700;color:' + accentRed + ';margin-left:auto">' + riskHigh.length + '</span></div>' +
-            '<div style="display:flex;align-items:center;gap:8px;margin-bottom:10px">' +
-              '<div style="width:10px;height:10px;border-radius:3px;background:' + accentAmber + '"></div>' +
-              '<span style="font-size:12px;color:' + textSecond + '">Medium (50-79)</span>' +
-              '<span style="font-size:14px;font-weight:700;color:' + accentAmber + ';margin-left:auto">' + riskMed.length + '</span></div>' +
-            '<div style="display:flex;align-items:center;gap:8px">' +
-              '<div style="width:10px;height:10px;border-radius:3px;background:' + accentGreen + '"></div>' +
-              '<span style="font-size:12px;color:' + textSecond + '">Low (&lt;50)</span>' +
-              '<span style="font-size:14px;font-weight:700;color:' + accentGreen + ';margin-left:auto">' + riskLow.length + '</span></div>' +
+            [
+              { label: "High Risk (80+)", count: riskHigh.length, color: accentRed },
+              { label: "Medium (50-79)", count: riskMed.length, color: accentAmber },
+              { label: "Low (&lt;50)", count: riskLow.length, color: accentGreen },
+            ].map(function(item) {
+              return '<div style="display:flex;align-items:center;gap:8px;margin-bottom:8px">' +
+                '<div style="width:10px;height:10px;border-radius:3px;background:' + item.color + '"></div>' +
+                '<span style="font-size:12px;color:' + textSecond + ';flex:1">' + item.label + '</span>' +
+                '<span style="font-size:14px;font-weight:700;color:' + item.color + '">' + item.count + '</span>' +
+              '</div>';
+            }).join('') +
           '</div>' +
         '</div>';
       }
 
-      // --- Savings Breakdown ---
-      function savingsBreakdown() {
-        var totalSavings = approvedCost + archiveCost;
-        var approvedPct = totalSavings ? Math.round(approvedCost / totalSavings * 100) : 0;
-        var archPct = 100 - approvedPct;
-        return '<div style="margin-bottom:16px">' +
-          '<div style="display:flex;border-radius:8px;overflow:hidden;height:24px;margin-bottom:12px">' +
-            (approvedPct > 0 ? '<div style="width:' + approvedPct + '%;background:' + accentRed + ';display:flex;align-items:center;justify-content:center;font-size:10px;font-weight:700;color:#fff">' + (approvedPct > 15 ? approvedPct + '%' : '') + '</div>' : '') +
-            (archPct > 0 ? '<div style="width:' + archPct + '%;background:' + accentPurple + ';display:flex;align-items:center;justify-content:center;font-size:10px;font-weight:700;color:#fff">' + (archPct > 15 ? archPct + '%' : '') + '</div>' : '') +
-          '</div>' +
-          '<div style="display:flex;gap:20px;flex-wrap:wrap">' +
-            '<div style="display:flex;align-items:center;gap:6px;font-size:12px;color:' + textSecond + '">' +
-              '<div style="width:8px;height:8px;border-radius:2px;background:' + accentRed + '"></div>' +
-              'Approved to Delete: ' + fmtMoney(approvedCost) + '/mo (' + approved.length + ' tables, ' + fmtTB(approvedSize) + ')' +
-            '</div>' +
-            '<div style="display:flex;align-items:center;gap:6px;font-size:12px;color:' + textSecond + '">' +
-              '<div style="width:8px;height:8px;border-radius:2px;background:' + accentPurple + '"></div>' +
-              'Archived: ' + fmtMoney(archiveCost) + '/mo (' + archives.length + ' tables, ' + fmtTB(archiveSize) + ')' +
-            '</div>' +
-          '</div>' +
-        '</div>' +
-        '<div style="display:flex;gap:12px;margin-top:16px;flex-wrap:wrap">' +
-          '<div style="flex:1;min-width:140px;background:' + accentGreen + '10;border:1px solid ' + accentGreen + '25;border-radius:10px;padding:14px;text-align:center">' +
-            '<div style="font-size:10px;font-weight:700;color:' + accentGreen + ';letter-spacing:1px;margin-bottom:4px">MONTHLY SAVINGS</div>' +
-            '<div style="font-size:24px;font-weight:800;color:' + accentGreen + '">' + fmtMoney(totalSavings) + '</div>' +
-          '</div>' +
-          '<div style="flex:1;min-width:140px;background:' + accentGreen + '10;border:1px solid ' + accentGreen + '25;border-radius:10px;padding:14px;text-align:center">' +
-            '<div style="font-size:10px;font-weight:700;color:' + accentGreen + ';letter-spacing:1px;margin-bottom:4px">ANNUAL SAVINGS</div>' +
-            '<div style="font-size:24px;font-weight:800;color:' + accentGreen + '">' + fmtMoney(totalSavings * 12) + '</div>' +
-          '</div>' +
-          '<div style="flex:1;min-width:140px;background:' + accentBlue + '10;border:1px solid ' + accentBlue + '25;border-radius:10px;padding:14px;text-align:center">' +
-            '<div style="font-size:10px;font-weight:700;color:' + accentBlue + ';letter-spacing:1px;margin-bottom:4px">STORAGE FREED</div>' +
-            '<div style="font-size:24px;font-weight:800;color:' + accentBlue + '">' + fmtTB(approvedSize + archiveSize) + '</div>' +
-          '</div>' +
-          '<div style="flex:1;min-width:140px;background:' + accentOrange + '10;border:1px solid ' + accentOrange + '25;border-radius:10px;padding:14px;text-align:center">' +
-            '<div style="font-size:10px;font-weight:700;color:' + accentOrange + ';letter-spacing:1px;margin-bottom:4px">PENDING WARNING</div>' +
-            '<div style="font-size:24px;font-weight:800;color:' + accentOrange + '">' + fmtMoney(warningCost) + '<span style="font-size:12px">/mo</span></div>' +
-          '</div>' +
-        '</div>';
-      }
-
-      // --- Top Tables Card ---
-      function topTablesCard(title, items, metric, colorFn) {
-        var maxVal = items.length ? items[0][metric] : 1;
-        var h = '<div style="background:' + cardBg + ';border-radius:14px;padding:20px;border:1px solid ' + cardBorder + ';flex:1;min-width:320px">';
-        h += '<div style="font-size:12px;font-weight:700;color:' + textMuted + ';letter-spacing:1px;text-transform:uppercase;margin-bottom:14px">' + title + '</div>';
+      // === Top Opportunity / Top Archived Tables ===
+      function topTablesList(title, subtitle, items, accentColor) {
+        var maxCost = items.length ? items[0].cost : 1;
+        var h = '<div style="font-size:12px;font-weight:700;color:' + textMuted + ';letter-spacing:1px;text-transform:uppercase;margin-bottom:4px">' + title + '</div>';
+        h += '<div style="font-size:11px;color:' + textMuted + ';margin-bottom:14px">' + subtitle + '</div>';
+        if (items.length === 0) {
+          h += '<div style="padding:20px;text-align:center;color:' + textMuted + ';font-size:12px">No tables</div>';
+          return h;
+        }
         items.forEach(function(r, idx) {
-          var v = metric === "cost" ? fmtMoney(r.cost) : fmt(r.size) + " GB";
-          var c = colorFn(r);
           var ac = actionColors[r.action] || textMuted;
-          h += '<div style="display:flex;align-items:center;gap:10px;margin-bottom:10px">' +
-            '<div style="width:20px;font-size:12px;font-weight:700;color:' + textMuted + '">#' + (idx + 1) + '</div>' +
-            '<div style="flex:1">' +
-              '<div style="display:flex;align-items:center;gap:6px;margin-bottom:4px">' +
-                '<span style="font-size:12px;font-weight:600;color:' + textPrimary + ';font-family:monospace;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">' + r.name + '</span>' +
-                '<span style="padding:1px 6px;border-radius:4px;font-size:9px;font-weight:700;background:' + ac + '15;color:' + ac + ';white-space:nowrap">' + r.action + '</span>' +
+          h += '<div style="display:flex;align-items:center;gap:10px;margin-bottom:8px">' +
+            '<div style="width:18px;font-size:11px;font-weight:700;color:' + textMuted + '">' + (idx + 1) + '</div>' +
+            '<div style="flex:1;min-width:0">' +
+              '<div style="display:flex;align-items:center;gap:6px;margin-bottom:3px">' +
+                '<span style="font-size:11px;font-weight:600;color:' + textPrimary + ';font-family:monospace;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">' + r.name + '</span>' +
+                '<span style="padding:1px 5px;border-radius:3px;font-size:9px;font-weight:700;background:' + ac + '15;color:' + ac + ';white-space:nowrap;flex-shrink:0">' + r.action + '</span>' +
               '</div>' +
-              miniBar(r[metric], maxVal, c) +
+              miniBar(r.cost, maxCost, accentColor) +
             '</div>' +
-            '<div style="font-size:13px;font-weight:700;color:' + c + ';min-width:70px;text-align:right">' + v + '</div>' +
+            '<div style="font-size:12px;font-weight:700;color:' + accentColor + ';min-width:65px;text-align:right">' + fmtMoney(r.cost) + '/mo</div>' +
           '</div>';
         });
-        h += '</div>';
         return h;
       }
 
-      // --- Detail Table ---
+      // === Detail Table ===
       function detailTable() {
         var sorted = rows.slice().sort(function(a, b) { return b.cost - a.cost; });
         var h = '<div style="overflow-x:auto"><table style="width:100%;border-collapse:collapse;font-size:12px">';
         h += '<thead><tr style="border-bottom:2px solid ' + dividerColor + '">';
-        ["Schema","Table","Size (GB)","Cost/mo","Status","Risk","Classification","Action"].forEach(function(c) {
+        ["Schema","Table","Size (GB)","Cost/mo","Status","Risk","Action"].forEach(function(c) {
           h += '<th style="padding:10px 12px;text-align:left;font-size:10px;font-weight:700;color:' + textMuted + ';letter-spacing:0.8px;text-transform:uppercase">' + c + '</th>';
         });
         h += '</tr></thead><tbody>';
@@ -367,83 +400,107 @@ looker.plugins.visualizations.add({
             '<td style="padding:8px 12px;color:#fbbf24;font-weight:600">' + fmtMoney(r.cost) + '</td>' +
             '<td style="padding:8px 12px;font-size:11px;color:' + textSecond + '">' + r.indictment + '</td>' +
             '<td style="padding:8px 12px"><div style="display:flex;align-items:center;gap:6px">' + miniBar(r.risk, 100, rc, "50px") + '<span style="font-size:11px;font-weight:600;color:' + rc + '">' + r.risk + '</span></div></td>' +
-            '<td style="padding:8px 12px;font-size:11px;color:' + textSecond + '">' + r.classif + '</td>' +
-            '<td style="padding:8px 12px"><span style="padding:2px 8px;border-radius:5px;font-size:10px;font-weight:700;background:' + ac + '15;color:' + ac + ';white-space:nowrap">' + r.action.toUpperCase() + '</span></td>' +
+            '<td style="padding:8px 12px"><span style="padding:2px 8px;border-radius:5px;font-size:10px;font-weight:700;background:' + ac + '15;color:' + ac + ';white-space:nowrap">' + r.action + '</span></td>' +
           '</tr>';
         });
         h += '</tbody></table></div>';
         return h;
       }
 
-      // === MAIN LAYOUT ===
+      // === BUILD HTML ===
       var html = '<div style="background:' + bg + ';color:' + textPrimary + ';padding:28px 24px;max-width:1400px;margin:0 auto">';
 
       // Header
-      html += '<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:28px;flex-wrap:wrap;gap:12px">' +
+      html += '<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:24px;flex-wrap:wrap;gap:12px">' +
         '<div>' +
-          '<div style="display:flex;align-items:center;gap:10px;margin-bottom:6px">' +
-            '<div style="width:10px;height:10px;border-radius:50%;background:' + accentAmber + ';box-shadow:0 0 12px ' + accentAmber + '80"></div>' +
+          '<div style="display:flex;align-items:center;gap:10px;margin-bottom:4px">' +
+            '<div style="width:10px;height:10px;border-radius:50%;background:' + accentEmerald + ';box-shadow:0 0 12px ' + accentEmerald + '80"></div>' +
             '<h1 style="font-size:24px;font-weight:800;margin:0;color:' + textPrimary + '">Data Dyson</h1>' +
-            '<span style="font-size:11px;padding:3px 8px;border-radius:5px;background:' + accentBlue + '15;color:' + accentBlue + ';font-weight:700">KPI DASHBOARD</span>' +
+            '<span style="font-size:11px;padding:3px 8px;border-radius:5px;background:' + accentEmerald + '15;color:' + accentEmerald + ';font-weight:700">ARCHIVE DASHBOARD</span>' +
           '</div>' +
-          '<p style="font-size:13px;color:' + textMuted + ';margin:0">Table health analysis • ' + total + ' tables scanned • ' + actionableRate + '% actionable</p>' +
+          '<p style="font-size:13px;color:' + textMuted + ';margin:0">Maximizing cost savings through table archival • ' + total + ' tables analyzed</p>' +
         '</div>' +
         '<div style="display:flex;gap:4px;background:' + cardBg + ';padding:4px;border-radius:10px;border:1px solid ' + cardBorder + '">' +
-          tabBtn("overview", "Overview") + tabBtn("details", "Table Details") +
+          tabBtn("overview", "Overview") + tabBtn("details", "All Tables") +
         '</div>' +
       '</div>';
 
       if (activeTab === "overview") {
-        // KPI Row
-        html += '<div style="display:flex;gap:14px;margin-bottom:24px;flex-wrap:wrap">' +
-          kpiCard("🔍", "Tables Scanned", fmt(total), "Across " + schemas.length + " schemas", accentBlue) +
-          kpiCard("⚠️", "Warnings", fmt(warnings.length), pct(warnings.length, total) + "% of total • " + fmtMoney(warningCost) + "/mo at risk", accentOrange) +
-          kpiCard("✅", "Approved to Delete", fmt(approved.length), pct(approved.length, total) + "% of total • " + fmtTB(approvedSize), accentRed) +
-          kpiCard("📦", "Archived", fmt(archives.length), pct(archives.length, total) + "% of total • " + fmtTB(archiveSize), accentPurple) +
-          kpiCard("🛡️", "Do Not Delete", fmt(doNotDelete.length), pct(doNotDelete.length, total) + "% of total", accentGreen) +
-        '</div>';
+        // Hero
+        html += archiveHero();
 
-        // Second KPI row - cost focused
-        html += '<div style="display:flex;gap:14px;margin-bottom:24px;flex-wrap:wrap">' +
-          kpiCard("💰", "Total Monthly Cost", fmtMoney(totalCost), "All scanned tables", accentAmber) +
-          kpiCard("💸", "Confirmed Savings", fmtMoney(savingsCost) + '<span style="font-size:14px;color:' + textMuted + '">/mo</span>', fmtMoney(savingsCost * 12) + " annually", accentGreen) +
-          kpiCard("📊", "Avg Risk Score", '' + avgRisk, avgRisk >= 70 ? "⚠ High average" : avgRisk >= 50 ? "Moderate" : "Low", avgRisk >= 70 ? accentRed : avgRisk >= 50 ? accentAmber : accentGreen) +
-          kpiCard("📏", "Total Storage", fmtTB(totalSize), fmt(totalSize) + " GB across all tables", accentBlue) +
-        '</div>';
+        // KPI cards
+        html += kpiRow();
 
-        // Middle row: Funnel + Risk
+        // Middle: Pipeline + Risk
         html += '<div style="display:flex;gap:16px;margin-bottom:24px;flex-wrap:wrap">';
-
-        html += '<div style="background:' + cardBg + ';border-radius:14px;padding:20px;border:1px solid ' + cardBorder + ';flex:1.2;min-width:380px">' +
-          sectionTitle("Action Flow") + actionFunnel() + '</div>';
-
-        html += '<div style="background:' + cardBg + ';border-radius:14px;padding:20px;border:1px solid ' + cardBorder + ';flex:0.8;min-width:280px">' +
-          sectionTitle("Risk Distribution") + riskDistribution() + '</div>';
-
+        html += '<div style="background:' + cardBg + ';border-radius:14px;padding:20px;border:1px solid ' + cardBorder + ';flex:1.3;min-width:400px">' +
+          sectionTitle("Archival Pipeline", "🔄") + actionPipeline() + '</div>';
+        html += '<div style="background:' + cardBg + ';border-radius:14px;padding:20px;border:1px solid ' + cardBorder + ';flex:0.7;min-width:260px">' +
+          sectionTitle("Risk Distribution", "📊") + riskSection() + '</div>';
         html += '</div>';
 
-        // Savings Breakdown
+        // Schema Distribution Visual
         html += '<div style="background:' + cardBg + ';border-radius:14px;padding:20px;border:1px solid ' + cardBorder + ';margin-bottom:24px">' +
-          sectionTitle("Cost Savings Breakdown") + savingsBreakdown() + '</div>';
+          sectionTitle("Schema Distribution", "🗂️");
+        // Stacked bars: by table count, by size, by cost
+        var metrics = [
+          { label: "Tables", key: "count", fmt: function(v) { return fmt(v); }, total: total },
+          { label: "Storage", key: "size", fmt: function(v) { return fmtTB(v); }, total: totalSize },
+          { label: "Cost/mo", key: "cost", fmt: function(v) { return fmtMoney(v); }, total: totalCost },
+        ];
+        for (var mi = 0; mi < metrics.length; mi++) {
+          var m = metrics[mi];
+          html += '<div style="margin-bottom:' + (mi < metrics.length - 1 ? '14' : '0') + 'px">' +
+            '<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px">' +
+              '<span style="font-size:11px;font-weight:700;color:' + textMuted + ';letter-spacing:0.8px;text-transform:uppercase">' + m.label + '</span>' +
+              '<span style="font-size:11px;color:' + textMuted + '">' + m.fmt(m.total) + ' total</span>' +
+            '</div>' +
+            '<div style="display:flex;border-radius:8px;overflow:hidden;height:32px">';
+          for (var si = 0; si < schemas.length; si++) {
+            var s = schemas[si];
+            var val = schemaMap[s][m.key];
+            var p = m.total ? (val / m.total * 100) : 0;
+            var w = Math.max(p, 1.5);
+            var sc = schemaColors[s] || "#475569";
+            var showLabel = p > 12;
+            html += '<div style="width:' + w + '%;background:' + sc + ';display:flex;align-items:center;justify-content:center;font-size:10px;font-weight:700;color:#fff;border-right:2px solid ' + bg + ';overflow:hidden;white-space:nowrap;padding:0 4px">' +
+              (showLabel ? s + ' ' + p.toFixed(0) + '%' : '') + '</div>';
+          }
+          html += '</div></div>';
+        }
+        // Legend
+        html += '<div style="display:flex;gap:16px;margin-top:14px;flex-wrap:wrap">';
+        for (var si = 0; si < schemas.length; si++) {
+          var s = schemas[si];
+          var d = schemaMap[s];
+          var sc = schemaColors[s] || "#475569";
+          html += '<div style="display:flex;align-items:center;gap:6px;font-size:12px;color:' + textSecond + '">' +
+            '<div style="width:10px;height:10px;border-radius:3px;background:' + sc + '"></div>' +
+            '<span style="font-weight:600">' + s.toUpperCase() + '</span>' +
+            '<span style="color:' + textMuted + '">' + d.count + ' tables • ' + fmtTB(d.size) + ' • ' + fmtMoney(d.cost) + '/mo</span>' +
+          '</div>';
+        }
+        html += '</div></div>';
 
-        // Schema Breakdown
+        // Schema Breakdown Table
         html += '<div style="background:' + cardBg + ';border-radius:14px;padding:20px;border:1px solid ' + cardBorder + ';margin-bottom:24px">' +
-          sectionTitle("Schema Breakdown") + schemaBreakdown() + '</div>';
+          sectionTitle("Archive Progress by Schema", "🗄️") + schemaBreakdown() + '</div>';
 
-        // Top Tables
-        html += '<div style="display:flex;gap:16px;margin-bottom:16px;flex-wrap:wrap">' +
-          topTablesCard("Top 5 — Highest Monthly Cost", topCost, "cost", function(r) { return actionColors[r.action] || accentAmber; }) +
-          topTablesCard("Top 5 — Largest by Storage", topSize, "size", function(r) { return r.risk >= 80 ? accentRed : r.risk >= 50 ? accentAmber : accentBlue; }) +
-        '</div>';
+        // Bottom: Top Opportunity + Top Archived
+        html += '<div style="display:flex;gap:16px;margin-bottom:16px;flex-wrap:wrap">';
+        html += '<div style="background:' + cardBg + ';border-radius:14px;padding:20px;border:1px solid ' + cardBorder + ';flex:1;min-width:320px">' +
+          topTablesList("🎯 Top Savings Opportunities", "Highest cost tables not yet archived", topOpportunity, accentOrange) + '</div>';
+        html += '<div style="background:' + cardBg + ';border-radius:14px;padding:20px;border:1px solid ' + cardBorder + ';flex:1;min-width:320px">' +
+          topTablesList("✅ Top Archived Savings", "Highest cost savings already achieved", topArchived, accentEmerald) + '</div>';
+        html += '</div>';
 
       } else {
-        // Details tab
         html += '<div style="background:' + cardBg + ';border-radius:14px;padding:20px;border:1px solid ' + cardBorder + '">' +
-          sectionTitle("All Tables (sorted by cost)") + detailTable() + '</div>';
+          sectionTitle("All Tables — Sorted by Cost", "📋") + detailTable() + '</div>';
       }
 
       html += '</div>';
-
       self._container.innerHTML = html;
 
       // Tab events
