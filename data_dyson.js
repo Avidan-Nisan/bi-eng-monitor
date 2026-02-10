@@ -36,15 +36,18 @@ looker.plugins.visualizations.add({
     var F = {
       schema:   ff(dims, "table_schema"),
       name:     ff(dims, "table_name"),
-      size:     ff(all, "total_logical_gib") || ff(all, "size"),
-      cost:     ff(all, "monthly_cost") || ff(all, "cost"),
+      size:     ff(all, "total_logical") || ff(all, "size_gib") || ff(all, "size"),
+      cost:     ff(all, "monthly_cost") || ff(all, "cost_usd") || ff(all, "cost"),
       usage:    ff(all, "total_usage") || ff(all, "usage"),
-      risk:     ff(all, "risk_level"),
-      delScore: ff(all, "deletion_score"),
-      reason:   ff(dims, "reasoning"),
+      risk:     ff(all, "risk_level") || ff(all, "risk"),
+      delScore: ff(all, "deletion_score") || ff(all, "del_score"),
+      reason:   ff(dims, "reasoning") || ff(dims, "reason"),
       action:   ff(dims, "action"),
       owner:    ff(dims, "suggested_owner") || ff(dims, "owner"),
     };
+    // Debug: log matched fields to console
+    console.log("Data Dyson field mapping:", JSON.stringify(F));
+    if (data.length > 0) console.log("First row keys:", Object.keys(data[0]).join(", "));
 
     function gv(row, key) { return row[key] && row[key].value != null ? row[key].value : ""; }
     function gn(row, key) { return row[key] && row[key].value != null ? parseFloat(row[key].value) || 0 : 0; }
@@ -64,17 +67,24 @@ looker.plugins.visualizations.add({
       };
     });
 
-    function isApprovedDelete(a) {
-      var l = a.toLowerCase();
-      return l === "delete" || l === "approved to delete";
+    // Normalize action values to handle different naming conventions
+    // Your data: "Delete", "Investigate", "Keep"
+    // Dashboard categories: Delete → approved to delete, Investigate → warning/pending, Keep → do not delete, Archive → archived
+    function normAction(a) {
+      var l = a.toLowerCase().trim();
+      if (l === "delete" || l === "approved to delete") return "delete";
+      if (l === "archive" || l === "archived") return "archive";
+      if (l === "investigate" || l === "warning" || l === "review") return "investigate";
+      if (l === "keep" || l === "do not delete") return "keep";
+      return l;
     }
 
     var total = rows.length;
-    var archived = rows.filter(function(r) { return r.action === "Archive"; });
-    var approvedDel = rows.filter(function(r) { return isApprovedDelete(r.action); });
-    var warnings = rows.filter(function(r) { return r.action === "Warning"; });
-    var doNotDelete = rows.filter(function(r) { return r.action === "Do Not Delete"; });
-    var candidates = rows.filter(function(r) { return r.action !== "Do Not Delete"; });
+    var archived = rows.filter(function(r) { return normAction(r.action) === "archive"; });
+    var approvedDel = rows.filter(function(r) { return normAction(r.action) === "delete"; });
+    var warnings = rows.filter(function(r) { return normAction(r.action) === "investigate"; });
+    var doNotDelete = rows.filter(function(r) { return normAction(r.action) === "keep"; });
+    var candidates = rows.filter(function(r) { return normAction(r.action) !== "keep"; });
 
     var totalSize = 0, totalCost = 0, totalDelScore = 0, totalUsage = 0;
     var archivedCost = 0, archivedSize = 0;
@@ -100,9 +110,10 @@ looker.plugins.visualizations.add({
       if (!schemaMap[r.schema]) schemaMap[r.schema] = { count: 0, size: 0, cost: 0, archived: 0, archivedCost: 0, approved: 0, warn: 0, keep: 0, pendingCost: 0 };
       var s = schemaMap[r.schema];
       s.count++; s.size += r.size; s.cost += r.cost;
-      if (r.action === "Archive") { s.archived++; s.archivedCost += r.cost; }
-      else if (isApprovedDelete(r.action)) { s.approved++; s.pendingCost += r.cost; }
-      else if (r.action === "Warning") { s.warn++; s.pendingCost += r.cost; }
+      var na = normAction(r.action);
+      if (na === "archive") { s.archived++; s.archivedCost += r.cost; }
+      else if (na === "delete") { s.approved++; s.pendingCost += r.cost; }
+      else if (na === "investigate") { s.warn++; s.pendingCost += r.cost; }
       else s.keep++;
     });
     var schemas = Object.keys(schemaMap).sort(function(a, b) { return schemaMap[b].cost - schemaMap[a].cost; });
@@ -121,12 +132,12 @@ looker.plugins.visualizations.add({
       if (!ownerMap[o]) ownerMap[o] = { count: 0, cost: 0, archived: 0, pending: 0 };
       ownerMap[o].count++;
       ownerMap[o].cost += r.cost;
-      if (r.action === "Archive") ownerMap[o].archived++;
-      else if (r.action !== "Do Not Delete") ownerMap[o].pending++;
+      if (normAction(r.action) === "archive") ownerMap[o].archived++;
+      else if (normAction(r.action) !== "keep") ownerMap[o].pending++;
     });
     var owners = Object.keys(ownerMap).sort(function(a, b) { return ownerMap[b].cost - ownerMap[a].cost; });
 
-    var pendingTables = rows.filter(function(r) { return r.action !== "Archive" && r.action !== "Do Not Delete"; });
+    var pendingTables = rows.filter(function(r) { var na = normAction(r.action); return na !== "archive" && na !== "keep"; });
     var topOpportunity = pendingTables.slice().sort(function(a, b) { return b.cost - a.cost; }).slice(0, 7);
     var topArchived = archived.slice().sort(function(a, b) { return b.cost - a.cost; }).slice(0, 7);
 
@@ -151,7 +162,12 @@ looker.plugins.visualizations.add({
       var barTrackBg  = isDark ? "#1e293b" : "#e2e8f0";
       var dividerColor= isDark ? "rgba(148,163,184,0.08)" : "rgba(0,0,0,0.06)";
 
-      var actionColorMap = { "Archive": accentEmerald, "Approved to Delete": accentRed, "Delete": accentRed, "Warning": accentOrange, "Do Not Delete": accentBlue };
+      var actionColorMap = { "Delete": accentRed, "Approved to Delete": accentRed, "Archive": accentEmerald, "Archived": accentEmerald, "Investigate": accentOrange, "Warning": accentOrange, "Keep": accentBlue, "Do Not Delete": accentBlue };
+
+      var ownerNA = normAction;  // alias for use in owner section
+      function getActionColor(action) {
+        return actionColorMap[action] || textMuted;
+      }
       var riskColorMap = { "high": accentRed, "medium": accentAmber, "med": accentAmber, "low": accentGreen };
 
       function fmt(n) { return n.toLocaleString(undefined, { maximumFractionDigits: 0 }); }
