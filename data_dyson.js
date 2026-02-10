@@ -286,10 +286,11 @@ looker.plugins.visualizations.add({
 
       // === Schema Distribution Visual ===
       function schemaDistribution() {
+        var totalArchSav = archivedCost;
         var metrics = [
           { label: "Tables", key: "count", fmtVal: function(v) { return fmt(v); }, total: total },
-          { label: "Storage", key: "size", fmtVal: function(v) { return fmtTB(v); }, total: totalSize },
           { label: "Cost/mo", key: "cost", fmtVal: function(v) { return fmtMoney(v); }, total: totalCost },
+          { label: "Archived Savings/mo", key: "archivedCost", fmtVal: function(v) { return fmtMoney(v); }, total: totalArchSav },
         ];
         var h = '';
         for (var mi = 0; mi < metrics.length; mi++) {
@@ -310,13 +311,13 @@ looker.plugins.visualizations.add({
           }
           h += '</div></div>';
         }
-        h += '<div style="display:flex;gap:16px;margin-top:14px;flex-wrap:wrap">';
+                  h += '<div style="display:flex;gap:16px;margin-top:14px;flex-wrap:wrap">';
         for (var si = 0; si < schemas.length; si++) {
           var s = schemas[si], d = schemaMap[s], sc = schemaColors[s] || "#475569";
           h += '<div style="display:flex;align-items:center;gap:6px;font-size:12px;color:' + textSecond + '">' +
             '<div style="width:10px;height:10px;border-radius:3px;background:' + sc + '"></div>' +
             '<span style="font-weight:600">' + s.toUpperCase() + '</span>' +
-            '<span style="color:' + textMuted + '">' + d.count + ' tables • ' + fmtTB(d.size) + ' • ' + fmtMoney(d.cost) + '/mo</span>' +
+            '<span style="color:' + textMuted + '">' + d.count + ' tables • ' + fmtMoney(d.cost) + '/mo • ' + fmtMoney(d.archivedCost) + ' saved</span>' +
           '</div>';
         }
         h += '</div>';
