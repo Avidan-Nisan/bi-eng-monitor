@@ -286,11 +286,11 @@ looker.plugins.visualizations.add({
 
       // === Schema Distribution Visual ===
       function schemaDistribution() {
-        var totalArchSav = archivedCost;
+        var totalArchSav = archivedCost || 0.001;
         var metrics = [
           { label: "Tables", key: "count", fmtVal: function(v) { return fmt(v); }, total: total },
           { label: "Cost/mo", key: "cost", fmtVal: function(v) { return fmtMoney(v); }, total: totalCost },
-          { label: "Archived Savings/mo", key: "archivedCost", fmtVal: function(v) { return fmtMoney(v); }, total: totalArchSav },
+          { label: "Savings from Archiving", key: "archivedCost", fmtVal: function(v) { return fmtMoney(v); }, total: totalArchSav },
         ];
         var h = '';
         for (var mi = 0; mi < metrics.length; mi++) {
