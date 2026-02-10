@@ -1,6 +1,6 @@
 looker.plugins.visualizations.add({
-  id: "data_dyson",
-  label: "Data Dyson - Table Health Monitor",
+  id: "data_dyson_kpi",
+  label: "Data Dyson - KPI Dashboard",
   options: {
     colorScheme: {
       type: "string",
@@ -22,11 +22,9 @@ looker.plugins.visualizations.add({
   updateAsync: function (data, element, config, queryResponse, details, done) {
     this.clearErrors();
 
-    // --- Parse field names from queryResponse ---
     var dims = queryResponse.fields.dimension_like.map(function(f) { return f.name; });
     var meas = queryResponse.fields.measure_like.map(function(f) { return f.name; });
 
-    // Helper: find field name containing a keyword
     function findField(list, keyword) {
       for (var i = 0; i < list.length; i++) {
         if (list[i].toLowerCase().indexOf(keyword) !== -1) return list[i];
@@ -35,19 +33,18 @@ looker.plugins.visualizations.add({
     }
 
     var F = {
-      schema:      findField(dims, "table_schema"),
-      name:        findField(dims, "table_name"),
-      indictment:  findField(dims, "indictment"),
-      classif:     findField(dims, "classification"),
-      reasoning:   findField(dims, "reasoning"),
-      action:      findField(dims, "action"),
-      state:       findField(dims, "state_status"),
-      size:        findField(meas, "size"),
-      cost:        findField(meas, "cost") || findField(meas, "monthly"),
-      risk:        findField(meas, "risk"),
+      schema:     findField(dims, "table_schema"),
+      name:       findField(dims, "table_name"),
+      indictment: findField(dims, "indictment"),
+      classif:    findField(dims, "classification"),
+      reasoning:  findField(dims, "reasoning"),
+      action:     findField(dims, "action"),
+      state:      findField(dims, "state_status"),
+      size:       findField(meas, "size"),
+      cost:       findField(meas, "cost") || findField(meas, "monthly"),
+      risk:       findField(meas, "risk"),
     };
 
-    // --- Extract rows ---
     var rows = data.map(function(row) {
       return {
         schema:     F.schema     ? (row[F.schema]     && row[F.schema].value     || "") : "",
@@ -63,276 +60,424 @@ looker.plugins.visualizations.add({
       };
     });
 
-    // --- Compute summary stats ---
+    // --- Compute KPIs ---
+    var total = rows.length;
+    var deletes = rows.filter(function(r) { return r.action === "Delete"; });
+    var archives = rows.filter(function(r) { return r.action === "Archive"; });
+    var keeps = rows.filter(function(r) { return r.action !== "Delete" && r.action !== "Archive"; });
+    var stale = rows.filter(function(r) { return r.indictment && r.indictment.indexOf("Stale") !== -1; });
+    var neverUsed = rows.filter(function(r) { return r.indictment && r.indictment.indexOf("Never") !== -1; });
+
     var totalSize = 0, totalCost = 0, totalRisk = 0;
+    var deleteCost = 0, archiveCost = 0, deleteSize = 0, archiveSize = 0;
     for (var i = 0; i < rows.length; i++) {
       totalSize += rows[i].size;
       totalCost += rows[i].cost;
       totalRisk += rows[i].risk;
     }
-    var avgRisk = rows.length ? Math.round(totalRisk / rows.length) : 0;
+    for (var i = 0; i < deletes.length; i++) { deleteCost += deletes[i].cost; deleteSize += deletes[i].size; }
+    for (var i = 0; i < archives.length; i++) { archiveCost += archives[i].cost; archiveSize += archives[i].size; }
+    var avgRisk = total ? Math.round(totalRisk / total) : 0;
+    var savingsCost = deleteCost + archiveCost;
+    var actionableRate = total ? Math.round((deletes.length + archives.length) / total * 100) : 0;
 
-    var actionable = rows.filter(function(r) { return r.action === "Delete" || r.action === "Archive"; });
-    var savings = 0;
-    for (var i = 0; i < actionable.length; i++) savings += actionable[i].cost;
+    // Risk distribution
+    var riskHigh = rows.filter(function(r) { return r.risk >= 80; });
+    var riskMed = rows.filter(function(r) { return r.risk >= 50 && r.risk < 80; });
+    var riskLow = rows.filter(function(r) { return r.risk < 50; });
 
-    // --- Schema distribution ---
+    // Schema distribution
     var schemaMap = {};
-    rows.forEach(function(r) { schemaMap[r.schema] = (schemaMap[r.schema] || 0) + r.size; });
-    var schemaEntries = Object.keys(schemaMap).map(function(k) { return [k, schemaMap[k]]; });
-    schemaEntries.sort(function(a, b) { return b[1] - a[1]; });
-    var schemaColors = { prod: "#ef4444", stg: "#f59e0b", test: "#3b82f6" };
+    rows.forEach(function(r) {
+      if (!schemaMap[r.schema]) schemaMap[r.schema] = { count: 0, size: 0, cost: 0, del: 0, arch: 0 };
+      schemaMap[r.schema].count++;
+      schemaMap[r.schema].size += r.size;
+      schemaMap[r.schema].cost += r.cost;
+      if (r.action === "Delete") schemaMap[r.schema].del++;
+      if (r.action === "Archive") schemaMap[r.schema].arch++;
+    });
+    var schemas = Object.keys(schemaMap).sort(function(a, b) { return schemaMap[b].size - schemaMap[a].size; });
 
-    // --- Unique values for filters ---
-    var allSchemasMap = {}, allActionsMap = {};
-    rows.forEach(function(r) { allSchemasMap[r.schema] = true; allActionsMap[r.action] = true; });
-    var allSchemas = Object.keys(allSchemasMap);
-    var allActions = Object.keys(allActionsMap);
+    // Classification distribution
+    var classifMap = {};
+    rows.forEach(function(r) {
+      var c = r.classif || "Unknown";
+      if (!classifMap[c]) classifMap[c] = { count: 0, size: 0, cost: 0 };
+      classifMap[c].count++;
+      classifMap[c].size += r.size;
+      classifMap[c].cost += r.cost;
+    });
+    var classifs = Object.keys(classifMap).sort(function(a, b) { return classifMap[b].count - classifMap[a].count; });
 
-    // --- State ---
-    var currentSort = "size";
-    var sortDir = "desc";
-    var schemaFilter = "all";
-    var actionFilter = "all";
+    // Action breakdown by schema for stacked view
+    var actionBySchema = {};
+    rows.forEach(function(r) {
+      if (!actionBySchema[r.schema]) actionBySchema[r.schema] = { Delete: 0, Archive: 0, Keep: 0 };
+      if (r.action === "Delete") actionBySchema[r.schema].Delete++;
+      else if (r.action === "Archive") actionBySchema[r.schema].Archive++;
+      else actionBySchema[r.schema].Keep++;
+    });
+
+    // Top costly tables
+    var topCost = rows.slice().sort(function(a, b) { return b.cost - a.cost; }).slice(0, 5);
+    var topSize = rows.slice().sort(function(a, b) { return b.size - a.size; }).slice(0, 5);
+
     var self = this;
+    var activeTab = "overview";
 
     function render() {
-      var filtered = rows.slice();
-      if (schemaFilter !== "all") filtered = filtered.filter(function(r) { return r.schema === schemaFilter; });
-      if (actionFilter !== "all") filtered = filtered.filter(function(r) { return r.action === actionFilter; });
-      filtered.sort(function(a, b) { return sortDir === "desc" ? b[currentSort] - a[currentSort] : a[currentSort] - b[currentSort]; });
-
       var isDark = config.colorScheme !== "light";
-      var bg          = isDark ? "#020617" : "#ffffff";
-      var cardBg      = isDark ? "#0f172a" : "#f8fafc";
-      var cardBorder  = isDark ? "rgba(148,163,184,0.1)" : "rgba(0,0,0,0.08)";
+      var bg          = isDark ? "#020617" : "#f1f5f9";
+      var cardBg      = isDark ? "#0f172a" : "#ffffff";
+      var cardBorder  = isDark ? "rgba(148,163,184,0.08)" : "rgba(0,0,0,0.06)";
       var textPrimary = isDark ? "#f1f5f9" : "#0f172a";
       var textSecond  = isDark ? "#94a3b8" : "#64748b";
-      var textMuted   = isDark ? "#64748b" : "#94a3b8";
-      var rowHoverBg  = isDark ? "rgba(59,130,246,0.05)" : "rgba(59,130,246,0.04)";
-      var tableBorder = isDark ? "rgba(148,163,184,0.07)" : "rgba(0,0,0,0.06)";
-      var headerBorder= isDark ? "rgba(148,163,184,0.15)" : "rgba(0,0,0,0.1)";
+      var textMuted   = isDark ? "#475569" : "#94a3b8";
+      var accentBlue  = "#3b82f6";
+      var accentGreen = "#22c55e";
+      var accentRed   = "#ef4444";
+      var accentAmber = "#f59e0b";
+      var accentPurple= "#a855f7";
       var barTrackBg  = isDark ? "#1e293b" : "#e2e8f0";
+      var dividerColor= isDark ? "rgba(148,163,184,0.08)" : "rgba(0,0,0,0.06)";
 
-      // Badge helper
-      function badge(text, variant) {
-        var styles = {
-          red:    { bg: "rgba(239,68,68,0.15)", c: "#f87171", b: "rgba(239,68,68,0.3)" },
-          amber:  { bg: "rgba(245,158,11,0.15)", c: "#fbbf24", b: "rgba(245,158,11,0.3)" },
-          green:  { bg: "rgba(34,197,94,0.15)", c: "#4ade80", b: "rgba(34,197,94,0.3)" },
-          blue:   { bg: "rgba(59,130,246,0.15)", c: "#60a5fa", b: "rgba(59,130,246,0.3)" },
-          purple: { bg: "rgba(168,85,247,0.15)", c: "#c084fc", b: "rgba(168,85,247,0.3)" },
-          slate:  { bg: "rgba(148,163,184,0.15)", c: "#94a3b8", b: "rgba(148,163,184,0.3)" },
-        };
-        var s = styles[variant] || styles.slate;
-        return '<span style="padding:3px 10px;border-radius:6px;font-size:11px;font-weight:600;background:' + s.bg + ';color:' + s.c + ';border:1px solid ' + s.b + ';white-space:nowrap;letter-spacing:0.3px">' + text + '</span>';
-      }
+      function fmt(n) { return n.toLocaleString(undefined, { maximumFractionDigits: 0 }); }
+      function fmtMoney(n) { return "$" + n.toLocaleString(undefined, { maximumFractionDigits: 0 }); }
+      function fmtTB(n) { return (n / 1000).toFixed(1) + " TB"; }
+      function pct(n, d) { return d ? Math.round(n / d * 100) : 0; }
 
-      function schemaBadge(schema) {
-        var v = { prod: "red", stg: "amber", test: "blue" }[schema] || "slate";
-        return badge(schema.toUpperCase(), v);
-      }
-
-      function statusBadge(status) {
-        return status.indexOf("Stale") !== -1 ? badge("STALE", "amber") : badge("NEVER USED", "purple");
-      }
-
-      function actionBadge(action) {
-        if (action === "Delete") return badge("DELETE", "red");
-        if (action === "Archive") return badge("ARCHIVE", "amber");
-        return badge("DO NOT DELETE", "slate");
-      }
-
-      function riskBar(score) {
-        var color = score >= 80 ? "#ef4444" : score >= 50 ? "#f59e0b" : "#22c55e";
-        return '<div style="display:flex;align-items:center;gap:8px">' +
-          '<div style="width:60px;height:8px;background:' + barTrackBg + ';border-radius:4px;overflow:hidden">' +
-          '<div style="width:' + score + '%;height:100%;background:' + color + ';border-radius:4px"></div>' +
+      // --- Reusable Components ---
+      function kpiCard(icon, label, value, sub, accent, extra) {
+        return '<div style="background:' + cardBg + ';border-radius:16px;padding:24px;border:1px solid ' + cardBorder + ';flex:1;min-width:200px;position:relative;overflow:hidden">' +
+          '<div style="position:absolute;top:-20px;right:-20px;width:80px;height:80px;border-radius:50%;background:' + accent + ';opacity:0.06"></div>' +
+          '<div style="display:flex;align-items:center;gap:10px;margin-bottom:14px">' +
+            '<div style="width:36px;height:36px;border-radius:10px;background:' + accent + '15;display:flex;align-items:center;justify-content:center;font-size:18px">' + icon + '</div>' +
+            '<div style="font-size:11px;color:' + textMuted + ';font-weight:700;letter-spacing:1.2px;text-transform:uppercase">' + label + '</div>' +
           '</div>' +
-          '<span style="font-size:13px;font-weight:600;color:' + color + '">' + score + '</span>' +
+          '<div style="font-size:36px;font-weight:800;color:' + textPrimary + ';line-height:1;margin-bottom:6px;font-variant-numeric:tabular-nums">' + value + '</div>' +
+          (sub ? '<div style="font-size:12px;color:' + textSecond + ';margin-top:4px">' + sub + '</div>' : '') +
+          (extra || '') +
           '</div>';
       }
 
-      function statCard(label, value, sub) {
-        return '<div style="background:' + cardBg + ';border-radius:14px;padding:20px 24px;border:1px solid ' + cardBorder + ';flex:1;min-width:170px">' +
-          '<div style="font-size:12px;color:' + textMuted + ';font-weight:600;letter-spacing:1px;text-transform:uppercase;margin-bottom:8px">' + label + '</div>' +
-          '<div style="font-size:28px;font-weight:700;color:' + textPrimary + ';line-height:1.1">' + value + '</div>' +
-          (sub ? '<div style="font-size:12px;color:' + textMuted + ';margin-top:6px">' + sub + '</div>' : '') +
+      function miniBar(val, max, color, w) {
+        var pw = max ? (val / max * 100) : 0;
+        return '<div style="width:' + (w || '100%') + ';height:6px;background:' + barTrackBg + ';border-radius:3px;overflow:hidden">' +
+          '<div style="width:' + pw + '%;height:100%;background:' + color + ';border-radius:3px;transition:width 0.3s"></div></div>';
+      }
+
+      function donutSVG(slices, size, thickness) {
+        var r = (size - thickness) / 2, cx = size / 2, cy = size / 2;
+        var total = 0;
+        slices.forEach(function(s) { total += s.value; });
+        var svg = '<svg width="' + size + '" height="' + size + '" viewBox="0 0 ' + size + ' ' + size + '">';
+        var cumAngle = -90;
+        slices.forEach(function(s) {
+          if (s.value === 0) return;
+          var angle = (s.value / total) * 360;
+          var startRad = cumAngle * Math.PI / 180;
+          var endRad = (cumAngle + angle) * Math.PI / 180;
+          var x1 = cx + r * Math.cos(startRad), y1 = cy + r * Math.sin(startRad);
+          var x2 = cx + r * Math.cos(endRad), y2 = cy + r * Math.sin(endRad);
+          var large = angle > 180 ? 1 : 0;
+          svg += '<path d="M ' + x1 + ' ' + y1 + ' A ' + r + ' ' + r + ' 0 ' + large + ' 1 ' + x2 + ' ' + y2 + '" fill="none" stroke="' + s.color + '" stroke-width="' + thickness + '" stroke-linecap="round"/>';
+          cumAngle += angle;
+        });
+        svg += '</svg>';
+        return svg;
+      }
+
+      function sectionTitle(text) {
+        return '<div style="font-size:13px;font-weight:700;color:' + textSecond + ';letter-spacing:1px;text-transform:uppercase;margin-bottom:16px;display:flex;align-items:center;gap:8px">' +
+          '<div style="width:3px;height:16px;border-radius:2px;background:' + accentBlue + '"></div>' + text + '</div>';
+      }
+
+      function tabBtn(id, label) {
+        var isActive = activeTab === id;
+        var tabBg = isActive ? accentBlue : "transparent";
+        var tabColor = isActive ? "#fff" : textSecond;
+        return '<button data-tab="' + id + '" style="padding:8px 20px;border-radius:8px;font-size:13px;font-weight:600;cursor:pointer;background:' + tabBg + ';color:' + tabColor + ';border:none;transition:all 0.2s">' + label + '</button>';
+      }
+
+      // --- Action Funnel ---
+      function actionFunnel() {
+        var items = [
+          { label: "Scanned", count: total, color: accentBlue, icon: "🔍" },
+          { label: "Flagged", count: stale.length + neverUsed.length, color: accentAmber, icon: "⚠️" },
+          { label: "Archive", count: archives.length, color: accentPurple, icon: "📦" },
+          { label: "Delete", count: deletes.length, color: accentRed, icon: "🗑️" },
+          { label: "Retained", count: keeps.length, color: accentGreen, icon: "✅" },
+        ];
+        var h = '';
+        for (var i = 0; i < items.length; i++) {
+          var it = items[i];
+          var w = total ? Math.max(it.count / total * 100, 12) : 20;
+          h += '<div style="display:flex;align-items:center;gap:12px;margin-bottom:8px">' +
+            '<div style="width:80px;text-align:right;font-size:11px;font-weight:700;color:' + textSecond + ';text-transform:uppercase;letter-spacing:0.5px">' + it.icon + ' ' + it.label + '</div>' +
+            '<div style="flex:1;position:relative">' +
+              '<div style="height:32px;background:' + barTrackBg + ';border-radius:8px;overflow:hidden">' +
+                '<div style="width:' + w + '%;height:100%;background:' + it.color + '20;border-left:3px solid ' + it.color + ';display:flex;align-items:center;padding-left:12px">' +
+                  '<span style="font-size:14px;font-weight:800;color:' + it.color + '">' + it.count + '</span>' +
+                '</div>' +
+              '</div>' +
+            '</div>' +
+            '<div style="width:50px;font-size:12px;color:' + textMuted + ';text-align:right">' + pct(it.count, total) + '%</div>' +
           '</div>';
+        }
+        return h;
       }
 
-      function filterBtn(text, active, dataAttr) {
-        var bgColor = active ? "rgba(59,130,246,0.2)" : "rgba(148,163,184,0.08)";
-        var fColor  = active ? "#60a5fa" : textSecond;
-        var bColor  = active ? "1px solid rgba(59,130,246,0.4)" : "1px solid " + cardBorder;
-        return '<button data-' + dataAttr + '="' + text + '" style="padding:6px 14px;border-radius:8px;font-size:12px;font-weight:600;cursor:pointer;background:' + bgColor + ';color:' + fColor + ';border:' + bColor + '">' + text + '</button>';
-      }
-
-      function sortIcon(col) {
-        if (currentSort !== col) return '<span style="opacity:0.3;margin-left:4px">↕</span>';
-        return '<span style="margin-left:4px;color:#60a5fa">' + (sortDir === "desc" ? "↓" : "↑") + '</span>';
-      }
-
-      // Schema distribution bar
-      var schemaBarHtml = "";
-      for (var i = 0; i < schemaEntries.length; i++) {
-        var s = schemaEntries[i][0], sz = schemaEntries[i][1];
-        var pct = totalSize ? (sz / totalSize * 100) : 0;
-        var w = Math.max(pct, 2);
-        var sc = schemaColors[s] || "#475569";
-        var label = pct > 10 ? (s + " " + pct.toFixed(0) + "%") : "";
-        schemaBarHtml += '<div style="width:' + w + '%;background:' + sc + ';display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:700;color:#fff;border-right:2px solid ' + bg + '">' + label + '</div>';
-      }
-
-      var schemaLegendHtml = "";
-      for (var i = 0; i < schemaEntries.length; i++) {
-        var s = schemaEntries[i][0], sz = schemaEntries[i][1];
-        var pct = totalSize ? (sz / totalSize * 100) : 0;
-        var sc = schemaColors[s] || "#475569";
-        schemaLegendHtml += '<div style="display:flex;align-items:center;gap:6px;font-size:12px;color:' + textSecond + '">' +
-          '<div style="width:8px;height:8px;border-radius:2px;background:' + sc + '"></div>' +
-          s + ': ' + (sz / 1000).toFixed(1) + ' TB (' + pct.toFixed(0) + '%)' +
-          '</div>';
-      }
-
-      // Filter buttons HTML
-      var schemaFiltersHtml = filterBtn("all", schemaFilter === "all", "schema");
-      for (var i = 0; i < allSchemas.length; i++) {
-        schemaFiltersHtml += filterBtn(allSchemas[i], schemaFilter === allSchemas[i], "schema");
-      }
-      var actionFiltersHtml = filterBtn("all", actionFilter === "all", "action");
-      for (var i = 0; i < allActions.length; i++) {
-        actionFiltersHtml += filterBtn(allActions[i], actionFilter === allActions[i], "action");
-      }
-
-      // Table rows
-      var tableRowsHtml = "";
-      for (var i = 0; i < filtered.length; i++) {
-        var r = filtered[i];
-        tableRowsHtml += '<tr class="data-row" style="border-bottom:1px solid ' + tableBorder + '">' +
-          '<td style="padding:12px 16px">' + schemaBadge(r.schema) + '</td>' +
-          '<td style="padding:12px 16px;font-weight:500;color:' + textPrimary + ';font-family:monospace;font-size:12px">' + r.name + '</td>' +
-          '<td style="padding:12px 16px;font-variant-numeric:tabular-nums;color:' + (isDark ? '#cbd5e1' : '#334155') + '">' + r.size.toLocaleString(undefined, { maximumFractionDigits: 0 }) + '</td>' +
-          '<td style="padding:12px 16px;font-variant-numeric:tabular-nums;color:#fbbf24;font-weight:600">$' + r.cost.toFixed(2) + '</td>' +
-          '<td style="padding:12px 16px">' + statusBadge(r.indictment) + '</td>' +
-          '<td style="padding:12px 16px">' + riskBar(r.risk) + '</td>' +
-          '<td style="padding:12px 16px;font-size:12px;color:' + textSecond + '">' + r.classif + '</td>' +
-          '<td style="padding:12px 16px">' + actionBadge(r.action) + '</td>' +
+      // --- Schema Breakdown Table ---
+      function schemaBreakdown() {
+        var h = '<div style="overflow-x:auto"><table style="width:100%;border-collapse:collapse;font-size:13px">';
+        h += '<thead><tr style="border-bottom:2px solid ' + dividerColor + '">';
+        var cols = ["Schema", "Tables", "Size", "Cost/mo", "Delete", "Archive", "Action Rate"];
+        cols.forEach(function(c) {
+          h += '<th style="padding:10px 14px;text-align:left;font-size:11px;font-weight:700;color:' + textMuted + ';letter-spacing:0.8px;text-transform:uppercase">' + c + '</th>';
+        });
+        h += '</tr></thead><tbody>';
+        var schemaColors = { prod: accentRed, stg: accentAmber, test: accentBlue };
+        schemas.forEach(function(s) {
+          var d = schemaMap[s];
+          var sc = schemaColors[s] || "#475569";
+          var ar = d.count ? Math.round((d.del + d.arch) / d.count * 100) : 0;
+          h += '<tr style="border-bottom:1px solid ' + dividerColor + '">' +
+            '<td style="padding:10px 14px"><span style="padding:3px 10px;border-radius:6px;font-size:11px;font-weight:700;background:' + sc + '18;color:' + sc + ';border:1px solid ' + sc + '30">' + s.toUpperCase() + '</span></td>' +
+            '<td style="padding:10px 14px;font-weight:600;color:' + textPrimary + '">' + d.count + '</td>' +
+            '<td style="padding:10px 14px;color:' + textSecond + '">' + fmtTB(d.size) + '</td>' +
+            '<td style="padding:10px 14px;color:#fbbf24;font-weight:600">' + fmtMoney(d.cost) + '</td>' +
+            '<td style="padding:10px 14px;color:' + accentRed + ';font-weight:600">' + d.del + '</td>' +
+            '<td style="padding:10px 14px;color:' + accentPurple + ';font-weight:600">' + d.arch + '</td>' +
+            '<td style="padding:10px 14px">' +
+              '<div style="display:flex;align-items:center;gap:8px">' + miniBar(ar, 100, ar > 70 ? accentGreen : accentAmber, "80px") +
+              '<span style="font-size:12px;font-weight:600;color:' + textSecond + '">' + ar + '%</span></div>' +
+            '</td>' +
           '</tr>';
+        });
+        h += '</tbody></table></div>';
+        return h;
       }
 
-      // Sortable header style
-      var thStyle = 'padding:14px 16px;text-align:left;font-weight:600;color:' + textMuted + ';font-size:11px;letter-spacing:0.8px;text-transform:uppercase';
-      var thSortStyle = thStyle + ';cursor:pointer;user-select:none';
+      // --- Top Tables ---
+      function topTablesCard(title, items, metric, colorFn) {
+        var maxVal = items.length ? items[0][metric] : 1;
+        var h = '<div style="background:' + cardBg + ';border-radius:14px;padding:20px;border:1px solid ' + cardBorder + ';flex:1;min-width:320px">';
+        h += '<div style="font-size:12px;font-weight:700;color:' + textMuted + ';letter-spacing:1px;text-transform:uppercase;margin-bottom:14px">' + title + '</div>';
+        items.forEach(function(r, idx) {
+          var v = metric === "cost" ? fmtMoney(r.cost) : fmt(r.size) + " GB";
+          var c = colorFn(r);
+          h += '<div style="display:flex;align-items:center;gap:10px;margin-bottom:10px">' +
+            '<div style="width:20px;font-size:12px;font-weight:700;color:' + textMuted + '">#' + (idx + 1) + '</div>' +
+            '<div style="flex:1">' +
+              '<div style="font-size:12px;font-weight:600;color:' + textPrimary + ';font-family:monospace;margin-bottom:4px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">' + r.name + '</div>' +
+              miniBar(r[metric], maxVal, c) +
+            '</div>' +
+            '<div style="font-size:13px;font-weight:700;color:' + c + ';min-width:70px;text-align:right">' + v + '</div>' +
+          '</div>';
+        });
+        h += '</div>';
+        return h;
+      }
 
-      self._container.innerHTML =
-        '<div style="background:' + bg + ';color:' + textPrimary + ';padding:32px 24px;max-width:1280px;margin:0 auto">' +
+      // --- Classification Distribution ---
+      function classifDistribution() {
+        var colors = [accentBlue, accentAmber, accentRed, accentGreen, accentPurple, "#f472b6", "#06b6d4"];
+        var maxCount = 0;
+        classifs.forEach(function(c) { if (classifMap[c].count > maxCount) maxCount = classifMap[c].count; });
+        var h = '';
+        classifs.forEach(function(c, idx) {
+          var d = classifMap[c];
+          var color = colors[idx % colors.length];
+          h += '<div style="display:flex;align-items:center;gap:12px;margin-bottom:10px">' +
+            '<div style="width:100px;font-size:12px;font-weight:600;color:' + textSecond + ';text-align:right;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">' + c + '</div>' +
+            '<div style="flex:1">' + miniBar(d.count, maxCount, color) + '</div>' +
+            '<div style="min-width:40px;font-size:13px;font-weight:700;color:' + textPrimary + '">' + d.count + '</div>' +
+            '<div style="min-width:60px;font-size:11px;color:' + textMuted + '">' + fmtMoney(d.cost) + '</div>' +
+          '</div>';
+        });
+        return h;
+      }
 
-        // Header
-        '<div style="margin-bottom:32px">' +
-          '<div style="display:flex;align-items:center;gap:12px;margin-bottom:8px">' +
-            '<div style="width:10px;height:10px;border-radius:50%;background:#f59e0b;box-shadow:0 0 12px rgba(245,158,11,0.5)"></div>' +
-            '<h1 style="font-size:26px;font-weight:700;margin:0;color:' + textPrimary + '">Table Health Monitor</h1>' +
+      // --- Risk Distribution ---
+      function riskDistribution() {
+        var slices = [
+          { value: riskHigh.length, color: accentRed },
+          { value: riskMed.length, color: accentAmber },
+          { value: riskLow.length, color: accentGreen },
+        ];
+        var donut = donutSVG(slices, 120, 14);
+        return '<div style="display:flex;align-items:center;gap:24px">' +
+          '<div style="position:relative;width:120px;height:120px">' + donut +
+            '<div style="position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center">' +
+              '<div style="font-size:28px;font-weight:800;color:' + textPrimary + '">' + avgRisk + '</div>' +
+              '<div style="font-size:10px;color:' + textMuted + ';font-weight:600">AVG RISK</div>' +
+            '</div>' +
           '</div>' +
-          '<p style="font-size:14px;color:' + textMuted + ';margin:0">Identifying suspect, stale, and unused tables across your data warehouse</p>' +
-        '</div>' +
-
-        // Stat Cards
-        '<div style="display:flex;gap:16px;margin-bottom:28px;flex-wrap:wrap">' +
-          statCard("Suspect Tables", filtered.length, "of " + rows.length + " total") +
-          statCard("Total Size", (totalSize / 1000).toFixed(1) + " TB", "across all suspect tables") +
-          statCard("Monthly Cost", "$" + totalCost.toFixed(0), "estimated waste") +
-          statCard("Avg Risk Score", avgRisk, avgRisk >= 70 ? "⚠ High average" : "Moderate") +
-          statCard("Potential Savings", "$" + savings.toFixed(0) + "/mo", actionable.length + " actionable tables") +
-        '</div>' +
-
-        // Schema Bar
-        '<div style="background:' + cardBg + ';border-radius:12px;padding:20px;border:1px solid ' + cardBorder + ';margin-bottom:28px">' +
-          '<div style="font-size:13px;font-weight:600;color:' + textSecond + ';margin-bottom:12px;letter-spacing:0.5px">STORAGE BY SCHEMA</div>' +
-          '<div style="display:flex;border-radius:6px;overflow:hidden;height:28px">' + schemaBarHtml + '</div>' +
-          '<div style="display:flex;gap:20px;margin-top:10px">' + schemaLegendHtml + '</div>' +
-        '</div>' +
-
-        // Filters
-        '<div style="display:flex;gap:12px;margin-bottom:20px;flex-wrap:wrap;align-items:center">' +
-          '<span style="font-size:12px;color:' + textMuted + ';font-weight:600">SCHEMA:</span>' +
-          schemaFiltersHtml +
-          '<div style="width:1px;height:24px;background:' + cardBorder + ';margin:0 8px"></div>' +
-          '<span style="font-size:12px;color:' + textMuted + ';font-weight:600">ACTION:</span>' +
-          actionFiltersHtml +
-        '</div>' +
-
-        // Table
-        '<div style="background:' + cardBg + ';border-radius:14px;border:1px solid ' + cardBorder + ';overflow:hidden">' +
-          '<div style="overflow-x:auto">' +
-            '<table style="width:100%;border-collapse:collapse;font-size:13px">' +
-              '<thead>' +
-                '<tr style="border-bottom:1px solid ' + headerBorder + '">' +
-                  '<th style="' + thStyle + '">Schema</th>' +
-                  '<th style="' + thStyle + '">Table Name</th>' +
-                  '<th data-sort="size" style="' + thSortStyle + '">Size (GB)' + sortIcon("size") + '</th>' +
-                  '<th data-sort="cost" style="' + thSortStyle + '">Est. Cost/mo' + sortIcon("cost") + '</th>' +
-                  '<th style="' + thStyle + '">Status</th>' +
-                  '<th data-sort="risk" style="' + thSortStyle + '">Risk' + sortIcon("risk") + '</th>' +
-                  '<th style="' + thStyle + '">Classification</th>' +
-                  '<th style="' + thStyle + '">Action</th>' +
-                '</tr>' +
-              '</thead>' +
-              '<tbody>' + tableRowsHtml + '</tbody>' +
-            '</table>' +
+          '<div style="flex:1">' +
+            '<div style="display:flex;align-items:center;gap:8px;margin-bottom:10px">' +
+              '<div style="width:10px;height:10px;border-radius:3px;background:' + accentRed + '"></div>' +
+              '<span style="font-size:12px;color:' + textSecond + '">High (80+)</span>' +
+              '<span style="font-size:14px;font-weight:700;color:' + accentRed + ';margin-left:auto">' + riskHigh.length + '</span></div>' +
+            '<div style="display:flex;align-items:center;gap:8px;margin-bottom:10px">' +
+              '<div style="width:10px;height:10px;border-radius:3px;background:' + accentAmber + '"></div>' +
+              '<span style="font-size:12px;color:' + textSecond + '">Medium (50-79)</span>' +
+              '<span style="font-size:14px;font-weight:700;color:' + accentAmber + ';margin-left:auto">' + riskMed.length + '</span></div>' +
+            '<div style="display:flex;align-items:center;gap:8px">' +
+              '<div style="width:10px;height:10px;border-radius:3px;background:' + accentGreen + '"></div>' +
+              '<span style="font-size:12px;color:' + textSecond + '">Low (&lt;50)</span>' +
+              '<span style="font-size:14px;font-weight:700;color:' + accentGreen + ';margin-left:auto">' + riskLow.length + '</span></div>' +
           '</div>' +
-          (filtered.length === 0 ? '<div style="padding:40px;text-align:center;color:' + textMuted + '">No tables match the current filters</div>' : '') +
-        '</div>' +
+        '</div>';
+      }
 
-        '<div style="margin-top:16px;font-size:12px;color:' + textMuted + ';text-align:center">' +
-          'Showing ' + filtered.length + ' of ' + rows.length + ' suspect tables • Click column headers to sort' +
+      // --- Savings Breakdown ---
+      function savingsBreakdown() {
+        var totalSavings = deleteCost + archiveCost;
+        var delPct = totalSavings ? Math.round(deleteCost / totalSavings * 100) : 0;
+        var archPct = 100 - delPct;
+        return '<div style="margin-bottom:16px">' +
+          '<div style="display:flex;border-radius:8px;overflow:hidden;height:24px;margin-bottom:12px">' +
+            '<div style="width:' + delPct + '%;background:' + accentRed + ';display:flex;align-items:center;justify-content:center;font-size:10px;font-weight:700;color:#fff">' + (delPct > 15 ? delPct + '%' : '') + '</div>' +
+            '<div style="width:' + archPct + '%;background:' + accentPurple + ';display:flex;align-items:center;justify-content:center;font-size:10px;font-weight:700;color:#fff">' + (archPct > 15 ? archPct + '%' : '') + '</div>' +
+          '</div>' +
+          '<div style="display:flex;gap:20px">' +
+            '<div style="display:flex;align-items:center;gap:6px;font-size:12px;color:' + textSecond + '">' +
+              '<div style="width:8px;height:8px;border-radius:2px;background:' + accentRed + '"></div>' +
+              'Delete: ' + fmtMoney(deleteCost) + '/mo (' + deletes.length + ' tables, ' + fmtTB(deleteSize) + ')' +
+            '</div>' +
+            '<div style="display:flex;align-items:center;gap:6px;font-size:12px;color:' + textSecond + '">' +
+              '<div style="width:8px;height:8px;border-radius:2px;background:' + accentPurple + '"></div>' +
+              'Archive: ' + fmtMoney(archiveCost) + '/mo (' + archives.length + ' tables, ' + fmtTB(archiveSize) + ')' +
+            '</div>' +
+          '</div>' +
         '</div>' +
+        '<div style="display:flex;gap:12px;margin-top:16px">' +
+          '<div style="flex:1;background:' + accentGreen + '10;border:1px solid ' + accentGreen + '25;border-radius:10px;padding:14px;text-align:center">' +
+            '<div style="font-size:10px;font-weight:700;color:' + accentGreen + ';letter-spacing:1px;margin-bottom:4px">MONTHLY SAVINGS</div>' +
+            '<div style="font-size:24px;font-weight:800;color:' + accentGreen + '">' + fmtMoney(totalSavings) + '</div>' +
+          '</div>' +
+          '<div style="flex:1;background:' + accentGreen + '10;border:1px solid ' + accentGreen + '25;border-radius:10px;padding:14px;text-align:center">' +
+            '<div style="font-size:10px;font-weight:700;color:' + accentGreen + ';letter-spacing:1px;margin-bottom:4px">ANNUAL SAVINGS</div>' +
+            '<div style="font-size:24px;font-weight:800;color:' + accentGreen + '">' + fmtMoney(totalSavings * 12) + '</div>' +
+          '</div>' +
+          '<div style="flex:1;background:' + accentBlue + '10;border:1px solid ' + accentBlue + '25;border-radius:10px;padding:14px;text-align:center">' +
+            '<div style="font-size:10px;font-weight:700;color:' + accentBlue + ';letter-spacing:1px;margin-bottom:4px">STORAGE FREED</div>' +
+            '<div style="font-size:24px;font-weight:800;color:' + accentBlue + '">' + fmtTB(deleteSize + archiveSize) + '</div>' +
+          '</div>' +
+        '</div>';
+      }
 
+      // --- Detail Table (Tab) ---
+      function detailTable() {
+        var sorted = rows.slice().sort(function(a, b) { return b.cost - a.cost; });
+        var h = '<div style="overflow-x:auto"><table style="width:100%;border-collapse:collapse;font-size:12px">';
+        h += '<thead><tr style="border-bottom:2px solid ' + dividerColor + '">';
+        ["Schema","Table","Size (GB)","Cost/mo","Status","Risk","Classification","Action"].forEach(function(c) {
+          h += '<th style="padding:10px 12px;text-align:left;font-size:10px;font-weight:700;color:' + textMuted + ';letter-spacing:0.8px;text-transform:uppercase">' + c + '</th>';
+        });
+        h += '</tr></thead><tbody>';
+        var schemaC = { prod: accentRed, stg: accentAmber, test: accentBlue };
+        var actionC = { Delete: accentRed, Archive: accentPurple };
+        sorted.forEach(function(r) {
+          var sc = schemaC[r.schema] || "#475569";
+          var ac = actionC[r.action] || textMuted;
+          var rc = r.risk >= 80 ? accentRed : r.risk >= 50 ? accentAmber : accentGreen;
+          h += '<tr style="border-bottom:1px solid ' + dividerColor + '">' +
+            '<td style="padding:8px 12px"><span style="padding:2px 8px;border-radius:5px;font-size:10px;font-weight:700;background:' + sc + '15;color:' + sc + '">' + r.schema.toUpperCase() + '</span></td>' +
+            '<td style="padding:8px 12px;font-family:monospace;font-weight:500;color:' + textPrimary + '">' + r.name + '</td>' +
+            '<td style="padding:8px 12px;color:' + textSecond + ';font-variant-numeric:tabular-nums">' + fmt(r.size) + '</td>' +
+            '<td style="padding:8px 12px;color:#fbbf24;font-weight:600">' + fmtMoney(r.cost) + '</td>' +
+            '<td style="padding:8px 12px;font-size:11px;color:' + textSecond + '">' + r.indictment + '</td>' +
+            '<td style="padding:8px 12px"><div style="display:flex;align-items:center;gap:6px">' + miniBar(r.risk, 100, rc, "50px") + '<span style="font-size:11px;font-weight:600;color:' + rc + '">' + r.risk + '</span></div></td>' +
+            '<td style="padding:8px 12px;font-size:11px;color:' + textSecond + '">' + r.classif + '</td>' +
+            '<td style="padding:8px 12px"><span style="padding:2px 8px;border-radius:5px;font-size:10px;font-weight:700;background:' + ac + '15;color:' + ac + '">' + r.action.toUpperCase() + '</span></td>' +
+          '</tr>';
+        });
+        h += '</tbody></table></div>';
+        return h;
+      }
+
+      // === MAIN LAYOUT ===
+      var html = '<div style="background:' + bg + ';color:' + textPrimary + ';padding:28px 24px;max-width:1400px;margin:0 auto">';
+
+      // Header
+      html += '<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:28px;flex-wrap:wrap;gap:12px">' +
+        '<div>' +
+          '<div style="display:flex;align-items:center;gap:10px;margin-bottom:6px">' +
+            '<div style="width:10px;height:10px;border-radius:50%;background:' + accentAmber + ';box-shadow:0 0 12px ' + accentAmber + '80"></div>' +
+            '<h1 style="font-size:24px;font-weight:800;margin:0;color:' + textPrimary + '">Data Dyson</h1>' +
+            '<span style="font-size:11px;padding:3px 8px;border-radius:5px;background:' + accentBlue + '15;color:' + accentBlue + ';font-weight:700">KPI DASHBOARD</span>' +
+          '</div>' +
+          '<p style="font-size:13px;color:' + textMuted + ';margin:0">Table health analysis • ' + total + ' tables scanned • ' + actionableRate + '% actionable</p>' +
+        '</div>' +
+        '<div style="display:flex;gap:4px;background:' + cardBg + ';padding:4px;border-radius:10px;border:1px solid ' + cardBorder + '">' +
+          tabBtn("overview", "Overview") + tabBtn("details", "Table Details") +
+        '</div>' +
+      '</div>';
+
+      if (activeTab === "overview") {
+        // KPI Row
+        html += '<div style="display:flex;gap:14px;margin-bottom:24px;flex-wrap:wrap">' +
+          kpiCard("🔍", "Tables Scanned", fmt(total), "Across " + schemas.length + " schemas", accentBlue) +
+          kpiCard("🗑️", "Marked Delete", fmt(deletes.length), pct(deletes.length, total) + "% of total • " + fmtTB(deleteSize), accentRed) +
+          kpiCard("📦", "Marked Archive", fmt(archives.length), pct(archives.length, total) + "% of total • " + fmtTB(archiveSize), accentPurple) +
+          kpiCard("✅", "Retained", fmt(keeps.length), pct(keeps.length, total) + "% of total", accentGreen) +
+          kpiCard("💰", "Total Savings", fmtMoney(savingsCost) + '<span style="font-size:16px;font-weight:400;color:' + textMuted + '">/mo</span>', fmtMoney(savingsCost * 12) + " annually", accentGreen) +
         '</div>';
 
-      // --- Attach event listeners ---
-      var schemaButtons = self._container.querySelectorAll("[data-schema]");
-      for (var i = 0; i < schemaButtons.length; i++) {
+        // Middle row: Funnel + Risk + Savings
+        html += '<div style="display:flex;gap:16px;margin-bottom:24px;flex-wrap:wrap">';
+
+        // Action Funnel
+        html += '<div style="background:' + cardBg + ';border-radius:14px;padding:20px;border:1px solid ' + cardBorder + ';flex:1.2;min-width:340px">' +
+          sectionTitle("Action Funnel") + actionFunnel() + '</div>';
+
+        // Risk Distribution
+        html += '<div style="background:' + cardBg + ';border-radius:14px;padding:20px;border:1px solid ' + cardBorder + ';flex:0.8;min-width:280px">' +
+          sectionTitle("Risk Distribution") + riskDistribution() + '</div>';
+
+        html += '</div>';
+
+        // Savings Breakdown
+        html += '<div style="background:' + cardBg + ';border-radius:14px;padding:20px;border:1px solid ' + cardBorder + ';margin-bottom:24px">' +
+          sectionTitle("Cost Savings Breakdown") + savingsBreakdown() + '</div>';
+
+        // Schema + Classification
+        html += '<div style="display:flex;gap:16px;margin-bottom:24px;flex-wrap:wrap">';
+
+        html += '<div style="background:' + cardBg + ';border-radius:14px;padding:20px;border:1px solid ' + cardBorder + ';flex:1.4;min-width:400px">' +
+          sectionTitle("Schema Breakdown") + schemaBreakdown() + '</div>';
+
+        html += '<div style="background:' + cardBg + ';border-radius:14px;padding:20px;border:1px solid ' + cardBorder + ';flex:0.6;min-width:280px">' +
+          sectionTitle("Classification Distribution") + classifDistribution() + '</div>';
+
+        html += '</div>';
+
+        // Top Tables
+        html += '<div style="display:flex;gap:16px;margin-bottom:16px;flex-wrap:wrap">' +
+          topTablesCard("Top 5 Costliest Tables", topCost, "cost", function(r) { return r.action === "Delete" ? accentRed : r.action === "Archive" ? accentPurple : accentAmber; }) +
+          topTablesCard("Top 5 Largest Tables", topSize, "size", function(r) { return r.risk >= 80 ? accentRed : r.risk >= 50 ? accentAmber : accentBlue; }) +
+        '</div>';
+
+      } else {
+        // Details tab
+        html += '<div style="background:' + cardBg + ';border-radius:14px;padding:20px;border:1px solid ' + cardBorder + '">' +
+          sectionTitle("All Suspect Tables (sorted by cost)") + detailTable() + '</div>';
+      }
+
+      html += '</div>';
+
+      self._container.innerHTML = html;
+
+      // Tab events
+      var tabBtns = self._container.querySelectorAll("[data-tab]");
+      for (var i = 0; i < tabBtns.length; i++) {
         (function(btn) {
           btn.addEventListener("click", function() {
-            schemaFilter = btn.getAttribute("data-schema");
+            activeTab = btn.getAttribute("data-tab");
             render();
           });
-        })(schemaButtons[i]);
-      }
-
-      var actionButtons = self._container.querySelectorAll("[data-action]");
-      for (var i = 0; i < actionButtons.length; i++) {
-        (function(btn) {
-          btn.addEventListener("click", function() {
-            actionFilter = btn.getAttribute("data-action");
-            render();
-          });
-        })(actionButtons[i]);
-      }
-
-      var sortHeaders = self._container.querySelectorAll("[data-sort]");
-      for (var i = 0; i < sortHeaders.length; i++) {
-        (function(th) {
-          th.addEventListener("click", function() {
-            var col = th.getAttribute("data-sort");
-            if (currentSort === col) {
-              sortDir = sortDir === "desc" ? "asc" : "desc";
-            } else {
-              currentSort = col;
-              sortDir = "desc";
-            }
-            render();
-          });
-        })(sortHeaders[i]);
-      }
-
-      var dataRows = self._container.querySelectorAll(".data-row");
-      for (var i = 0; i < dataRows.length; i++) {
-        (function(tr) {
-          tr.addEventListener("mouseenter", function() { tr.style.background = rowHoverBg; });
-          tr.addEventListener("mouseleave", function() { tr.style.background = "transparent"; });
-        })(dataRows[i]);
+        })(tabBtns[i]);
       }
     }
 
