@@ -24,52 +24,49 @@ looker.plugins.visualizations.add({
 
     var dims = queryResponse.fields.dimension_like.map(function(f) { return f.name; });
     var meas = queryResponse.fields.measure_like.map(function(f) { return f.name; });
-    var allFields = dims.concat(meas);
+    var all = dims.concat(meas);
 
-    function findField(list, keyword) {
+    function ff(list, kw) {
       for (var i = 0; i < list.length; i++) {
-        if (list[i].toLowerCase().indexOf(keyword) !== -1) return list[i];
+        if (list[i].toLowerCase().indexOf(kw) !== -1) return list[i];
       }
       return null;
     }
 
     var F = {
-      schema:     findField(dims, "table_schema"),
-      name:       findField(dims, "table_name"),
-      indictment: findField(dims, "indictment"),
-      classif:    findField(dims, "classification"),
-      reasoning:  findField(dims, "reasoning"),
-      action:     findField(dims, "action"),
-      state:      findField(dims, "state_status"),
-      risk:       findField(allFields, "risk_level"),
-      decision:   findField(allFields, "decision_score"),
-      size:       findField(allFields, "size_gb") || findField(meas, "size"),
-      cost:       findField(allFields, "cost") || findField(allFields, "monthly"),
-      created:    findField(dims, "created"),
-      updated:    findField(dims, "update"),
+      schema:   ff(dims, "table_schema"),
+      name:     ff(dims, "table_name"),
+      size:     ff(all, "total_logical_gib") || ff(all, "size"),
+      cost:     ff(all, "monthly_cost") || ff(all, "cost"),
+      usage:    ff(all, "total_usage") || ff(all, "usage"),
+      risk:     ff(all, "risk_level"),
+      delScore: ff(all, "deletion_score"),
+      reason:   ff(dims, "reasoning"),
+      action:   ff(dims, "action"),
+      owner:    ff(dims, "suggested_owner") || ff(dims, "owner"),
     };
+
+    function gv(row, key) { return row[key] && row[key].value != null ? row[key].value : ""; }
+    function gn(row, key) { return row[key] && row[key].value != null ? parseFloat(row[key].value) || 0 : 0; }
 
     var rows = data.map(function(row) {
       return {
-        schema:     F.schema     ? (row[F.schema]     && row[F.schema].value     || "") : "",
-        name:       F.name       ? (row[F.name]       && row[F.name].value       || "") : "",
-        indictment: F.indictment ? (row[F.indictment] && row[F.indictment].value || "") : "",
-        classif:    F.classif    ? (row[F.classif]    && row[F.classif].value    || "") : "",
-        reasoning:  F.reasoning  ? (row[F.reasoning]  && row[F.reasoning].value  || "") : "",
-        action:     F.action     ? (row[F.action]     && row[F.action].value     || "") : "",
-        state:      F.state      ? (row[F.state]      && row[F.state].value      || "") : "",
-        size:       F.size       ? (parseFloat(row[F.size]      && row[F.size].value)      || 0) : 0,
-        cost:       F.cost       ? (parseFloat(row[F.cost]      && row[F.cost].value)      || 0) : 0,
-        risk:       F.risk       ? (parseFloat(row[F.risk]      && row[F.risk].value)      || 0) : 0,
-        decision:   F.decision   ? (parseFloat(row[F.decision]  && row[F.decision].value)  || 0) : 0,
-        created:    F.created    ? (row[F.created]    && row[F.created].value    || "") : "",
-        updated:    F.updated    ? (row[F.updated]    && row[F.updated].value    || "") : "",
+        schema:   F.schema   ? gv(row, F.schema)   : "",
+        name:     F.name     ? gv(row, F.name)      : "",
+        size:     F.size     ? gn(row, F.size)      : 0,
+        cost:     F.cost     ? gn(row, F.cost)      : 0,
+        usage:    F.usage    ? gn(row, F.usage)     : 0,
+        risk:     F.risk     ? gv(row, F.risk)      : "",
+        delScore: F.delScore ? gn(row, F.delScore)  : 0,
+        reason:   F.reason   ? gv(row, F.reason)    : "",
+        action:   F.action   ? gv(row, F.action)    : "",
+        owner:    F.owner    ? gv(row, F.owner)     : "",
       };
     });
 
-    function isApprovedDelete(action) {
-      var a = action.toLowerCase();
-      return a === "delete" || a === "approved to delete";
+    function isApprovedDelete(a) {
+      var l = a.toLowerCase();
+      return l === "delete" || l === "approved to delete";
     }
 
     var total = rows.length;
@@ -79,11 +76,11 @@ looker.plugins.visualizations.add({
     var doNotDelete = rows.filter(function(r) { return r.action === "Do Not Delete"; });
     var candidates = rows.filter(function(r) { return r.action !== "Do Not Delete"; });
 
-    var totalSize = 0, totalCost = 0, totalRisk = 0, totalDecision = 0;
+    var totalSize = 0, totalCost = 0, totalDelScore = 0, totalUsage = 0;
     var archivedCost = 0, archivedSize = 0;
     var approvedCost = 0, approvedSize = 0;
     var warningCost = 0, warningSize = 0;
-    for (var i = 0; i < rows.length; i++) { totalSize += rows[i].size; totalCost += rows[i].cost; totalRisk += rows[i].risk; totalDecision += rows[i].decision; }
+    for (var i = 0; i < rows.length; i++) { totalSize += rows[i].size; totalCost += rows[i].cost; totalDelScore += rows[i].delScore; totalUsage += rows[i].usage; }
     for (var i = 0; i < archived.length; i++) { archivedCost += archived[i].cost; archivedSize += archived[i].size; }
     for (var i = 0; i < approvedDel.length; i++) { approvedCost += approvedDel[i].cost; approvedSize += approvedDel[i].size; }
     for (var i = 0; i < warnings.length; i++) { warningCost += warnings[i].cost; warningSize += warnings[i].size; }
@@ -92,11 +89,11 @@ looker.plugins.visualizations.add({
     var savingsRemaining = approvedCost + warningCost;
     var doNotDeletePct = total ? Math.round(doNotDelete.length / total * 100) : 0;
 
-    var riskHigh = rows.filter(function(r) { return r.risk >= 80; });
-    var riskMed = rows.filter(function(r) { return r.risk >= 50 && r.risk < 80; });
-    var riskLow = rows.filter(function(r) { return r.risk < 50; });
-    var avgRisk = total ? Math.round(totalRisk / total) : 0;
-    var avgDecision = total ? Math.round(totalDecision / total) : 0;
+    // Risk level is a string (e.g. "High", "Medium", "Low")
+    var riskHigh = rows.filter(function(r) { return r.risk.toLowerCase() === "high"; });
+    var riskMed = rows.filter(function(r) { return r.risk.toLowerCase() === "medium" || r.risk.toLowerCase() === "med"; });
+    var riskLow = rows.filter(function(r) { return r.risk.toLowerCase() === "low"; });
+    var avgDelScore = total ? Math.round(totalDelScore / total) : 0;
 
     var schemaMap = {};
     rows.forEach(function(r) {
@@ -116,6 +113,18 @@ looker.plugins.visualizations.add({
     schemas.forEach(function(s) {
       if (!schemaColors[s]) { schemaColors[s] = defaultSchemaClrs[schemaClrIdx % defaultSchemaClrs.length]; schemaClrIdx++; }
     });
+
+    // Owner breakdown
+    var ownerMap = {};
+    rows.forEach(function(r) {
+      var o = r.owner || "Unknown";
+      if (!ownerMap[o]) ownerMap[o] = { count: 0, cost: 0, archived: 0, pending: 0 };
+      ownerMap[o].count++;
+      ownerMap[o].cost += r.cost;
+      if (r.action === "Archive") ownerMap[o].archived++;
+      else if (r.action !== "Do Not Delete") ownerMap[o].pending++;
+    });
+    var owners = Object.keys(ownerMap).sort(function(a, b) { return ownerMap[b].cost - ownerMap[a].cost; });
 
     var pendingTables = rows.filter(function(r) { return r.action !== "Archive" && r.action !== "Do Not Delete"; });
     var topOpportunity = pendingTables.slice().sort(function(a, b) { return b.cost - a.cost; }).slice(0, 7);
@@ -143,12 +152,13 @@ looker.plugins.visualizations.add({
       var dividerColor= isDark ? "rgba(148,163,184,0.08)" : "rgba(0,0,0,0.06)";
 
       var actionColorMap = { "Archive": accentEmerald, "Approved to Delete": accentRed, "Delete": accentRed, "Warning": accentOrange, "Do Not Delete": accentBlue };
+      var riskColorMap = { "high": accentRed, "medium": accentAmber, "med": accentAmber, "low": accentGreen };
 
       function fmt(n) { return n.toLocaleString(undefined, { maximumFractionDigits: 0 }); }
-      function fmtDec(n, d) { return n.toLocaleString(undefined, { maximumFractionDigits: d || 2 }); }
+      function fmtDec(n) { return n.toLocaleString(undefined, { maximumFractionDigits: 2 }); }
       function fmtMoney(n) { return "$" + n.toLocaleString(undefined, { maximumFractionDigits: 0 }); }
-      function fmtTB(n) { return (n / 1000).toFixed(1) + " TB"; }
-      function pct(n, d) { return d ? Math.round(n / d * 100) : 0; }
+      function fmtMoneyDec(n) { return "$" + n.toLocaleString(undefined, { maximumFractionDigits: 2 }); }
+      function fmtTB(n) { return n >= 1000 ? (n / 1024).toFixed(1) + " TiB" : fmtDec(n) + " GiB"; }
 
       function miniBar(val, max, color, w) {
         var pw = max ? Math.min(val / max * 100, 100) : 0;
@@ -182,6 +192,12 @@ looker.plugins.visualizations.add({
       function tabBtn(id, label) {
         var act = activeTab === id;
         return '<button data-tab="' + id + '" style="padding:8px 20px;border-radius:8px;font-size:13px;font-weight:600;cursor:pointer;background:' + (act ? accentEmerald : "transparent") + ';color:' + (act ? "#fff" : textSecond) + ';border:none">' + label + '</button>';
+      }
+
+      function riskBadge(risk) {
+        var rl = risk.toLowerCase();
+        var c = riskColorMap[rl] || textMuted;
+        return '<span style="padding:2px 8px;border-radius:5px;font-size:10px;font-weight:700;background:' + c + '15;color:' + c + ';white-space:nowrap">' + risk + '</span>';
       }
 
       // === HERO ===
@@ -248,20 +264,19 @@ looker.plugins.visualizations.add({
           '<div style="font-size:10px;color:' + textMuted + ';margin-top:3px">' + dndLabel + '</div>' +
         '</div>';
 
-        // Decision score indicator
-        var decColor = avgDecision >= 70 ? accentEmerald : avgDecision >= 40 ? accentAmber : accentRed;
-        var decLabel = avgDecision >= 70 ? "High confidence" : avgDecision >= 40 ? "Moderate confidence" : "Low confidence";
-        var decExtra = '<div style="margin-top:10px;padding:8px 10px;border-radius:8px;background:' + decColor + '10;border:1px solid ' + decColor + '25">' +
+        var dsColor = avgDelScore >= 70 ? accentRed : avgDelScore >= 40 ? accentAmber : accentEmerald;
+        var dsLabel = avgDelScore >= 70 ? "High deletion confidence" : avgDelScore >= 40 ? "Moderate confidence" : "Low deletion risk";
+        var dsExtra = '<div style="margin-top:10px;padding:8px 10px;border-radius:8px;background:' + dsColor + '10;border:1px solid ' + dsColor + '25">' +
           '<div style="display:flex;align-items:center;gap:6px">' +
-            '<div style="width:7px;height:7px;border-radius:50%;background:' + decColor + '"></div>' +
-            '<span style="font-size:11px;font-weight:600;color:' + decColor + '">Avg Decision Score: ' + avgDecision + '</span>' +
+            '<div style="width:7px;height:7px;border-radius:50%;background:' + dsColor + '"></div>' +
+            '<span style="font-size:11px;font-weight:600;color:' + dsColor + '">Avg Deletion Score: ' + avgDelScore + '</span>' +
           '</div>' +
-          '<div style="font-size:10px;color:' + textMuted + ';margin-top:3px">' + decLabel + '</div>' +
+          '<div style="font-size:10px;color:' + textMuted + ';margin-top:3px">' + dsLabel + '</div>' +
         '</div>';
 
         return '<div style="display:flex;gap:12px;margin-bottom:24px;flex-wrap:wrap">' +
-          kpi("🔍", "Tables Scanned", fmt(total), schemas.length + " schemas", accentBlue, dndExtra) +
-          kpi("🗑️", "Approved to Delete", fmt(approvedDel.length), fmtMoney(approvedCost) + "/mo recoverable", accentRed, decExtra) +
+          kpi("🔍", "Tables Scanned", fmt(total), schemas.length + " schemas • " + fmtTB(totalSize) + " total", accentBlue, dndExtra) +
+          kpi("🗑️", "Approved to Delete", fmt(approvedDel.length), fmtMoney(approvedCost) + "/mo recoverable", accentRed, dsExtra) +
           kpi("📦", "Archived", fmt(archived.length), fmtTB(archivedSize) + " freed • " + fmtMoney(archivedCost) + "/mo saved", accentEmerald) +
           kpi("⚠️", "Pending Warning", fmt(warnings.length), fmtMoney(warningCost) + "/mo at stake", accentOrange) +
         '</div>';
@@ -383,22 +398,48 @@ looker.plugins.visualizations.add({
         return '<div style="display:flex;align-items:center;gap:24px">' +
           '<div style="position:relative;width:110px;height:110px">' + donut +
             '<div style="position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center">' +
-              '<div style="font-size:26px;font-weight:800;color:' + textPrimary + '">' + avgRisk + '</div>' +
-              '<div style="font-size:9px;color:' + textMuted + ';font-weight:700">AVG RISK</div>' +
+              '<div style="font-size:22px;font-weight:800;color:' + textPrimary + '">' + total + '</div>' +
+              '<div style="font-size:9px;color:' + textMuted + ';font-weight:700">TABLES</div>' +
             '</div>' +
           '</div>' +
           '<div style="flex:1">' +
-            [{ label: "High Risk (80+)", count: riskHigh.length, color: accentRed },
-             { label: "Medium (50-79)", count: riskMed.length, color: accentAmber },
-             { label: "Low (&lt;50)", count: riskLow.length, color: accentGreen }]
+            [{ label: "High Risk", count: riskHigh.length, color: accentRed },
+             { label: "Medium Risk", count: riskMed.length, color: accentAmber },
+             { label: "Low Risk", count: riskLow.length, color: accentGreen }]
             .map(function(item) {
               return '<div style="display:flex;align-items:center;gap:8px;margin-bottom:8px">' +
                 '<div style="width:10px;height:10px;border-radius:3px;background:' + item.color + '"></div>' +
                 '<span style="font-size:12px;color:' + textSecond + ';flex:1">' + item.label + '</span>' +
                 '<span style="font-size:14px;font-weight:700;color:' + item.color + '">' + item.count + '</span></div>';
             }).join('') +
+            '<div style="margin-top:10px;padding-top:10px;border-top:1px solid ' + dividerColor + '">' +
+              '<div style="display:flex;align-items:center;justify-content:space-between">' +
+                '<span style="font-size:11px;color:' + textMuted + '">Avg Deletion Score</span>' +
+                '<span style="font-size:16px;font-weight:800;color:' + (avgDelScore >= 70 ? accentRed : avgDelScore >= 40 ? accentAmber : accentEmerald) + '">' + avgDelScore + '</span>' +
+              '</div>' +
+            '</div>' +
           '</div>' +
         '</div>';
+      }
+
+      // === Owner Breakdown ===
+      function ownerBreakdown() {
+        var maxCost = owners.length ? ownerMap[owners[0]].cost : 1;
+        var h = '';
+        owners.slice(0, 8).forEach(function(o) {
+          var d = ownerMap[o];
+          h += '<div style="display:flex;align-items:center;gap:10px;margin-bottom:10px">' +
+            '<div style="flex:1;min-width:0">' +
+              '<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:3px">' +
+                '<span style="font-size:12px;font-weight:600;color:' + textPrimary + ';overflow:hidden;text-overflow:ellipsis;white-space:nowrap">' + o + '</span>' +
+                '<span style="font-size:11px;color:' + textMuted + ';flex-shrink:0;margin-left:8px">' + d.count + ' tables • ' + d.archived + ' archived</span>' +
+              '</div>' +
+              miniBar(d.cost, maxCost, accentPurple) +
+            '</div>' +
+            '<div style="font-size:12px;font-weight:700;color:' + accentPurple + ';min-width:65px;text-align:right">' + fmtMoney(d.cost) + '/mo</div>' +
+          '</div>';
+        });
+        return h;
       }
 
       // === Top Tables ===
@@ -427,26 +468,27 @@ looker.plugins.visualizations.add({
       // === Detail Table ===
       function detailTable() {
         var sorted = rows.slice().sort(function(a, b) { return b.cost - a.cost; });
+        var maxDelScore = 100;
         var h = '<div style="overflow-x:auto"><table style="width:100%;border-collapse:collapse;font-size:12px">';
         h += '<thead><tr style="border-bottom:2px solid ' + dividerColor + '">';
-        ["Schema","Table","Size (GB)","Cost/mo","Status","Risk Level","Decision Score","Action"].forEach(function(c) {
-          h += '<th style="padding:10px 12px;text-align:left;font-size:10px;font-weight:700;color:' + textMuted + ';letter-spacing:0.8px;text-transform:uppercase">' + c + '</th>';
+        ["Schema","Table","Size (GiB)","Cost/mo","Usage","Risk Level","Del. Score","Action","Owner"].forEach(function(c) {
+          h += '<th style="padding:10px 12px;text-align:left;font-size:10px;font-weight:700;color:' + textMuted + ';letter-spacing:0.8px;text-transform:uppercase;white-space:nowrap">' + c + '</th>';
         });
         h += '</tr></thead><tbody>';
         sorted.forEach(function(r) {
           var sc = schemaColors[r.schema] || "#475569";
           var ac = actionColorMap[r.action] || textMuted;
-          var rc = r.risk >= 80 ? accentRed : r.risk >= 50 ? accentAmber : accentGreen;
-          var dc = r.decision >= 70 ? accentEmerald : r.decision >= 40 ? accentAmber : accentRed;
+          var dc = r.delScore >= 70 ? accentRed : r.delScore >= 40 ? accentAmber : accentEmerald;
           h += '<tr style="border-bottom:1px solid ' + dividerColor + '">' +
             '<td style="padding:8px 12px"><span style="padding:2px 8px;border-radius:5px;font-size:10px;font-weight:700;background:' + sc + '15;color:' + sc + '">' + r.schema.toUpperCase() + '</span></td>' +
-            '<td style="padding:8px 12px;font-family:monospace;font-weight:500;color:' + textPrimary + '">' + r.name + '</td>' +
+            '<td style="padding:8px 12px;font-family:monospace;font-weight:500;color:' + textPrimary + ';max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">' + r.name + '</td>' +
             '<td style="padding:8px 12px;color:' + textSecond + ';font-variant-numeric:tabular-nums">' + fmtDec(r.size) + '</td>' +
-            '<td style="padding:8px 12px;color:#fbbf24;font-weight:600">' + fmtMoney(r.cost) + '</td>' +
-            '<td style="padding:8px 12px;font-size:11px;color:' + textSecond + '">' + r.indictment + '</td>' +
-            '<td style="padding:8px 12px"><div style="display:flex;align-items:center;gap:6px">' + miniBar(r.risk, 100, rc, "50px") + '<span style="font-size:11px;font-weight:600;color:' + rc + '">' + r.risk + '</span></div></td>' +
-            '<td style="padding:8px 12px"><div style="display:flex;align-items:center;gap:6px">' + miniBar(r.decision, 100, dc, "50px") + '<span style="font-size:11px;font-weight:600;color:' + dc + '">' + r.decision + '</span></div></td>' +
+            '<td style="padding:8px 12px;color:#fbbf24;font-weight:600">' + fmtMoneyDec(r.cost) + '</td>' +
+            '<td style="padding:8px 12px;color:' + textSecond + ';font-variant-numeric:tabular-nums">' + fmt(r.usage) + '</td>' +
+            '<td style="padding:8px 12px">' + riskBadge(r.risk) + '</td>' +
+            '<td style="padding:8px 12px"><div style="display:flex;align-items:center;gap:6px">' + miniBar(r.delScore, maxDelScore, dc, "50px") + '<span style="font-size:11px;font-weight:600;color:' + dc + '">' + r.delScore + '</span></div></td>' +
             '<td style="padding:8px 12px"><span style="padding:2px 8px;border-radius:5px;font-size:10px;font-weight:700;background:' + ac + '15;color:' + ac + ';white-space:nowrap">' + r.action + '</span></td>' +
+            '<td style="padding:8px 12px;font-size:11px;color:' + textSecond + ';max-width:120px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">' + r.owner + '</td>' +
           '</tr>';
         });
         h += '</tbody></table></div>';
@@ -484,8 +526,12 @@ looker.plugins.visualizations.add({
         html += '<div style="background:' + cardBg + ';border-radius:14px;padding:20px;border:1px solid ' + cardBorder + ';margin-bottom:24px">' +
           sectionTitle("Schema Distribution", "🗂️") + schemaDistribution() + '</div>';
 
-        html += '<div style="background:' + cardBg + ';border-radius:14px;padding:20px;border:1px solid ' + cardBorder + ';margin-bottom:24px">' +
+        html += '<div style="display:flex;gap:16px;margin-bottom:24px;flex-wrap:wrap">';
+        html += '<div style="background:' + cardBg + ';border-radius:14px;padding:20px;border:1px solid ' + cardBorder + ';flex:1;min-width:400px">' +
           sectionTitle("Archive Progress by Schema", "🗄️") + schemaArchiveProgress() + '</div>';
+        html += '<div style="background:' + cardBg + ';border-radius:14px;padding:20px;border:1px solid ' + cardBorder + ';flex:0.7;min-width:280px">' +
+          sectionTitle("Ownership Breakdown", "👤") + ownerBreakdown() + '</div>';
+        html += '</div>';
 
         html += '<div style="display:flex;gap:16px;margin-bottom:16px;flex-wrap:wrap">';
         html += '<div style="background:' + cardBg + ';border-radius:14px;padding:20px;border:1px solid ' + cardBorder + ';flex:1;min-width:320px">' +
