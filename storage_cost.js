@@ -65,7 +65,6 @@ looker.plugins.visualizations.add({
     function gn(row,k){return k&&row[k]?parseFloat(row[k].value)||0:0;}
     function fmt$(v){if(v>=10000)return'$'+Math.round(v).toLocaleString();if(v>=1)return'$'+v.toFixed(2);return'$'+v.toFixed(4);}
     function fmtG(v){return v>=1000?(v/1024).toFixed(1)+' TiB':v.toFixed(2)+' GiB';}
-    function fmtK(v){if(v>=1000000)return(v/1000000).toFixed(1)+'M';if(v>=1000)return(v/1000).toFixed(1)+'K';return v.toString();}
 
     var sPal=['#8b5cf6','#06b6d4','#f59e0b','#ec4899','#10b981','#f97316','#3b82f6','#ef4444','#a855f7','#14b8a6','#eab308','#6366f1','#d946ef','#22d3ee','#84cc16'];
 
@@ -80,22 +79,51 @@ looker.plugins.visualizations.add({
       });
     });
 
-    // Aggregate by model
-    var models={};
+    // --- Find the latest date ---
+    var allDates={};
     rows.forEach(function(r){
+      var d=r.date?String(r.date).substring(0,10):'';
+      if(d)allDates[d]=true;
+    });
+    var sortedDates=Object.keys(allDates).sort();
+    var latestDate=sortedDates.length>0?sortedDates[sortedDates.length-1]:'';
+    var prevDate=sortedDates.length>1?sortedDates[sortedDates.length-2]:'';
+
+    // --- Latest-day rows only (for KPIs, schema dist, model list) ---
+    var latestRows=rows.filter(function(r){return String(r.date).substring(0,10)===latestDate;});
+    var prevRows=prevDate?rows.filter(function(r){return String(r.date).substring(0,10)===prevDate;}):[];
+
+    // Aggregate latest-day models
+    var models={};
+    latestRows.forEach(function(r){
       var key=(r.schema?r.schema+'.':'')+r.table;
       if(!key||key==='.')return;
-      if(!models[key])models[key]={name:key,schema:r.schema,table:r.table,cost:0,logGib:0,phyGib:0,savings:0,ttWaste:0,billing:r.billing,preferred:r.preferred,optStatus:r.optStatus,ttAlert:r.ttAlert,cnt:0};
+      if(!models[key])models[key]={name:key,schema:r.schema,table:r.table,cost:0,logGib:0,phyGib:0,savings:0,ttWaste:0,billing:r.billing,preferred:r.preferred,optStatus:r.optStatus,ttAlert:r.ttAlert};
       var m=models[key];
       m.cost=Math.max(m.cost,r.cost);m.logGib=Math.max(m.logGib,r.logGib);
       m.phyGib=Math.max(m.phyGib,r.phyGib);m.savings=Math.max(m.savings,r.savings);
-      m.ttWaste=Math.max(m.ttWaste,r.ttWaste);m.cnt++;
+      m.ttWaste=Math.max(m.ttWaste,r.ttWaste);
       if(r.billing)m.billing=r.billing;if(r.preferred)m.preferred=r.preferred;
       if(r.optStatus)m.optStatus=r.optStatus;if(r.ttAlert)m.ttAlert=r.ttAlert;
     });
     var mList=Object.values(models);
 
-    // Aggregate by schema
+    // Aggregate prev-day totals for delta
+    var prevTotalCost=0,prevModelCount=0;
+    if(prevRows.length>0){
+      var prevModels={};
+      prevRows.forEach(function(r){
+        var key=(r.schema?r.schema+'.':'')+r.table;
+        if(!key||key==='.')return;
+        if(!prevModels[key])prevModels[key]={cost:0};
+        prevModels[key].cost=Math.max(prevModels[key].cost,r.cost);
+      });
+      var pvList=Object.values(prevModels);
+      prevModelCount=pvList.length;
+      pvList.forEach(function(m){prevTotalCost+=m.cost;});
+    }
+
+    // Aggregate latest-day schemas
     var schemas={};
     mList.forEach(function(m){
       var s=m.schema||'(no schema)';
@@ -107,7 +135,7 @@ looker.plugins.visualizations.add({
     var sColorMap={};
     sList.forEach(function(s,i){sColorMap[s.name]=sPal[i%sPal.length];});
 
-    // Aggregate by date
+    // Aggregate ALL dates for trend
     var byDate={};
     rows.forEach(function(r){
       var d=r.date?String(r.date).substring(0,10):'';if(!d)return;
@@ -119,13 +147,30 @@ looker.plugins.visualizations.add({
     var trend=Object.values(byDate).map(function(d){return{date:d.date,cost:d.cost,count:Object.keys(d.models).length};});
     trend.sort(function(a,b){return a.date.localeCompare(b.date);});
 
-    // Totals
+    // Latest-day totals for KPIs
     var totalCost=0,totalSavings=0,totalLogGib=0,ttAlertCount=0;
     mList.forEach(function(m){
       totalCost+=m.cost;totalSavings+=m.savings;totalLogGib+=m.logGib;
       if(m.ttAlert&&m.ttAlert!=='null'&&m.ttAlert!=='')ttAlertCount++;
     });
     var optimizeCount=mList.filter(function(m){return m.savings>0;}).length;
+
+    // Deltas
+    var costDelta=prevTotalCost>0?totalCost-prevTotalCost:null;
+    var modelDelta=prevModelCount>0?mList.length-prevModelCount:null;
+
+    function fmtDelta(v,prefix){
+      if(v===null||v===0)return'';
+      var sign=v>0?'+':'';
+      var clr=v>0?'#ef4444':'#10b981'; // cost up = red, cost down = green
+      return ' <span style="color:'+clr+';font-size:11px;font-weight:600">'+sign+(prefix||'')+Math.abs(v<1&&v>-1?parseFloat(v.toFixed(4)):Math.round(v)).toLocaleString()+'</span>';
+    }
+    function fmtDeltaModels(v){
+      if(v===null||v===0)return'';
+      var sign=v>0?'+':'';
+      var clr=v>0?sc2:'#f59e0b';
+      return ' <span style="color:'+clr+';font-size:11px;font-weight:600">'+sign+v+'</span>';
+    }
 
     // State
     var sC='cost',sD='desc',tab='all',schemaFilter=null;
@@ -148,8 +193,8 @@ looker.plugins.visualizations.add({
 
       // ========== KPI CARDS ==========
       h+='<div class="sc-kpi">';
-      h+='<div class="sc-kpi-card"><div class="sc-kpi-label">Total Models</div><div class="sc-kpi-val" style="color:'+sc2+'">'+mList.length+'</div><div class="sc-kpi-sub">across '+sList.length+' schemas</div></div>';
-      h+='<div class="sc-kpi-card"><div class="sc-kpi-label">Monthly Cost</div><div class="sc-kpi-val" style="color:'+pc+'">'+fmt$(totalCost)+'</div><div class="sc-kpi-sub">'+fmtG(totalLogGib)+' logical storage</div></div>';
+      h+='<div class="sc-kpi-card"><div class="sc-kpi-label">Total Models</div><div class="sc-kpi-val" style="color:'+sc2+'">'+mList.length+fmtDeltaModels(modelDelta)+'</div><div class="sc-kpi-sub">across '+sList.length+' schemas \u00B7 as of '+latestDate+'</div></div>';
+      h+='<div class="sc-kpi-card"><div class="sc-kpi-label">Monthly Cost</div><div class="sc-kpi-val" style="color:'+pc+'">'+fmt$(totalCost)+fmtDelta(costDelta,'$')+'</div><div class="sc-kpi-sub">'+fmtG(totalLogGib)+' logical storage \u00B7 as of '+latestDate+'</div></div>';
       if(totalSavings>0)h+='<div class="sc-kpi-card"><div class="sc-kpi-label">Potential Savings</div><div class="sc-kpi-val" style="color:#10b981">'+fmt$(totalSavings)+'</div><div class="sc-kpi-sub">'+optimizeCount+' models can optimize</div></div>';
       if(ttAlertCount>0)h+='<div class="sc-kpi-card"><div class="sc-kpi-label">Time Travel Alerts</div><div class="sc-kpi-val" style="color:#f59e0b">'+ttAlertCount+'</div><div class="sc-kpi-sub">tables with excess time travel storage</div></div>';
       h+='</div>';
@@ -163,7 +208,6 @@ looker.plugins.visualizations.add({
         var maxC=0,maxN=0;
         trend.forEach(function(t){if(t.cost>maxC)maxC=t.cost;if(t.count>maxN)maxN=t.count;});
         if(maxC===0)maxC=1;if(maxN===0)maxN=1;
-        // Add 10% headroom
         maxC*=1.1;maxN=Math.ceil(maxN*1.15);
         var stepX=trend.length>1?cW/(trend.length-1):cW;
 
@@ -188,7 +232,6 @@ looker.plugins.visualizations.add({
         h+='<linearGradient id="cg2" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stop-color="'+sc2+'" stop-opacity="0.08"/><stop offset="100%" stop-color="'+sc2+'" stop-opacity="0"/></linearGradient>';
         h+='</defs>';
 
-        // Grid lines + Y labels
         for(var yi=0;yi<=4;yi++){
           var vy=py+cH-(yi/4)*cH;
           h+='<line x1="'+px+'" y1="'+vy+'" x2="'+(px+cW)+'" y2="'+vy+'" stroke="#1e293b" stroke-width="0.5"/>';
@@ -196,50 +239,33 @@ looker.plugins.visualizations.add({
           h+='<text x="'+(px+cW+10)+'" y="'+(vy+3)+'" text-anchor="start" fill="'+sc2+'" font-size="9" font-weight="500" opacity=".7">'+Math.round(maxN*(yi/4))+'</text>';
         }
 
-        // Axis titles
         h+='<text x="'+(px-10)+'" y="'+(py-12)+'" text-anchor="end" fill="'+pc+'" font-size="9" font-weight="700" letter-spacing=".5">COST ($)</text>';
         h+='<text x="'+(px+cW+10)+'" y="'+(py-12)+'" text-anchor="start" fill="'+sc2+'" font-size="9" font-weight="700" letter-spacing=".5"># MODELS</text>';
 
-        // X labels
         var xStep=Math.max(1,Math.floor(trend.length/7));
-        trend.forEach(function(t,i){
-          if(i%xStep===0||i===trend.length-1){
-            var x=px+i*stepX;
-            h+='<text x="'+x+'" y="'+(py+cH+18)+'" text-anchor="middle" fill="#64748b" font-size="9">'+t.date.substring(5)+'</text>';
-          }
-        });
+        trend.forEach(function(t,i){if(i%xStep===0||i===trend.length-1){var x=px+i*stepX;h+='<text x="'+x+'" y="'+(py+cH+18)+'" text-anchor="middle" fill="#64748b" font-size="9">'+t.date.substring(5)+'</text>';}});
 
-        // Areas
         h+='<path d="'+costArea+'" fill="url(#cg1)"/>';
         h+='<path d="'+countArea+'" fill="url(#cg2)"/>';
-
-        // Lines
         h+='<path d="'+costPath+'" fill="none" stroke="'+pc+'" stroke-width="2.5" stroke-linejoin="round" stroke-linecap="round"/>';
         h+='<path d="'+countPath+'" fill="none" stroke="'+sc2+'" stroke-width="2" stroke-linejoin="round" stroke-linecap="round"/>';
 
-        // Dots - cost
-        costPts.forEach(function(p){
-          h+='<circle cx="'+p.x.toFixed(1)+'" cy="'+p.y.toFixed(1)+'" r="4" fill="#131b2e" stroke="'+pc+'" stroke-width="2"/>';
-        });
-        // Dots - count
-        countPts.forEach(function(p,i){
-          h+='<circle cx="'+p.x.toFixed(1)+'" cy="'+p.y.toFixed(1)+'" r="3.5" fill="#131b2e" stroke="'+sc2+'" stroke-width="1.5"/>';
-        });
+        costPts.forEach(function(p){h+='<circle cx="'+p.x.toFixed(1)+'" cy="'+p.y.toFixed(1)+'" r="4" fill="#131b2e" stroke="'+pc+'" stroke-width="2"/>';});
+        countPts.forEach(function(p){h+='<circle cx="'+p.x.toFixed(1)+'" cy="'+p.y.toFixed(1)+'" r="3.5" fill="#131b2e" stroke="'+sc2+'" stroke-width="1.5"/>';});
 
-        // Legend
+        // Highlight latest day
+        var lastCp=costPts[costPts.length-1],lastNp=countPts[countPts.length-1];
+        if(lastCp)h+='<circle cx="'+lastCp.x.toFixed(1)+'" cy="'+lastCp.y.toFixed(1)+'" r="6" fill="'+pc+'" fill-opacity=".2" stroke="'+pc+'" stroke-width="2"/>';
+        if(lastNp)h+='<circle cx="'+lastNp.x.toFixed(1)+'" cy="'+lastNp.y.toFixed(1)+'" r="5.5" fill="'+sc2+'" fill-opacity=".2" stroke="'+sc2+'" stroke-width="1.5"/>';
+
         var lgX=px,lgY=tH-6;
         h+='<circle cx="'+lgX+'" cy="'+(lgY-2)+'" r="4" fill="'+pc+'"/>';
         h+='<text x="'+(lgX+8)+'" y="'+lgY+'" fill="'+pc+'" font-size="10" font-weight="600">Monthly Cost</text>';
         h+='<circle cx="'+(lgX+110)+'" cy="'+(lgY-2)+'" r="4" fill="'+sc2+'"/>';
         h+='<text x="'+(lgX+118)+'" y="'+lgY+'" fill="'+sc2+'" font-size="10" font-weight="600"># Models</text>';
 
-        // Hover zones
-        costPts.forEach(function(p,i){
-          h+='<rect class="sc-hover" data-i="'+i+'" x="'+(p.x-stepX/2)+'" y="'+py+'" width="'+Math.max(stepX,10)+'" height="'+cH+'" fill="transparent" style="cursor:crosshair"/>';
-        });
-        h+='</svg>';
-        h+='<div class="sc-ttip" id="sc-tip"></div>';
-        h+='</div>';
+        costPts.forEach(function(p,i){h+='<rect class="sc-hover" data-i="'+i+'" x="'+(p.x-stepX/2)+'" y="'+py+'" width="'+Math.max(stepX,10)+'" height="'+cH+'" fill="transparent" style="cursor:crosshair"/>';});
+        h+='</svg><div class="sc-ttip" id="sc-tip"></div></div>';
       }
 
       // ========== SCHEMA DISTRIBUTION ==========
@@ -253,9 +279,8 @@ looker.plugins.visualizations.add({
         h+='<div style="display:flex;align-items:center;gap:8px"><span style="font-size:10px;font-weight:700;color:#475569;text-transform:uppercase;letter-spacing:1px">Schema Distribution</span>';
         if(schemaFilter)h+='<span style="font-size:9px;color:'+sColorMap[schemaFilter]+';background:'+sColorMap[schemaFilter]+'12;padding:2px 8px;border-radius:4px;cursor:pointer" class="sf-clear">\u2715 '+schemaFilter+'</span>';
         h+='</div>';
-        h+='<span style="font-size:10px;color:#334155">'+sList.length+' schemas \u00B7 '+fmt$(totalSchCost)+' total</span></div>';
+        h+='<span style="font-size:10px;color:#334155">'+sList.length+' schemas \u00B7 '+fmt$(totalSchCost)+' total \u00B7 '+latestDate+'</span></div>';
 
-        // Horizontal bar chart
         sList.forEach(function(s,i){
           var pct=((s.cost/totalSchCost)*100);
           var barPct=Math.max((s.cost/maxSchCost)*100,2);
@@ -264,16 +289,13 @@ looker.plugins.visualizations.add({
           var op=isActive?'1':'0.3';
 
           h+='<div class="sc-srow sf-bar" data-s="'+s.name+'" style="opacity:'+op+'">';
-          // Schema name
           h+='<div style="min-width:140px;width:140px;display:flex;align-items:center;gap:8px;overflow:hidden">';
           h+='<span style="width:10px;height:10px;border-radius:3px;background:'+c+';flex-shrink:0"></span>';
           h+='<span style="font-size:11px;color:#e2e8f0;font-weight:500;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="'+s.name+'">'+s.name+'</span></div>';
-          // Bar
           h+='<div style="flex:1;height:20px;background:#0b1120;border-radius:4px;overflow:hidden;position:relative">';
           h+='<div style="width:'+barPct+'%;height:100%;background:'+c+';opacity:.35;border-radius:4px;transition:width .3s"></div>';
           h+='<span style="position:absolute;left:8px;top:50%;transform:translateY(-50%);font-size:10px;font-weight:600;color:'+c+'">'+fmt$(s.cost)+'</span>';
           h+='</div>';
-          // Stats
           h+='<div style="min-width:120px;text-align:right;display:flex;gap:10px;justify-content:flex-end">';
           h+='<span style="font-size:10px;color:#64748b">'+pct.toFixed(1)+'%</span>';
           h+='<span style="font-size:10px;color:#475569">'+s.models+' models</span>';
@@ -333,14 +355,12 @@ looker.plugins.visualizations.add({
       R.querySelectorAll('.t-tab').forEach(function(b){b.addEventListener('click',function(){tab=b.dataset.t;render();});});
       R.querySelectorAll('.sc-sort').forEach(function(c){c.addEventListener('click',function(){var k=c.dataset.c;if(sC===k)sD=sD==='asc'?'desc':'asc';else{sC=k;sD=k==='name'?'asc':'desc';}render();});});
 
-      // Schema filter
       R.querySelectorAll('.sf-bar').forEach(function(b){
         b.addEventListener('click',function(){var s=b.dataset.s;schemaFilter=schemaFilter===s?null:s;render();});
       });
       var clr=R.querySelector('.sf-clear');
       if(clr)clr.addEventListener('click',function(e){e.stopPropagation();schemaFilter=null;render();});
 
-      // Trend tooltip
       var tip=R.querySelector('#sc-tip');
       if(tip&&typeof costPts!=='undefined'){
         R.querySelectorAll('.sc-hover').forEach(function(rect){
