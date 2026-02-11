@@ -307,13 +307,9 @@ looker.plugins.visualizations.add({
       }
 
       // ========== TABS ==========
-      h+='<div class="sc-bar"><div style="display:flex;gap:4px">';
-      [{id:'all',l:'All Models ('+mList.length+')'},{id:'optimize',l:'Can Optimize ('+optimizeCount+')'},{id:'alert',l:'Time Travel Alerts ('+ttAlertCount+')'}].forEach(function(t){
-        h+='<button class="sc-tab t-tab'+(tab===t.id?' on':'')+'" data-t="'+t.id+'">'+t.l+'</button>';
-      });
-      h+='</div><div style="display:flex;align-items:center;gap:10px">';
+      h+='<div class="sc-bar"><div style="display:flex;align-items:center;gap:10px">';
       if(schemaFilter)h+='<span class="sc-pill" style="background:'+sColorMap[schemaFilter]+'15;color:'+sColorMap[schemaFilter]+';border:1px solid '+sColorMap[schemaFilter]+'30">'+schemaFilter+'</span>';
-      h+='<span style="color:#475569">Showing '+ls.length+' models</span></div></div>';
+      h+='<span style="color:#475569">Showing '+ls.length+' models \u00B7 sorted by cost</span></div></div>';
 
       // ========== TABLE ==========
       if(showTable){
@@ -345,7 +341,6 @@ looker.plugins.visualizations.add({
       R.innerHTML=h;
 
       // --- Events ---
-      R.querySelectorAll('.t-tab').forEach(function(b){b.addEventListener('click',function(){tab=b.dataset.t;render();});});
       R.querySelectorAll('.sc-sort').forEach(function(c){c.addEventListener('click',function(){var k=c.dataset.c;if(sC===k)sD=sD==='asc'?'desc':'asc';else{sC=k;sD=k==='name'?'asc':'desc';}render();});});
 
       R.querySelectorAll('.sf-bar').forEach(function(b){
