@@ -18,10 +18,10 @@ looker.plugins.visualizations.add({
     '.sc-trend{position:relative;border-bottom:1px solid #1e293b;flex-shrink:0;overflow:hidden}'+
     '.sc-schema{border-bottom:1px solid #1e293b;flex-shrink:0;overflow:hidden;padding:16px 20px}'+
     '.sc-scroll{flex:1;overflow:auto}'+
-    '.sc-hdr{display:grid;grid-template-columns:40px 1fr 130px 130px 120px 100px 100px;border-bottom:1px solid #1e293b;position:sticky;top:0;background:#131b2e;z-index:1}'+
+    '.sc-hdr{display:grid;grid-template-columns:40px 1fr 180px;border-bottom:1px solid #1e293b;position:sticky;top:0;background:#131b2e;z-index:1}'+
     '.sc-hdr>div{padding:10px 12px;font-size:10px;font-weight:600;color:#475569;cursor:pointer;user-select:none;text-transform:uppercase;letter-spacing:.5px;transition:color .15s}'+
     '.sc-hdr>div:hover{color:#94a3b8}.sc-hdr>div.on{color:#e2e8f0}'+
-    '.sc-row{display:grid;grid-template-columns:40px 1fr 130px 130px 120px 100px 100px;border-bottom:1px solid rgba(30,41,59,0.1);transition:background .15s}'+
+    '.sc-row{display:grid;grid-template-columns:40px 1fr 180px;border-bottom:1px solid rgba(30,41,59,0.1);transition:background .15s}'+
     '.sc-row:hover{background:rgba(30,41,59,0.3)}'+
     '.sc-cell{padding:8px 12px;font-size:11px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}'+
     '.sc-pill{display:inline-flex;align-items:center;gap:4px;padding:2px 8px;border-radius:5px;font-size:9px;font-weight:600;letter-spacing:.3px}'+
@@ -318,7 +318,7 @@ looker.plugins.visualizations.add({
       // ========== TABLE ==========
       if(showTable){
         h+='<div class="sc-hdr"><div>#</div>';
-        [{k:'name',l:'Model'},{k:'cost',l:'Monthly Cost'},{k:'savings',l:'Savings'},{k:'logGib',l:'Logical GiB'},{k:'billing',l:'Billing'},{k:'optStatus',l:'Status'}].forEach(function(c){
+        [{k:'name',l:'Model'},{k:'cost',l:'Monthly Cost'}].forEach(function(c){
           var isOn=sC===c.k;
           h+='<div class="sc-sort'+(isOn?' on':'')+'" data-c="'+c.k+'">'+c.l+(isOn?(sD==='asc'?' \u2191':' \u2193'):'')+'</div>';
         });
@@ -327,9 +327,6 @@ looker.plugins.visualizations.add({
         var mx=ls.length>0?ls.reduce(function(m,i){return Math.max(m,i.cost);},0):1;
         ls.forEach(function(m,i){
           var bW=mx>0?Math.max(m.cost/mx*100,1):0;
-          var sClr=m.savings>0?'#10b981':'#334155';
-          var stClr=m.optStatus==='Switch Recommended'?'#f59e0b':m.optStatus?'#10b981':'#334155';
-          var stBg=m.optStatus==='Switch Recommended'?'rgba(245,158,11,0.08)':m.optStatus?'rgba(16,185,129,0.08)':'transparent';
           var schClr=sColorMap[m.schema||'(no schema)']||'#475569';
 
           h+='<div class="sc-row">';
@@ -338,13 +335,7 @@ looker.plugins.visualizations.add({
           if(m.schema)h+=' <span style="color:#334155;font-size:9px">'+m.schema+'</span>';
           h+='</div>';
           h+='<div class="sc-cell"><div style="display:flex;align-items:center;gap:8px"><span style="color:'+pc+';font-weight:600;min-width:60px">'+fmt$(m.cost)+'</span><div style="flex:1;height:4px;background:#1e293b;border-radius:3px;overflow:hidden"><div style="width:'+bW+'%;height:100%;background:'+pc+';border-radius:3px;opacity:.6"></div></div></div></div>';
-          h+='<div class="sc-cell" style="color:'+sClr+';font-weight:'+(m.savings>0?'600':'400')+'">'+(m.savings>0?fmt$(m.savings):'\u2014')+'</div>';
-          h+='<div class="sc-cell" style="color:#64748b">'+fmtG(m.logGib)+'</div>';
-          h+='<div class="sc-cell"><span class="sc-pill" style="background:rgba(30,41,59,0.4);color:#94a3b8">'+(m.billing||'\u2014')+'</span></div>';
-          h+='<div class="sc-cell">';
-          if(m.optStatus)h+='<span class="sc-pill" style="background:'+stBg+';color:'+stClr+'">'+m.optStatus+'</span>';
-          else h+='<span style="color:#334155">\u2014</span>';
-          h+='</div></div>';
+          h+='</div>';
         });
         if(!ls.length)h+='<div style="text-align:center;padding:60px;color:#475569">No models match this filter</div>';
         h+='</div>';
