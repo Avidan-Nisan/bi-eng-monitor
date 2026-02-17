@@ -53,14 +53,16 @@ looker.plugins.visualizations.add({
     function findF(arr,kw){return arr.find(function(f){return f.toLowerCase().indexOf(kw)!==-1;});}
 
     var F={};
-    F.date=dims.find(function(f){var l=f.toLowerCase();return l.indexOf('stats_date')!==-1||(l.indexOf('date')!==-1&&l.indexOf('is_')===-1);});
-    F.schema=findF(dims,'table_schema');
-    F.table=findF(dims,'table_name');
-    F.cost=findF(allF,'current_monthly_cost');
+    // UPDATED: stats_date replaced with snapshot_date check
+    F.date=dims.find(function(f){var l=f.toLowerCase();return l.indexOf('snapshot_date')!==-1||(l.indexOf('date')!==-1&&l.indexOf('is_')===-1);});
+    // UPDATED: Table and Cost updated to malm prefixes if explicit, otherwise generic lookup holds
+    F.schema=findF(dims,'view_name'); // Mapping view_name as the primary schema organizer
+    F.table=findF(dims,'bq_table_name'); 
+    F.cost=findF(allF,'dashboard_total_views'); // Using view count as the "Cost" metric for this explorer
 
     function gv(row,k){if(!k||!row||!row[k])return'';return row[k].value||'';}
     function gn(row,k){if(!k||!row||!row[k])return 0;return parseFloat(row[k].value)||0;}
-    function fmt$(v){if(v>=10000)return'$'+Math.round(v).toLocaleString();if(v>=1)return'$'+v.toFixed(2);return'$'+v.toFixed(4);}
+    function fmt$(v){if(v>=10000)return v.toLocaleString();if(v>=1)return v.toFixed(2);return v.toFixed(4);}
 
     var sPal=['#8b5cf6','#06b6d4','#f59e0b','#ec4899','#10b981','#f97316','#3b82f6','#ef4444','#a855f7','#14b8a6','#eab308','#6366f1'];
 
@@ -161,8 +163,8 @@ looker.plugins.visualizations.add({
 
       // KPI CARDS
       h+='<div class="sc-kpi">';
-      h+='<div class="sc-kpi-card"><div class="sc-kpi-label">Total Models</div><div class="sc-kpi-val" style="color:'+sc2+'">'+mList.length+fmtD(modelDelta)+deltaLabel+'</div><div class="sc-kpi-sub">across '+sList.length+' schemas \u00B7 as of '+latestDate+'</div></div>';
-      h+='<div class="sc-kpi-card"><div class="sc-kpi-label">Monthly Cost</div><div class="sc-kpi-val" style="color:'+pc+'">'+fmt$(totalCost)+fmtD(costDelta,'$',true)+deltaLabel+'</div><div class="sc-kpi-sub">as of '+latestDate+'</div></div>';
+      h+='<div class="sc-kpi-card"><div class="sc-kpi-label">Total Tables Mapped</div><div class="sc-kpi-val" style="color:'+sc2+'">'+mList.length+fmtD(modelDelta)+deltaLabel+'</div><div class="sc-kpi-sub">across '+sList.length+' views \u00B7 as of '+latestDate+'</div></div>';
+      h+='<div class="sc-kpi-card"><div class="sc-kpi-label">Dashboard Views</div><div class="sc-kpi-val" style="color:'+pc+'">'+fmt$(totalCost)+fmtD(costDelta,'',true)+deltaLabel+'</div><div class="sc-kpi-sub">as of '+latestDate+'</div></div>';
       h+='</div>';
 
       h+='<div class="sc-body">';
@@ -196,8 +198,8 @@ looker.plugins.visualizations.add({
           h+='<text x="'+(px-10)+'" y="'+(vy+3)+'" text-anchor="end" fill="'+pc+'" font-size="9" opacity=".7">'+fmt$(maxC*(yi/4))+'</text>';
           h+='<text x="'+(px+cW+10)+'" y="'+(vy+3)+'" text-anchor="start" fill="'+sc2+'" font-size="9" opacity=".7">'+Math.round(maxN*(yi/4))+'</text>';
         }
-        h+='<text x="'+(px-10)+'" y="'+(py-12)+'" text-anchor="end" fill="'+pc+'" font-size="9" font-weight="700">COST ($)</text>';
-        h+='<text x="'+(px+cW+10)+'" y="'+(py-12)+'" text-anchor="start" fill="'+sc2+'" font-size="9" font-weight="700"># MODELS</text>';
+        h+='<text x="'+(px-10)+'" y="'+(py-12)+'" text-anchor="end" fill="'+pc+'" font-size="9" font-weight="700">VIEWS</text>';
+        h+='<text x="'+(px+cW+10)+'" y="'+(py-12)+'" text-anchor="start" fill="'+sc2+'" font-size="9" font-weight="700"># TABLES</text>';
 
         var xStep=Math.max(1,Math.floor(trend.length/7));
         for(var xi=0;xi<trend.length;xi++){
@@ -218,8 +220,8 @@ looker.plugins.visualizations.add({
         if(ln)h+='<circle cx="'+ln.x.toFixed(1)+'" cy="'+ln.y.toFixed(1)+'" r="5.5" fill="'+sc2+'" fill-opacity=".2" stroke="'+sc2+'" stroke-width="1.5"/>';
 
         var lgY=tH-6;
-        h+='<circle cx="'+px+'" cy="'+(lgY-2)+'" r="4" fill="'+pc+'"/><text x="'+(px+8)+'" y="'+lgY+'" fill="'+pc+'" font-size="10" font-weight="600">Monthly Cost</text>';
-        h+='<circle cx="'+(px+110)+'" cy="'+(lgY-2)+'" r="4" fill="'+sc2+'"/><text x="'+(px+118)+'" y="'+lgY+'" fill="'+sc2+'" font-size="10" font-weight="600"># Models</text>';
+        h+='<circle cx="'+px+'" cy="'+(lgY-2)+'" r="4" fill="'+pc+'"/><text x="'+(px+8)+'" y="'+lgY+'" fill="'+pc+'" font-size="10" font-weight="600">Total Views</text>';
+        h+='<circle cx="'+(px+110)+'" cy="'+(lgY-2)+'" r="4" fill="'+sc2+'"/><text x="'+(px+118)+'" y="lgY" fill="'+sc2+'" font-size="10" font-weight="600"># Tables</text>';
 
         for(var hi=0;hi<costPts.length;hi++)h+='<rect class="sc-hover" data-i="'+hi+'" x="'+(costPts[hi].x-stepX/2)+'" y="'+py+'" width="'+Math.max(stepX,10)+'" height="'+cH+'" fill="transparent" style="cursor:crosshair"/>';
         h+='</svg><div class="sc-ttip" id="sc-tip"></div></div>';
@@ -233,10 +235,10 @@ looker.plugins.visualizations.add({
 
         h+='<div class="sc-schema">';
         h+='<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px">';
-        h+='<div style="display:flex;align-items:center;gap:8px"><span style="font-size:10px;font-weight:700;color:#475569;text-transform:uppercase;letter-spacing:1px">Schema Distribution</span>';
+        h+='<div style="display:flex;align-items:center;gap:8px"><span style="font-size:10px;font-weight:700;color:#475569;text-transform:uppercase;letter-spacing:1px">View Distribution</span>';
         if(schemaFilter)h+='<span style="font-size:9px;color:'+sColorMap[schemaFilter]+';padding:2px 8px;border-radius:4px;cursor:pointer" class="sf-clear">\u2715 '+schemaFilter+'</span>';
         h+='</div>';
-        h+='<span style="font-size:10px;color:#334155">'+sList.length+' schemas \u00B7 '+fmt$(tsc)+' \u00B7 '+latestDate+'</span></div>';
+        h+='<span style="font-size:10px;color:#334155">'+sList.length+' views \u00B7 '+tsc.toLocaleString()+' views \u00B7 '+latestDate+'</span></div>';
 
         for(var sb=0;sb<sList.length;sb++){
           var sv=sList[sb],spct=(sv.cost/tsc*100),bpct=Math.max(sv.cost/msc*100,2),scl=sColorMap[sv.name];
@@ -247,10 +249,10 @@ looker.plugins.visualizations.add({
           h+='<span style="font-size:11px;color:#e2e8f0;font-weight:500;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">'+sv.name+'</span></div>';
           h+='<div style="flex:1;height:20px;background:#0b1120;border-radius:4px;overflow:hidden;position:relative">';
           h+='<div style="width:'+bpct+'%;height:100%;background:'+scl+';opacity:.35;border-radius:4px"></div>';
-          h+='<span style="position:absolute;left:8px;top:50%;transform:translateY(-50%);font-size:10px;font-weight:600;color:'+scl+'">'+fmt$(sv.cost)+'</span></div>';
+          h+='<span style="position:absolute;left:8px;top:50%;transform:translateY(-50%);font-size:10px;font-weight:600;color:'+scl+'">'+sv.cost.toLocaleString()+'</span></div>';
           h+='<div style="min-width:120px;text-align:right;display:flex;gap:10px;justify-content:flex-end">';
           h+='<span style="font-size:10px;color:#64748b">'+spct.toFixed(1)+'%</span>';
-          h+='<span style="font-size:10px;color:#475569">'+sv.models+' models</span></div></div>';
+          h+='<span style="font-size:10px;color:#475569">'+sv.models+' tables</span></div></div>';
         }
         h+='</div>';
       }
@@ -258,12 +260,12 @@ looker.plugins.visualizations.add({
       // INFO BAR
       h+='<div class="sc-info"><div style="display:flex;align-items:center;gap:10px">';
       if(schemaFilter)h+='<span class="sc-pill" style="background:'+sColorMap[schemaFilter]+'15;color:'+sColorMap[schemaFilter]+'">'+schemaFilter+'</span>';
-      h+='<span style="color:#475569">'+ls.length+' models</span></div></div>';
+      h+='<span style="color:#475569">'+ls.length+' tables mapped</span></div></div>';
 
       // TABLE
       if(showTable){
         h+='<div class="sc-hdr"><div>#</div>';
-        var cols=[{k:'name',l:'Model'},{k:'cost',l:'Monthly Cost'}];
+        var cols=[{k:'name',l:'Table'},{k:'cost',l:'Usage (Views)'}];
         for(var hc=0;hc<cols.length;hc++){
           var isOn=sC===cols[hc].k;
           h+='<div class="sc-sort'+(isOn?' on':'')+'" data-c="'+cols[hc].k+'">'+cols[hc].l+(isOn?(sD==='asc'?' \u2191':' \u2193'):'')+'</div>';
@@ -280,10 +282,10 @@ looker.plugins.visualizations.add({
           h+='<div class="sc-cell" title="'+m.name+'"><span style="display:inline-block;width:6px;height:6px;border-radius:2px;background:'+schClr+';margin-right:6px;vertical-align:middle"></span><span style="color:#e2e8f0;font-weight:500">'+m.table+'</span>';
           if(m.schema)h+=' <span style="color:#334155;font-size:9px">'+m.schema+'</span>';
           h+='</div>';
-          h+='<div class="sc-cell"><div style="display:flex;align-items:center;gap:8px"><span style="color:'+pc+';font-weight:600;min-width:60px">'+fmt$(m.cost)+'</span><div style="flex:1;height:4px;background:#1e293b;border-radius:3px;overflow:hidden"><div style="width:'+bW+'%;height:100%;background:'+pc+';border-radius:3px;opacity:.6"></div></div></div></div>';
+          h+='<div class="sc-cell"><div style="display:flex;align-items:center;gap:8px"><span style="color:'+pc+';font-weight:600;min-width:60px">'+m.cost.toLocaleString()+'</span><div style="flex:1;height:4px;background:#1e293b;border-radius:3px;overflow:hidden"><div style="width:'+bW+'%;height:100%;background:'+pc+';border-radius:3px;opacity:.6"></div></div></div></div>';
           h+='</div>';
         }
-        if(!ls.length)h+='<div style="text-align:center;padding:60px;color:#475569">No models found</div>';
+        if(!ls.length)h+='<div style="text-align:center;padding:60px;color:#475569">No tables found</div>';
         h+='</div>';
       }
 
@@ -302,7 +304,7 @@ looker.plugins.visualizations.add({
           rect.addEventListener('mouseenter',function(){
             var idx=parseInt(rect.getAttribute('data-i')),pt=costPts[idx];
             if(!pt)return;
-            tip.innerHTML='<div style="color:#e2e8f0;font-weight:700;margin-bottom:6px">'+pt.d+'</div><div style="display:flex;gap:20px"><div><div style="color:#475569;font-size:9px;margin-bottom:2px">COST</div><div style="color:'+pc+';font-weight:700;font-size:13px">'+fmt$(pt.c)+'</div></div><div><div style="color:#475569;font-size:9px;margin-bottom:2px">MODELS</div><div style="color:'+sc2+';font-weight:700;font-size:13px">'+pt.n+'</div></div></div>';
+            tip.innerHTML='<div style="color:#e2e8f0;font-weight:700;margin-bottom:6px">'+pt.d+'</div><div style="display:flex;gap:20px"><div><div style="color:#475569;font-size:9px;margin-bottom:2px">VIEWS</div><div style="color:'+pc+';font-weight:700;font-size:13px">'+pt.c.toLocaleString()+'</div></div><div><div style="color:#475569;font-size:9px;margin-bottom:2px">TABLES</div><div style="color:'+sc2+';font-weight:700;font-size:13px">'+pt.n+'</div></div></div>';
             tip.style.opacity='1';
             tip.style.left=Math.min(pt.x+10,W-220)+'px';
             tip.style.top=Math.max(pt.y-60,5)+'px';
