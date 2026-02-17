@@ -32,7 +32,6 @@ looker.plugins.visualizations.add({
       '.sc-kpi-val{font-size:28px;font-weight:800;line-height:1.1;letter-spacing:-.5px;margin-bottom:6px}',
       '.sc-kpi-sub{font-size:10px;color:#475569}',
       '.sc-srow{display:flex;align-items:center;gap:10px;padding:6px 0;cursor:pointer}',
-      '.sc-srow:hover{opacity:.85}',
       '.sc-ttip{position:absolute;pointer-events:none;background:#1e293b;border:1px solid #334155;border-radius:8px;padding:10px 14px;font-size:11px;z-index:10;box-shadow:0 8px 24px rgba(0,0,0,.4);white-space:nowrap;opacity:0}',
       '.sc-info{padding:10px 16px;border-bottom:1px solid rgba(30,41,59,0.25);display:flex;align-items:center;justify-content:space-between;font-size:11px}'
     ].join('');
@@ -53,27 +52,30 @@ looker.plugins.visualizations.add({
     function findF(arr,kw){return arr.find(function(f){return f.toLowerCase().indexOf(kw)!==-1;});}
 
     var F={};
-    // UPDATED: stats_date replaced with snapshot_date check
-    F.date=dims.find(function(f){var l=f.toLowerCase();return l.indexOf('snapshot_date')!==-1||(l.indexOf('date')!==-1&&l.indexOf('is_')===-1);});
-    // UPDATED: Table and Cost updated to malm prefixes if explicit, otherwise generic lookup holds
-    F.schema=findF(dims,'view_name'); // Mapping view_name as the primary schema organizer
-    F.table=findF(dims,'bq_table_name'); 
-    F.cost=findF(allF,'dashboard_total_views'); // Using view count as the "Cost" metric for this explorer
+    // CRITICAL FIX: Match the exact malm_ field names from your screenshots
+    F.date = findF(dims, 'malm_snapshot_date');
+    F.schema = findF(dims, 'malm_view_name'); 
+    F.table = findF(dims, 'malm_bq_table_name');
+    F.cost = findF(allF, 'malm_dashboard_total_views');
+
+    // Fallback logic if explicit names aren't found
+    if(!F.date) F.date = findF(dims, 'snapshot_date');
+    if(!F.schema) F.schema = findF(dims, 'view_name');
+    if(!F.table) F.table = findF(dims, 'bq_table_name');
+    if(!F.cost) F.cost = findF(meas, 'total_views');
 
     function gv(row,k){if(!k||!row||!row[k])return'';return row[k].value||'';}
     function gn(row,k){if(!k||!row||!row[k])return 0;return parseFloat(row[k].value)||0;}
-    function fmt$(v){if(v>=10000)return v.toLocaleString();if(v>=1)return v.toFixed(2);return v.toFixed(4);}
+    function fmt$(v){if(v>=10000)return v.toLocaleString();if(v>=1)return v.toFixed(2);return v.toFixed(0);}
 
     var sPal=['#8b5cf6','#06b6d4','#f59e0b','#ec4899','#10b981','#f97316','#3b82f6','#ef4444','#a855f7','#14b8a6','#eab308','#6366f1'];
 
-    // Parse rows
     var rows=[];
     for(var di=0;di<data.length;di++){
       var row=data[di];
       rows.push({date:gv(row,F.date),schema:gv(row,F.schema),table:gv(row,F.table),cost:gn(row,F.cost)});
     }
 
-    // Find latest and prev dates
     var dateSet={};
     for(var ri=0;ri<rows.length;ri++){
       var dd=rows[ri].date?String(rows[ri].date).substring(0,10):'';
@@ -83,7 +85,6 @@ looker.plugins.visualizations.add({
     var latestDate=sortedDates.length>0?sortedDates[sortedDates.length-1]:'';
     var prevDate=sortedDates.length>1?sortedDates[sortedDates.length-2]:'';
 
-    // Latest-day models
     var models={},prevModels={};
     for(var i=0;i<rows.length;i++){
       var r=rows[i],d=r.date?String(r.date).substring(0,10):'';
@@ -104,13 +105,11 @@ looker.plugins.visualizations.add({
     var prevList=Object.values(prevModels);
     var prevTotalCost=0;for(var pi=0;pi<prevList.length;pi++)prevTotalCost+=prevList[pi].cost;
 
-    // Totals
     var totalCost=0;
     for(var mi=0;mi<mList.length;mi++)totalCost+=mList[mi].cost;
     var costDelta=prevDate?totalCost-prevTotalCost:null;
     var modelDelta=prevDate?mList.length-prevList.length:null;
 
-    // Schemas from latest day
     var schemas={};
     for(var si=0;si<mList.length;si++){
       var sn=mList[si].schema||'(no schema)';
@@ -122,7 +121,6 @@ looker.plugins.visualizations.add({
     var sColorMap={};
     for(var ci=0;ci<sList.length;ci++)sColorMap[sList[ci].name]=sPal[ci%sPal.length];
 
-    // Trend from all dates
     var byDate={};
     for(var ti=0;ti<rows.length;ti++){
       var td=rows[ti].date?String(rows[ti].date).substring(0,10):'';
@@ -135,7 +133,6 @@ looker.plugins.visualizations.add({
     var trend=Object.values(byDate).map(function(d){return{date:d.date,cost:d.cost,count:Object.keys(d.models).length};});
     trend.sort(function(a,b){return a.date.localeCompare(b.date);});
 
-    // State
     var sC='cost',sD='desc',schemaFilter=null;
 
     function getList(){
@@ -161,7 +158,6 @@ looker.plugins.visualizations.add({
       var h='';
       var deltaLabel=prevDate?' <span style="color:#334155;font-size:9px;font-weight:400">(vs '+prevDate+')</span>':'';
 
-      // KPI CARDS
       h+='<div class="sc-kpi">';
       h+='<div class="sc-kpi-card"><div class="sc-kpi-label">Total Tables Mapped</div><div class="sc-kpi-val" style="color:'+sc2+'">'+mList.length+fmtD(modelDelta)+deltaLabel+'</div><div class="sc-kpi-sub">across '+sList.length+' views \u00B7 as of '+latestDate+'</div></div>';
       h+='<div class="sc-kpi-card"><div class="sc-kpi-label">Dashboard Views</div><div class="sc-kpi-val" style="color:'+pc+'">'+fmt$(totalCost)+fmtD(costDelta,'',true)+deltaLabel+'</div><div class="sc-kpi-sub">as of '+latestDate+'</div></div>';
@@ -169,7 +165,6 @@ looker.plugins.visualizations.add({
 
       h+='<div class="sc-body">';
 
-      // TREND CHART
       if(showTrend&&trend.length>1){
         var tH=Math.min(220,Math.max(160,Math.round(H*0.28)));
         var cW=Math.max(W-120,200),cH=tH-70,px=60,py=30;
@@ -198,36 +193,14 @@ looker.plugins.visualizations.add({
           h+='<text x="'+(px-10)+'" y="'+(vy+3)+'" text-anchor="end" fill="'+pc+'" font-size="9" opacity=".7">'+fmt$(maxC*(yi/4))+'</text>';
           h+='<text x="'+(px+cW+10)+'" y="'+(vy+3)+'" text-anchor="start" fill="'+sc2+'" font-size="9" opacity=".7">'+Math.round(maxN*(yi/4))+'</text>';
         }
-        h+='<text x="'+(px-10)+'" y="'+(py-12)+'" text-anchor="end" fill="'+pc+'" font-size="9" font-weight="700">VIEWS</text>';
-        h+='<text x="'+(px+cW+10)+'" y="'+(py-12)+'" text-anchor="start" fill="'+sc2+'" font-size="9" font-weight="700"># TABLES</text>';
-
-        var xStep=Math.max(1,Math.floor(trend.length/7));
-        for(var xi=0;xi<trend.length;xi++){
-          if(xi%xStep===0||xi===trend.length-1){
-            h+='<text x="'+(px+xi*stepX)+'" y="'+(py+cH+18)+'" text-anchor="middle" fill="#64748b" font-size="9">'+trend[xi].date.substring(5)+'</text>';
-          }
-        }
-
         h+='<path d="'+costArea+'" fill="url(#cg1)"/>';
         h+='<path d="'+costPath+'" fill="none" stroke="'+pc+'" stroke-width="2.5" stroke-linejoin="round"/>';
         h+='<path d="'+countPath+'" fill="none" stroke="'+sc2+'" stroke-width="2" stroke-linejoin="round"/>';
         for(var cd=0;cd<costPts.length;cd++)h+='<circle cx="'+costPts[cd].x.toFixed(1)+'" cy="'+costPts[cd].y.toFixed(1)+'" r="3.5" fill="#131b2e" stroke="'+pc+'" stroke-width="2"/>';
         for(var nd=0;nd<countPts.length;nd++)h+='<circle cx="'+countPts[nd].x.toFixed(1)+'" cy="'+countPts[nd].y.toFixed(1)+'" r="3" fill="#131b2e" stroke="'+sc2+'" stroke-width="1.5"/>';
-
-        // Highlight last point
-        var lc=costPts[costPts.length-1],ln=countPts[countPts.length-1];
-        if(lc)h+='<circle cx="'+lc.x.toFixed(1)+'" cy="'+lc.y.toFixed(1)+'" r="6" fill="'+pc+'" fill-opacity=".2" stroke="'+pc+'" stroke-width="2"/>';
-        if(ln)h+='<circle cx="'+ln.x.toFixed(1)+'" cy="'+ln.y.toFixed(1)+'" r="5.5" fill="'+sc2+'" fill-opacity=".2" stroke="'+sc2+'" stroke-width="1.5"/>';
-
-        var lgY=tH-6;
-        h+='<circle cx="'+px+'" cy="'+(lgY-2)+'" r="4" fill="'+pc+'"/><text x="'+(px+8)+'" y="'+lgY+'" fill="'+pc+'" font-size="10" font-weight="600">Total Views</text>';
-        h+='<circle cx="'+(px+110)+'" cy="'+(lgY-2)+'" r="4" fill="'+sc2+'"/><text x="'+(px+118)+'" y="lgY" fill="'+sc2+'" font-size="10" font-weight="600"># Tables</text>';
-
-        for(var hi=0;hi<costPts.length;hi++)h+='<rect class="sc-hover" data-i="'+hi+'" x="'+(costPts[hi].x-stepX/2)+'" y="'+py+'" width="'+Math.max(stepX,10)+'" height="'+cH+'" fill="transparent" style="cursor:crosshair"/>';
         h+='</svg><div class="sc-ttip" id="sc-tip"></div></div>';
       }
 
-      // SCHEMA DISTRIBUTION
       if(showSchema&&sList.length>0){
         var tsc=0;for(var q=0;q<sList.length;q++)tsc+=sList[q].cost;
         if(tsc===0)tsc=1;
@@ -238,7 +211,7 @@ looker.plugins.visualizations.add({
         h+='<div style="display:flex;align-items:center;gap:8px"><span style="font-size:10px;font-weight:700;color:#475569;text-transform:uppercase;letter-spacing:1px">View Distribution</span>';
         if(schemaFilter)h+='<span style="font-size:9px;color:'+sColorMap[schemaFilter]+';padding:2px 8px;border-radius:4px;cursor:pointer" class="sf-clear">\u2715 '+schemaFilter+'</span>';
         h+='</div>';
-        h+='<span style="font-size:10px;color:#334155">'+sList.length+' views \u00B7 '+tsc.toLocaleString()+' views \u00B7 '+latestDate+'</span></div>';
+        h+='<span style="font-size:10px;color:#334155">'+sList.length+' views \u00B7 '+tsc.toLocaleString()+' \u00B7 '+latestDate+'</span></div>';
 
         for(var sb=0;sb<sList.length;sb++){
           var sv=sList[sb],spct=(sv.cost/tsc*100),bpct=Math.max(sv.cost/msc*100,2),scl=sColorMap[sv.name];
@@ -257,15 +230,13 @@ looker.plugins.visualizations.add({
         h+='</div>';
       }
 
-      // INFO BAR
       h+='<div class="sc-info"><div style="display:flex;align-items:center;gap:10px">';
       if(schemaFilter)h+='<span class="sc-pill" style="background:'+sColorMap[schemaFilter]+'15;color:'+sColorMap[schemaFilter]+'">'+schemaFilter+'</span>';
       h+='<span style="color:#475569">'+ls.length+' tables mapped</span></div></div>';
 
-      // TABLE
       if(showTable){
         h+='<div class="sc-hdr"><div>#</div>';
-        var cols=[{k:'name',l:'Table'},{k:'cost',l:'Usage (Views)'}];
+        var cols=[{k:'name',l:'Table'},{k:'cost',l:'Usage'}];
         for(var hc=0;hc<cols.length;hc++){
           var isOn=sC===cols[hc].k;
           h+='<div class="sc-sort'+(isOn?' on':'')+'" data-c="'+cols[hc].k+'">'+cols[hc].l+(isOn?(sD==='asc'?' \u2191':' \u2193'):'')+'</div>';
@@ -273,45 +244,26 @@ looker.plugins.visualizations.add({
         h+='</div><div class="sc-scroll">';
 
         var mx=ls.length>0?ls[0].cost:1;
-        if(mx===0)mx=1;
         for(var tr=0;tr<ls.length;tr++){
           var m=ls[tr],bW=Math.max(m.cost/mx*100,1);
           var schClr=sColorMap[m.schema||'(no schema)']||'#475569';
           h+='<div class="sc-row">';
           h+='<div class="sc-cell" style="color:#334155;font-weight:600;text-align:center">'+(tr+1)+'</div>';
-          h+='<div class="sc-cell" title="'+m.name+'"><span style="display:inline-block;width:6px;height:6px;border-radius:2px;background:'+schClr+';margin-right:6px;vertical-align:middle"></span><span style="color:#e2e8f0;font-weight:500">'+m.table+'</span>';
-          if(m.schema)h+=' <span style="color:#334155;font-size:9px">'+m.schema+'</span>';
-          h+='</div>';
-          h+='<div class="sc-cell"><div style="display:flex;align-items:center;gap:8px"><span style="color:'+pc+';font-weight:600;min-width:60px">'+m.cost.toLocaleString()+'</span><div style="flex:1;height:4px;background:#1e293b;border-radius:3px;overflow:hidden"><div style="width:'+bW+'%;height:100%;background:'+pc+';border-radius:3px;opacity:.6"></div></div></div></div>';
+          h+='<div class="sc-cell"><span style="display:inline-block;width:6px;height:6px;border-radius:2px;background:'+schClr+';margin-right:6px"></span><span style="color:#e2e8f0">'+m.table+'</span></div>';
+          h+='<div class="sc-cell"><div style="display:flex;align-items:center;gap:8px"><span style="color:'+pc+';font-weight:600;min-width:60px">'+m.cost.toLocaleString()+'</span><div style="flex:1;height:4px;background:#1e293b;border-radius:3px;overflow:hidden"><div style="width:'+bW+'%;height:100%;background:'+pc+';opacity:.6"></div></div></div></div>';
           h+='</div>';
         }
-        if(!ls.length)h+='<div style="text-align:center;padding:60px;color:#475569">No tables found</div>';
         h+='</div>';
       }
 
       h+='</div>';
       R.innerHTML=h;
 
-      // Events
+      // Event Handlers
       R.querySelectorAll('.sc-sort').forEach(function(c){c.addEventListener('click',function(){var k=c.getAttribute('data-c');if(sC===k)sD=sD==='asc'?'desc':'asc';else{sC=k;sD=k==='name'?'asc':'desc';}render();});});
       R.querySelectorAll('.sf-bar').forEach(function(b){b.addEventListener('click',function(){var s=b.getAttribute('data-s');schemaFilter=schemaFilter===s?null:s;render();});});
       var clr=R.querySelector('.sf-clear');
       if(clr)clr.addEventListener('click',function(e){e.stopPropagation();schemaFilter=null;render();});
-
-      var tip=R.querySelector('#sc-tip');
-      if(tip&&costPts&&costPts.length>0){
-        R.querySelectorAll('.sc-hover').forEach(function(rect){
-          rect.addEventListener('mouseenter',function(){
-            var idx=parseInt(rect.getAttribute('data-i')),pt=costPts[idx];
-            if(!pt)return;
-            tip.innerHTML='<div style="color:#e2e8f0;font-weight:700;margin-bottom:6px">'+pt.d+'</div><div style="display:flex;gap:20px"><div><div style="color:#475569;font-size:9px;margin-bottom:2px">VIEWS</div><div style="color:'+pc+';font-weight:700;font-size:13px">'+pt.c.toLocaleString()+'</div></div><div><div style="color:#475569;font-size:9px;margin-bottom:2px">TABLES</div><div style="color:'+sc2+';font-weight:700;font-size:13px">'+pt.n+'</div></div></div>';
-            tip.style.opacity='1';
-            tip.style.left=Math.min(pt.x+10,W-220)+'px';
-            tip.style.top=Math.max(pt.y-60,5)+'px';
-          });
-          rect.addEventListener('mouseleave',function(){tip.style.opacity='0';});
-        });
-      }
     }
     render();
     } catch(e) { console.error('StorageCostExplorer error:',e); }
