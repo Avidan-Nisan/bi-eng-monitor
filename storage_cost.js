@@ -82,21 +82,22 @@ looker.plugins.visualizations.add({
       const field = allFields.find(f => f.label_short === labelStr || (f.label && f.label.includes(labelStr)));
       return field ? field.name : null;
     };
+    // Match by field name (e.g. "table_name" or "dbt_usage.table_name") so any explore works
     const getFieldIdByName = (suffix) => {
       const field = allFields.find(f => f.name && (f.name === suffix || f.name.endsWith("." + suffix)));
       return field ? field.name : null;
     };
+    const resolve = (suffix, labelFallback) => getFieldIdByName(suffix) || getFieldId(labelFallback);
 
-    const exploreNameLower = ((queryResponse.explore || "").trim()).toLowerCase();
-    const isBieDbtUsageExplore = exploreNameLower === "dbt_usage" || exploreNameLower.includes("bie_dbt_usage") || exploreNameLower.includes("bie dbt usage");
-
+    // Column-driven: no explore name. If the query has these field names, we show the usage view.
     const F = {
-      table:  isBieDbtUsageExplore ? (getFieldIdByName("table_name") || getFieldId("Table Name")) : getFieldId('Table Name'),
-      schema: isBieDbtUsageExplore ? (getFieldIdByName("table_schema") || getFieldId("Table Schema")) : getFieldId('Table Schema'),
-      consumer: isBieDbtUsageExplore ? (getFieldIdByName("consumer_type") || getFieldId("Consumer Type")) : getFieldId('Consumer Type'),
-      column:  isBieDbtUsageExplore ? (getFieldIdByName("column_name") || getFieldId("Column Name")) : getFieldId('Column Name'),
-      usage:   isBieDbtUsageExplore ? (getFieldIdByName("total_column_usage") || getFieldId("Total Column Usage")) : getFieldId('Total Column Usage')
+      table:  resolve("table_name", "Table Name"),
+      schema: resolve("table_schema", "Table Schema"),
+      consumer: resolve("consumer_type", "Consumer Type"),
+      column:  resolve("column_name", "Column Name"),
+      usage:   resolve("total_column_usage", "Total Column Usage")
     };
+    const hasUsageColumns = F.table && (F.schema || F.consumer);
 
     const brands = {
       'Salesforce': '<img src="https://upload.wikimedia.org/wikipedia/commons/f/f9/Salesforce.com_logo.svg" class="sf-logo">',
@@ -108,22 +109,24 @@ looker.plugins.visualizations.add({
 
     const aggregated = {};
     const byConsumer = {};
-    data.forEach(row => {
-      const t = row[F.table]?.value;
-      if (!t) return;
-      if (!aggregated[t]) {
-        aggregated[t] = { schema: row[F.schema]?.value || 'N/A', consumers: new Set(), unused: new Set() };
-      }
-      const cons = row[F.consumer]?.value;
-      if (cons) {
-        aggregated[t].consumers.add(cons);
-        if (!byConsumer[cons]) byConsumer[cons] = new Set();
-        byConsumer[cons].add(t);
-      }
-      if (F.usage && parseFloat(row[F.usage]?.value) === 0 && row[F.column]?.value) {
-        aggregated[t].unused.add(row[F.column].value);
-      }
-    });
+    if (hasUsageColumns) {
+      data.forEach(row => {
+        const t = row[F.table]?.value;
+        if (!t) return;
+        if (!aggregated[t]) {
+          aggregated[t] = { schema: row[F.schema]?.value || 'N/A', consumers: new Set(), unused: new Set() };
+        }
+        const cons = row[F.consumer]?.value;
+        if (cons) {
+          aggregated[t].consumers.add(cons);
+          if (!byConsumer[cons]) byConsumer[cons] = new Set();
+          byConsumer[cons].add(t);
+        }
+        if (F.usage && parseFloat(row[F.usage]?.value) === 0 && row[F.column]?.value) {
+          aggregated[t].unused.add(row[F.column].value);
+        }
+      });
+    }
 
     function renderUsage() {
       let html = '';
@@ -194,12 +197,14 @@ looker.plugins.visualizations.add({
       return html;
     }
 
-    const noDataMsg = '<div style="text-align:center; padding-top:100px; color:#475569">No data found. Add dimensions (e.g. Table Name, Table Schema, Consumer Type, Column Name) and measure Total Column Usage.</div>';
+    const noDataMsg = '<div style="text-align:center; padding-top:100px; color:#475569">No data. Add dimensions: Table Name, Table Schema, Consumer Type, Column Name; measure: Total Column Usage.</div>';
+    const needColumnsMsg = '<div style="text-align:center; padding:40px 24px; color:#94a3b8; max-width:420px; margin:0 auto;"><p style="font-weight:600; margin-bottom:12px;">Usage view is driven by <strong>column names</strong>, not explore.</p><p style="font-size:12px; color:#64748b;">Add these fields to the query (from any explore):</p><p style="font-size:11px; margin-top:8px; font-family:monospace; background:#131b2e; padding:12px; border-radius:8px;">table_name, table_schema, consumer_type, column_name, total_column_usage</p><p style="font-size:11px; margin-top:12px; color:#64748b;">When these are selected, this viz will show the usage view.</p></div>';
 
     element._scxRender = function(tab) {
       element.dataset.scxTab = tab;
       let content = '';
-      if (Object.keys(aggregated).length === 0) content = noDataMsg;
+      if (!hasUsageColumns) content = needColumnsMsg;
+      else if (Object.keys(aggregated).length === 0) content = noDataMsg;
       else if (tab === 'usage') content = renderUsage();
       else if (tab === 'lineage') content = renderLineage();
       else if (tab === 'overlap') content = Object.keys(byConsumer).length ? renderOverlap() : noDataMsg;
