@@ -1,6 +1,6 @@
 looker.plugins.visualizations.add({
-  id: "storage_cost_explorer",
-  label: "Storage Cost Explorer",
+  id: "dbt_usage_explorer", // Changed ID to force a fresh registration
+  label: "Usage Explorer",   // Changed Label to "Usage Explorer"
   options: {
     primary_color: {type:"string",label:"Primary Color",default:"#8b5cf6",section:"Style"},
     secondary_color: {type:"string",label:"Secondary Color",default:"#06b6d4",section:"Style"}
@@ -9,61 +9,54 @@ looker.plugins.visualizations.add({
   create: function(element) {
     element.innerHTML = `
       <style>
-        #scx-root { font-family: 'Inter', system-ui, sans-serif; background: #0a0e1a; color: #e2e8f0; height: 100%; display: flex; flex-direction: column; }
-        .tabs-header { display: flex; gap: 24px; padding: 12px 20px; border-bottom: 1px solid #1e293b; background: #0f172a; flex-shrink: 0; }
-        .tab-item { cursor: pointer; font-size: 11px; font-weight: 600; color: #475569; text-transform: uppercase; letter-spacing: 1px; padding-bottom: 8px; position: relative; }
-        .tab-item.active { color: #8b5cf6; }
-        .tab-item.active::after { content: ''; position: absolute; bottom: -1px; left: 0; right: 0; height: 2px; background: #8b5cf6; }
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap');
+        #scx-root { font-family: 'Inter', sans-serif; background: #0a0e1a; color: #e2e8f0; height: 100%; display: flex; flex-direction: column; overflow: hidden; }
         
-        .tab-pane { flex: 1; overflow-y: auto; padding: 24px; display: none; }
-        .tab-pane.active { display: block; }
+        /* Tab Navigation */
+        .scx-nav { display: flex; gap: 30px; padding: 0 20px; background: #0f172a; border-bottom: 1px solid #1e293b; height: 45px; align-items: center; flex-shrink: 0; }
+        .scx-tab { font-size: 11px; font-weight: 700; color: #475569; text-transform: uppercase; letter-spacing: 1px; cursor: pointer; height: 100%; display: flex; align-items: center; border-bottom: 2px solid transparent; transition: 0.2s; }
+        .scx-tab.active { color: #8b5cf6; border-bottom-color: #8b5cf6; }
+        
+        /* Content Area */
+        .scx-content { flex: 1; overflow-y: auto; padding: 25px; scroll-behavior: smooth; }
+        
+        /* Lineage Design */
+        .ln-row { display: flex; align-items: flex-start; margin-bottom: 40px; position: relative; }
+        .ln-source { width: 320px; background: #131b2e; border: 1px solid #1e293b; border-radius: 12px; padding: 18px; position: relative; z-index: 2; box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1); }
+        .ln-schema { font-size: 10px; font-weight: 800; color: #475569; text-transform: uppercase; margin-bottom: 4px; }
+        .ln-table { font-size: 15px; font-weight: 700; color: #f8fafc; margin-bottom: 12px; word-break: break-all; }
+        
+        /* Unused Columns Section */
+        .ln-unused { background: rgba(239, 68, 68, 0.03); border: 1px solid rgba(239, 68, 68, 0.1); border-radius: 8px; padding: 10px; }
+        .ln-unused-title { font-size: 9px; font-weight: 800; color: #ef4444; margin-bottom: 8px; display: flex; align-items: center; gap: 5px; }
+        .ln-col-pill { font-size: 10px; color: #94a3b8; background: #1e293b; padding: 3px 8px; border-radius: 4px; display: inline-block; margin: 2px; }
 
-        /* Usage/Lineage Styling */
-        .usage-row { display: flex; align-items: flex-start; gap: 30px; margin-bottom: 30px; }
-        .table-card { width: 300px; background: #131b2e; border: 1px solid #1e293b; border-radius: 10px; padding: 16px; flex-shrink: 0; }
-        .table-meta { font-size: 9px; color: #475569; font-weight: 800; text-transform: uppercase; margin-bottom: 4px; }
-        .table-name { font-size: 14px; font-weight: 700; color: #f8fafc; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-        
-        .unused-section { margin-top: 12px; padding-top: 10px; border-top: 1px solid rgba(30,41,59,0.5); }
-        .unused-title { font-size: 9px; color: #ef4444; font-weight: 700; margin-bottom: 8px; letter-spacing: 0.5px;}
-        .col-pill { font-size: 10px; color: #94a3b8; background: rgba(30, 41, 59, 0.5); padding: 3px 8px; border-radius: 4px; display: inline-block; margin: 0 4px 4px 0; border: 1px solid #1e293b; }
-        
-        .flow-line { width: 40px; height: 2px; background: #1e293b; margin-top: 30px; position: relative; flex-shrink: 0; }
-        .flow-line::after { content: '▶'; position: absolute; right: -5px; top: -5px; color: #1e293b; font-size: 10px; }
-        
-        .consumer-list { display: flex; flex-wrap: wrap; gap: 10px; padding-top: 15px; }
-        .consumer-node { display: flex; align-items: center; gap: 10px; background: #0f172a; border: 1px solid #1e293b; padding: 8px 14px; border-radius: 20px; font-size: 12px; }
-        .logo { font-size: 14px; width: 20px; text-align: center; }
+        /* Connector Line */
+        .ln-connector { flex: 1; height: 2px; background: linear-gradient(90deg, #1e293b 0%, #334155 100%); margin-top: 35px; position: relative; min-width: 60px; }
+        .ln-connector::after { content: '▶'; position: absolute; right: -5px; top: -5px; font-size: 10px; color: #334155; }
+
+        /* Consumer Nodes */
+        .ln-consumers { display: flex; flex-wrap: wrap; gap: 12px; max-width: 500px; padding-top: 15px; }
+        .ln-consumer-card { display: flex; align-items: center; gap: 10px; background: #131b2e; border: 1px solid #1e293b; padding: 10px 16px; border-radius: 50px; font-size: 12px; font-weight: 600; box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1); }
+        .ln-logo { width: 22px; height: 22px; border-radius: 50%; display: flex; align-items: center; justify-content: center; background: #0a0e1a; border: 1px solid #1e293b; }
       </style>
       <div id="scx-root">
-        <div class="tabs-header">
-          <div class="tab-item" data-tab="cost">Cost Explorer</div>
-          <div class="tab-item active" data-tab="usage">Usage</div>
+        <div class="scx-nav">
+          <div class="scx-tab" data-tab="cost">Cost Explorer</div>
+          <div class="scx-tab active" data-tab="usage">Usage Lineage</div>
         </div>
-        <div id="cost-view" class="tab-pane">
-           <div style="text-align:center; padding-top:100px; color:#475569">Cost Explorer Content...</div>
-        </div>
-        <div id="usage-view" class="tab-pane active"></div>
+        <div id="scx-content" class="scx-content"></div>
       </div>
     `;
-
-    // Simple Tab Switcher logic
-    element.querySelectorAll('.tab-item').forEach(tab => {
-      tab.addEventListener('click', () => {
-        element.querySelectorAll('.tab-item, .tab-pane').forEach(el => el.classList.remove('active'));
-        tab.classList.add('active');
-        element.querySelector(`#${tab.dataset.tab}-view`).classList.add('active');
-      });
-    });
   },
 
   updateAsync: function(data, element, config, queryResponse, details, done) {
-    const usageContainer = element.querySelector('#usage-view');
+    const content = element.querySelector('#scx-content');
     
-    // Explicitly mapping based on your screenshot's column names
+    // Automatically find field names based on the short labels in your LKML/Screenshot
     const findField = (label) => {
         const field = queryResponse.fields.dimension_like.concat(queryResponse.fields.measure_like)
-                      .find(f => f.label_short === label || f.label === label);
+                      .find(f => f.label_short === label || f.label.includes(label));
         return field ? field.name : null;
     };
 
@@ -75,68 +68,75 @@ looker.plugins.visualizations.add({
       usage: findField('Total Column Usage')
     };
 
-    const logoMap = {
-      'Looker': '💜', 'DBT': '🟧', 'Redash': '📊', 'Amplify': '⚡', 'Service Account': '🤖', 'User': '👤'
+    const logos = {
+      'Looker': '💜', 
+      'DBT': '🟧', 
+      'Redash': '📊', 
+      'Amplify': '⚡', 
+      'Service Account': '🤖', 
+      'User': '👤'
     };
 
-    // 1. Aggregate data by table
-    const tables = {};
+    // 1. Group Data by Table
+    const tableData = {};
     data.forEach(row => {
-      const tName = row[F.table]?.value;
-      if (!tName) return;
+      const name = row[F.table]?.value;
+      if (!name) return;
 
-      if (!tables[tName]) {
-        tables[tName] = { 
+      if (!tableData[name]) {
+        tableData[name] = { 
           schema: row[F.schema]?.value || 'MART', 
           consumers: new Set(), 
-          unused: [] 
+          unused: new Set() 
         };
       }
 
-      if (row[F.consumer]?.value) tables[tName].consumers.add(row[F.consumer].value);
+      // Add consumer
+      if (row[F.consumer]?.value) tableData[name].consumers.add(row[F.consumer].value);
       
-      // If the sum for this column is 0, it is unused
+      // Add to unused list if usage is 0
       if (parseFloat(row[F.usage]?.value) === 0) {
-        tables[tName].unused.push(row[F.column]?.value);
+        tableData[name].unused.add(row[F.column]?.value);
       }
     });
 
-    // 2. Build the Usage HTML
+    // 2. Render Lineage View
     let html = '';
-    Object.keys(tables).forEach(tName => {
-      const t = tables[tName];
-      const consumerArray = Array.from(t.consumers);
+    Object.keys(tableData).forEach(tName => {
+      const t = tableData[tName];
+      const consumerList = Array.from(t.consumers);
+      const unusedList = Array.from(t.unused);
 
       html += `
-        <div class="usage-row">
-          <div class="table-card">
-            <div class="table-meta">${t.schema}</div>
-            <div class="table-name" title="${tName}">${tName}</div>
+        <div class="ln-row">
+          <div class="ln-source">
+            <div class="ln-schema">${t.schema}</div>
+            <div class="ln-table">${tName}</div>
             
-            ${t.unused.length > 0 ? `
-              <div class="unused-section">
-                <div class="unused-title">UNUSED COLUMNS (${t.unused.length})</div>
-                ${t.unused.slice(0, 6).map(c => `<span class="col-pill">${c}</span>`).join('')}
-                ${t.unused.length > 6 ? `<span style="font-size:10px; color:#475569">... +${t.unused.length - 6} more</span>` : ''}
+            ${unusedList.length > 0 ? `
+              <div class="ln-unused">
+                <div class="ln-unused-title">⚠️ UNUSED COLUMNS (${unusedList.length})</div>
+                ${unusedList.slice(0, 8).map(c => `<span class="ln-col-pill">${c}</span>`).join('')}
+                ${unusedList.length > 8 ? `<span style="font-size:9px; color:#475569; padding-left:5px">... +${unusedList.length - 8}</span>` : ''}
               </div>
             ` : ''}
           </div>
 
-          <div class="flow-line"></div>
+          <div class="ln-connector"></div>
 
-          <div class="consumer-list">
-            ${consumerArray.map(c => `
-              <div class="consumer-node">
-                <span class="logo">${logoMap[c] || '🔗'}</span>
+          <div class="ln-consumers">
+            ${consumerList.length > 0 ? consumerList.map(c => `
+              <div class="ln-consumer-card">
+                <div class="ln-logo">${logos[c] || '🔗'}</div>
                 <span>${c}</span>
               </div>
-            `).join('')}
+            `).join('') : '<div style="color:#475569; font-size:11px; font-style:italic">No consumers detected</div>'}
           </div>
         </div>
       `;
     });
 
-    usageContainer.innerHTML = html || '<div style="text-align:center; padding:50px;">No usage data found.</div>';
+    content.innerHTML = html || '<div style="text-align:center; padding:100px; color:#475569">No usage data found. Check your dimensions.</div>';
     done();
   }
 });
