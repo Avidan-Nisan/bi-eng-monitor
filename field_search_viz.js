@@ -1,4 +1,3 @@
-// ========== 1. LINEAGE EXPLORER (existing) ==========
 looker.plugins.visualizations.add({
   id: "lineage_explorer",
   label: "Lineage Explorer",
@@ -12,7 +11,7 @@ looker.plugins.visualizations.add({
     element.style.height='100%';element.style.width='100%';
     element.innerHTML='<div id="lex" style="width:100%;height:100%;font-family:Inter,system-ui,-apple-system,sans-serif;background:#0a0e1a;color:#e2e8f0;display:flex;flex-direction:column;overflow:hidden"></div>';
     var s=document.createElement('style');
-    s.textContent='#lex *{box-sizing:border-box}.lx-nav{display:flex;align-items:center;gap:2px;padding:14px 20px 0;background:linear-gradient(180deg,#0f1629,#0a0e1a)}.lx-nav-btn{padding:10px 22px;font-size:12px;font-weight:600;cursor:pointer;border:none;background:transparent;color:#475569;border-radius:10px 10px 0 0;transition:all .2s;display:flex;align-items:center;gap:8px;letter-spacing:.3px;text-decoration:none;position:relative}.lx-nav-btn:hover{color:#94a3b8;background:rgba(30,41,59,0.25)}.lx-nav-btn.active{color:#e2e8f0;background:#131b2e;cursor:default}.lx-nav-btn.active::after{content:"";position:absolute;bottom:0;left:10px;right:10px;height:2px;border-radius:2px 2px 0 0}.lx-nav-btn.t-lineage.active{color:#10b981}.lx-nav-btn.t-lineage.active::after{background:#10b981}.lx-nav-btn.t-overlap.active{color:#8b5cf6}.lx-nav-btn.t-overlap.active::after{background:#8b5cf6}.lx-nav-btn.t-usage.active{color:#f59e0b}.lx-nav-btn.t-usage.active::after{background:#f59e0b}.lx-body{flex:1;background:#131b2e;border-radius:12px 12px 0 0;overflow:hidden;display:flex;flex-direction:column;border:1px solid #1e293b;border-bottom:none;margin:0 12px}.lx-bar{padding:10px 16px;border-bottom:1px solid rgba(30,41,59,0.25);display:flex;align-items:center;justify-content:space-between;font-size:11px;min-height:42px}.lx-scroll{flex:1;overflow:auto}.lx-pill{display:inline-flex;align-items:center;gap:4px;padding:3px 10px;border-radius:6px;font-size:10px;font-weight:500}.lx-node{cursor:pointer;transition:opacity .15s}.lx-node:hover{opacity:.85}.lx-row{display:grid;border-bottom:1px solid rgba(30,41,59,0.1);transition:background .15s}.lx-row:hover{background:rgba(30,41,59,0.3)}.lx-hdr{display:grid;border-bottom:1px solid #1e293b;position:sticky;top:0;background:#131b2e;z-index:1}.lx-hdr>div{padding:10px 12px;font-size:10px;font-weight:600;color:#475569;cursor:pointer;user-select:none;text-transform:uppercase;letter-spacing:.5px;transition:color .15s}.lx-hdr>div:hover{color:#94a3b8}.lx-hdr>div.on{color:#e2e8f0}.lx-cell{padding:8px 12px;font-size:11px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.lx-ebtn{padding:7px 16px;border:1px solid #1e293b;cursor:pointer;font-size:11px;font-weight:500;transition:all .15s;background:transparent;color:#64748b;letter-spacing:.3px}.lx-ebtn:hover{background:#1e293b;color:#94a3b8}.lx-ebtn.on{background:#1e293b;border-color:#334155}.lx-link{color:#475569;text-decoration:none;transition:color .15s;display:inline-flex}.lx-link:hover{color:#e2e8f0}.dp-card{border-bottom:1px solid rgba(30,41,59,0.12)}.dp-head{display:flex;align-items:center;gap:12px;padding:12px 16px;cursor:pointer;transition:background .15s}.dp-head:hover{background:rgba(30,41,59,0.2)}';
+    s.textContent='#lex *{box-sizing:border-box}.lx-nav{display:flex;align-items:center;gap:2px;padding:14px 20px 0;background:linear-gradient(180deg,#0f1629,#0a0e1a)}.lx-nav-btn{padding:10px 22px;font-size:12px;font-weight:600;cursor:pointer;border:none;background:transparent;color:#475569;border-radius:10px 10px 0 0;transition:all .2s;display:flex;align-items:center;gap:8px;letter-spacing:.3px;text-decoration:none;position:relative}.lx-nav-btn:hover{color:#94a3b8;background:rgba(30,41,59,0.25)}.lx-nav-btn.active{color:#e2e8f0;background:#131b2e;cursor:default}.lx-nav-btn.active::after{content:"";position:absolute;bottom:0;left:10px;right:10px;height:2px;border-radius:2px 2px 0 0}.lx-nav-btn.t-lineage.active{color:#10b981}.lx-nav-btn.t-lineage.active::after{background:#10b981}.lx-nav-btn.t-overlap.active{color:#8b5cf6}.lx-nav-btn.t-overlap.active::after{background:#8b5cf6}.lx-nav-btn.t-usage.active{color:#f59e0b}.lx-nav-btn.t-usage.active::after{background:#f59e0b}.lx-nav-btn.t-dbt_usage.active{color:#8b5cf6}.lx-nav-btn.t-dbt_usage.active::after{background:#8b5cf6}.lx-body{flex:1;background:#131b2e;border-radius:12px 12px 0 0;overflow:hidden;display:flex;flex-direction:column;border:1px solid #1e293b;border-bottom:none;margin:0 12px}.lx-bar{padding:10px 16px;border-bottom:1px solid rgba(30,41,59,0.25);display:flex;align-items:center;justify-content:space-between;font-size:11px;min-height:42px}.lx-scroll{flex:1;overflow:auto}.lx-pill{display:inline-flex;align-items:center;gap:4px;padding:3px 10px;border-radius:6px;font-size:10px;font-weight:500}.lx-node{cursor:pointer;transition:opacity .15s}.lx-node:hover{opacity:.85}.lx-row{display:grid;border-bottom:1px solid rgba(30,41,59,0.1);transition:background .15s}.lx-row:hover{background:rgba(30,41,59,0.3)}.lx-hdr{display:grid;border-bottom:1px solid #1e293b;position:sticky;top:0;background:#131b2e;z-index:1}.lx-hdr>div{padding:10px 12px;font-size:10px;font-weight:600;color:#475569;cursor:pointer;user-select:none;text-transform:uppercase;letter-spacing:.5px;transition:color .15s}.lx-hdr>div:hover{color:#94a3b8}.lx-hdr>div.on{color:#e2e8f0}.lx-cell{padding:8px 12px;font-size:11px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.lx-ebtn{padding:7px 16px;border:1px solid #1e293b;cursor:pointer;font-size:11px;font-weight:500;transition:all .15s;background:transparent;color:#64748b;letter-spacing:.3px}.lx-ebtn:hover{background:#1e293b;color:#94a3b8}.lx-ebtn.on{background:#1e293b;border-color:#334155}.lx-link{color:#475569;text-decoration:none;transition:color .15s;display:inline-flex}.lx-link:hover{color:#e2e8f0}.dp-card{border-bottom:1px solid rgba(30,41,59,0.12)}.dp-head{display:flex;align-items:center;gap:12px;padding:12px 16px;cursor:pointer;transition:background .15s}.dp-head:hover{background:rgba(30,41,59,0.2)}.due-lineage-cols{display:flex;gap:24px;min-height:200px}.due-col{flex:1;min-width:0;display:flex;flex-direction:column;gap:10px}.due-col-h{font-size:9px;font-weight:700;color:#475569;text-transform:uppercase;letter-spacing:1px;margin-bottom:4px}.due-node{background:#0f172a;border:1px solid #1e293b;border-radius:10px;padding:12px 16px;font-size:12px}.due-node-schema{font-size:9px;font-weight:700;color:#475569;text-transform:uppercase;margin-bottom:2px}.due-node-name{font-weight:600;color:#e2e8f0;word-break:break-all}.due-pill{display:inline-flex;align-items:center;gap:6px;padding:6px 12px;background:#0f172a;border:1px solid #1e293b;border-radius:8px;font-size:11px;font-weight:500}.due-unused-card{border:1px solid rgba(239,68,68,0.15);background:rgba(239,68,68,0.04);border-radius:10px;padding:14px 18px;margin-bottom:12px}.due-unused-tbl{font-size:11px;font-weight:700;color:#e2e8f0;margin-bottom:8px}.due-unused-schema{font-size:9px;color:#475569;text-transform:uppercase;margin-bottom:6px}.due-unused-fields{display:flex;flex-wrap:wrap;gap:6px}.due-unused-tag{font-size:10px;color:#94a3b8;background:#1e293b;padding:4px 10px;border-radius:6px;border:1px solid rgba(255,255,255,0.05)}.due-section-title{font-size:10px;font-weight:700;color:#475569;text-transform:uppercase;letter-spacing:1px;margin:20px 0 12px;padding-bottom:6px;border-bottom:1px solid #1e293b}';
     element.appendChild(s);
   },
   updateAsync: function(data, element, config, queryResponse, details, done) {
@@ -35,9 +34,18 @@ looker.plugins.visualizations.add({
     if(!F.model)F.model=dims.find(function(f){return f.toLowerCase().indexOf('model')!==-1;});
     F.date=dims.find(function(f){var l=f.toLowerCase();return l.indexOf('stats_date')!==-1||(l.indexOf('date')!==-1&&l.indexOf('is_last')===-1);});
     F.vc=meas.find(function(f){var l=f.toLowerCase();return l.indexOf('view_count')!==-1||l.indexOf('dashboard_view')!==-1;});
+    var allF=dims.concat(meas);
+    function findSuf(suf){var f=allF.find(function(x){var n=x.name||'';return n===suf||n.lastIndexOf('.'+suf)===n.length-suf.length-1;});return f?f.name:null;}
+    function findLbl(kw){var f=allF.find(function(x){var l=(x.label_short||'')+(x.label||'');return l.toLowerCase().indexOf(kw)!==-1;});return f?f.name:null;}
+    F.dbtTable=findSuf('table_name')||findLbl('table name');
+    F.dbtSchema=findSuf('table_schema')||findLbl('table schema');
+    F.dbtConsumer=findSuf('consumer_type')||findLbl('consumer type');
+    F.dbtColumn=findSuf('column_name')||findLbl('column name');
+    F.dbtUsage=findSuf('total_column_usage')||findLbl('total column usage');
 
     var mode;
-    if(F.date&&F.vc)mode='usage';
+    if(F.dbtTable&&(F.dbtSchema||F.dbtConsumer))mode='dbt_usage';
+    else if(F.date&&F.vc)mode='usage';
     else if(F.dash&&F.exp&&F.view)mode='lineage';
     else if(F.view&&F.flds)mode='overlap';
     else mode='lineage';
@@ -76,10 +84,13 @@ looker.plugins.visualizations.add({
         {id:'overlap',label:'Overlap',icon:ic.ovl,did:config.overlap_dashboard_id},
         {id:'usage',label:'Usage',icon:ic.usg,did:config.usage_dashboard_id}
       ];
+      if(mode==='dbt_usage')tabs.push({id:'dbt_usage',label:'DBT Usage',icon:ic.usg,did:null});
       var h='<div class="lx-nav">';
       tabs.forEach(function(t){
         if(t.id===mode){
           h+='<div class="lx-nav-btn active t-'+t.id+'">'+t.icon+' '+t.label+'</div>';
+        }else if(t.id==='dbt_usage'){
+          h+='<div class="lx-nav-btn t-dbt_usage" style="opacity:.3;cursor:default" title="Use table_name, consumer_type, etc. to see DBT Usage">'+t.icon+' '+t.label+'</div>';
         }else if(baseUrl&&t.did){
           h+='<a href="'+baseUrl+'/dashboards/'+t.did+'" target="_parent" class="lx-nav-btn t-'+t.id+'" style="text-decoration:none">'+t.icon+' '+t.label+'</a>';
         }else{
@@ -88,6 +99,33 @@ looker.plugins.visualizations.add({
       });
       h+='</div>';
       return h;
+    }
+
+    // ========== DBT USAGE (new tab: lineage + unused) ==========
+    if(mode==='dbt_usage'){
+      var aggregated={},byConsumer={},unusedByTable={};
+      for(var di=0;di<data.length;di++){
+        var row=data[di],t=gv(row,F.dbtTable);
+        if(!t)continue;
+        if(!aggregated[t])aggregated[t]={schema:gv(row,F.dbtSchema)||'N/A',consumers:{},unused:[]};
+        var c=gv(row,F.dbtConsumer);if(c)aggregated[t].consumers[c]=true;
+        if(F.dbtUsage&&gn(row,F.dbtUsage)===0){var col=gv(row,F.dbtColumn);if(col){if(aggregated[t].unused.indexOf(col)===-1)aggregated[t].unused.push(col);if(!unusedByTable[t])unusedByTable[t]={schema:aggregated[t].schema,cols:[]};if(unusedByTable[t].cols.indexOf(col)===-1)unusedByTable[t].cols.push(col);}}
+      }
+      var tables=Object.keys(aggregated);
+      Object.keys(aggregated).forEach(function(t){byConsumer[t]=Object.keys(aggregated[t].consumers);});
+      var unusedTables=Object.keys(unusedByTable);
+      var h=navBar()+'<div class="lx-body"><div class="lx-scroll" style="padding:20px">';
+      h+='<div class="due-section-title">1. Lineage — Tables \u2192 Consumers</div>';
+      h+='<div class="due-lineage-cols"><div class="due-col" style="flex:0 0 320px"><div class="due-col-h">Table</div>';
+      for(var ti=0;ti<tables.length;ti++){var tn=tables[ti],ent=aggregated[tn];h+='<div class="due-node"><div class="due-node-schema">'+ent.schema+'</div><div class="due-node-name">'+tn+'</div></div>';}
+      h+='</div><div class="due-col" style="flex:1"><div class="due-col-h">Consumers</div>';
+      for(var cj=0;cj<tables.length;cj++){var consList=byConsumer[tables[cj]]||[];h+='<div style="display:flex;flex-wrap:wrap;gap:8px;align-items:center;min-height:42px">';for(var k=0;k<consList.length;k++)h+='<span class="due-pill">'+consList[k]+'</span>';if(consList.length===0)h+='<span style="color:#475569;font-size:11px">—</span>';h+='</div>';}
+      h+='</div></div>';
+      h+='<div class="due-section-title">2. Unused fields (no queries)</div>';
+      if(unusedTables.length===0)h+='<div style="color:#64748b;font-size:12px;padding:12px 0">No unused columns.</div>';
+      else for(var u=0;u<unusedTables.length;u++){var ut=unusedTables[u],rec=unusedByTable[ut];h+='<div class="due-unused-card"><div class="due-unused-schema">'+rec.schema+'</div><div class="due-unused-tbl">'+ut+'</div><div class="due-unused-fields">';for(var fc=0;fc<rec.cols.length;fc++)h+='<span class="due-unused-tag">'+rec.cols[fc]+'</span>';h+='</div></div>';}
+      h+='</div></div>';
+      R.innerHTML=h;done();return;
     }
 
     // ========== LINEAGE ==========
@@ -357,157 +395,6 @@ looker.plugins.visualizations.add({
       }
       rU();done();return;
     }
-    done();
-  }
-});
-
-// ========== 2. DBT USAGE EXPLORER (new) ==========
-// Column-driven: needs table_name, table_schema, consumer_type, column_name, total_column_usage
-// Block 1: Lineage — tables left, consumers right, connected with lines
-// Block 2: Unused — tables and their unused fields (no queries)
-looker.plugins.visualizations.add({
-  id: "dbt_usage_explorer",
-  label: "DBT Usage Explorer",
-  options: {
-    primary_color: {type:"string",label:"Primary Color",default:"#8b5cf6",section:"Style"},
-    secondary_color: {type:"string",label:"Secondary Color",default:"#06b6d4",section:"Style"}
-  },
-  create: function(element) {
-    element.style.height='100%';element.style.width='100%';
-    element.innerHTML='<div id="due" style="width:100%;height:100%;font-family:Inter,system-ui,-apple-system,sans-serif;background:#0a0e1a;color:#e2e8f0;display:flex;flex-direction:column;overflow:hidden"></div>';
-    var s=document.createElement('style');
-    s.textContent=[
-      '#due *{box-sizing:border-box}',
-      '.due-nav{display:flex;align-items:center;gap:2px;padding:14px 20px 0;background:linear-gradient(180deg,#0f1629,#0a0e1a)}',
-      '.due-nav-btn{padding:10px 22px;font-size:12px;font-weight:600;cursor:pointer;border:none;background:transparent;color:#475569;border-radius:10px 10px 0 0;transition:all .2s}',
-      '.due-nav-btn:hover{color:#94a3b8;background:rgba(30,41,59,0.25)}',
-      '.due-nav-btn.active{color:#8b5cf6;background:#131b2e;cursor:default;border:1px solid #1e293b;border-bottom:none;margin-bottom:-1px}',
-      '.due-body{flex:1;background:#131b2e;border-radius:12px 12px 0 0;overflow:hidden;display:flex;flex-direction:column;border:1px solid #1e293b;border-bottom:none;margin:0 12px}',
-      '.due-bar{padding:10px 16px;border-bottom:1px solid rgba(30,41,59,0.25);font-size:11px;min-height:42px}',
-      '.due-scroll{flex:1;overflow:auto;padding:20px}',
-      '.due-lineage-cols{display:flex;gap:24px;min-height:300px}',
-      '.due-col{flex:1;min-width:0;display:flex;flex-direction:column;gap:10px}',
-      '.due-col-h{font-size:9px;font-weight:700;color:#475569;text-transform:uppercase;letter-spacing:1px;margin-bottom:4px}',
-      '.due-node{background:#0f172a;border:1px solid #1e293b;border-radius:10px;padding:12px 16px;font-size:12px;position:relative}',
-      '.due-node-schema{font-size:9px;font-weight:700;color:#475569;text-transform:uppercase;margin-bottom:2px}',
-      '.due-node-name{font-weight:600;color:#e2e8f0;word-break:break-all}',
-      '.due-pill{display:inline-flex;align-items:center;gap:6px;padding:6px 12px;background:#0f172a;border:1px solid #1e293b;border-radius:8px;font-size:11px;font-weight:500}',
-      '.due-unused-card{border:1px solid rgba(239,68,68,0.15);background:rgba(239,68,68,0.04);border-radius:10px;padding:14px 18px;margin-bottom:12px}',
-      '.due-unused-tbl{font-size:11px;font-weight:700;color:#e2e8f0;margin-bottom:8px}',
-      '.due-unused-schema{font-size:9px;color:#475569;text-transform:uppercase;margin-bottom:6px}',
-      '.due-unused-fields{display:flex;flex-wrap:wrap;gap:6px}',
-      '.due-unused-tag{font-size:10px;color:#94a3b8;background:#1e293b;padding:4px 10px;border-radius:6px;border:1px solid rgba(255,255,255,0.05)}'
-    ].join('');
-    element.appendChild(s);
-  },
-  updateAsync: function(data, element, config, queryResponse, details, done) {
-    var R=element.querySelector('#due'),W=element.offsetWidth||1000;
-    var dims=queryResponse.fields.dimension_like||[];
-    var meas=queryResponse.fields.measure_like||[];
-    var allF=dims.concat(meas);
-    function findSuffix(suf){var f=allF.find(function(x){var n=x.name||'';return n===suf||n.indexOf('.'+suf)===n.length-suf.length-1;});return f?f.name:null;}
-    function findLabel(kw){var f=allF.find(function(x){var l=(x.label_short||'')+(x.label||'');return l.toLowerCase().indexOf(kw)!==-1;});return f?f.name:null;}
-    function resolve(suf,label){return findSuffix(suf)||findLabel(label);}
-    var F={
-      table:resolve('table_name','Table Name'),
-      schema:resolve('table_schema','Table Schema'),
-      consumer:resolve('consumer_type','Consumer Type'),
-      column:resolve('column_name','Column Name'),
-      usage:resolve('total_column_usage','Total Column Usage')
-    };
-    var hasCols=F.table&&(F.schema||F.consumer);
-    function gv(row,k){return k&&row[k]?row[k].value||'':'';}
-    function gn(row,k){return k&&row[k]?parseFloat(row[k].value)||0:0;}
-
-    var aggregated={},byConsumer={},unusedByTable={};
-    if(hasCols){
-      for(var i=0;i<data.length;i++){
-        var row=data[i],t=gv(row,F.table);
-        if(!t)continue;
-        if(!aggregated[t]){
-          aggregated[t]={schema:gv(row,F.schema)||'N/A',consumers:{},unused:[]};
-        }
-        var c=gv(row,F.consumer);
-        if(c){aggregated[t].consumers[c]=true;}
-        if(F.usage&&gn(row,F.usage)===0){
-          var col=gv(row,F.column);
-          if(col){
-            if(aggregated[t].unused.indexOf(col)===-1)aggregated[t].unused.push(col);
-            if(!unusedByTable[t])unusedByTable[t]={schema:aggregated[t].schema,cols:[]};
-            if(unusedByTable[t].cols.indexOf(col)===-1)unusedByTable[t].cols.push(col);
-          }
-        }
-      }
-      Object.keys(aggregated).forEach(function(t){byConsumer[t]=Object.keys(aggregated[t].consumers);});
-    }
-
-    var activeTab=element.dataset.dueTab||'lineage';
-    function render(){
-      var h='<div class="due-nav">';
-      h+='<div class="due-nav-btn'+(activeTab==='lineage'?' active':'')+'" data-tab="lineage">Lineage</div>';
-      h+='<div class="due-nav-btn'+(activeTab==='unused'?' active':'')+'" data-tab="unused">Unused fields</div>';
-      h+='</div>';
-
-      if(!hasCols){
-        h+='<div class="due-body"><div class="due-bar" style="color:#475569">Add fields: table_name, table_schema, consumer_type, column_name, total_column_usage</div>';
-        h+='<div class="due-scroll" style="text-align:center;padding:60px;color:#64748b">Select the columns above to see DBT usage views.</div></div>';
-        R.innerHTML=h;
-        R.querySelectorAll('.due-nav-btn').forEach(function(btn){btn.addEventListener('click',function(){activeTab=btn.dataset.tab;element.dataset.dueTab=activeTab;render();});});
-        done();return;
-      }
-
-      if(activeTab==='lineage'){
-        var tables=Object.keys(aggregated);
-        h+='<div class="due-body"><div class="due-bar">Tables \u2192 Consumers \u00B7 '+tables.length+' tables</div><div class="due-scroll">';
-        h+='<div class="due-lineage-cols">';
-        h+='<div class="due-col" style="flex:0 0 320px"><div class="due-col-h">Tables</div>';
-        for(var ti=0;ti<tables.length;ti++){
-          var tn=tables[ti],ent=aggregated[tn];
-          h+='<div class="due-node" data-t="'+ti+'"><div class="due-node-schema">'+ent.schema+'</div><div class="due-node-name">'+tn+'</div></div>';
-        }
-        h+='</div>';
-        h+='<div class="due-col" style="flex:1;position:relative">';
-        h+='<div class="due-col-h">Consumers</div>';
-        var connW=Math.max(400,W-400);
-        h+='<svg width="100%" height="'+Math.max(tables.length*52,200)+'" style="position:absolute;left:0;top:28px;pointer-events:none">';
-        for(var ci=0;ci<tables.length;ci++){
-          var cons=byConsumer[tables[ci]]||[];
-          var y1=28+ci*52+20,y2=28+ci*52+20,x1=0,x2=connW;
-          h+='<path d="M'+x1+' '+y1+' L'+((x1+x2)/2)+' '+y1+' L'+((x1+x2)/2)+' '+y2+' L'+x2+' '+y2+'" fill="none" stroke="#1e293b" stroke-width="1.5" stroke-opacity="0.6"/>';
-        }
-        h+='</svg>';
-        for(var cj=0;cj<tables.length;cj++){
-          var consList=byConsumer[tables[cj]]||[];
-          h+='<div style="display:flex;flex-wrap:wrap;gap:8px;align-items:center;min-height:42px;position:relative;z-index:1">';
-          for(var k=0;k<consList.length;k++)h+='<span class="due-pill">'+consList[k]+'</span>';
-          if(consList.length===0)h+='<span style="color:#475569;font-size:11px">—</span>';
-          h+='</div>';
-        }
-        h+='</div></div></div></div>';
-      } else {
-        var unusedTables=Object.keys(unusedByTable);
-        h+='<div class="due-body"><div class="due-bar">Tables with unused columns (no queries) \u00B7 '+unusedTables.length+' tables</div><div class="due-scroll">';
-        if(unusedTables.length===0){
-          h+='<div style="text-align:center;padding:60px;color:#10b981">No unused fields found.</div>';
-        } else {
-          for(var u=0;u<unusedTables.length;u++){
-            var ut=unusedTables[u],rec=unusedByTable[ut];
-            h+='<div class="due-unused-card">';
-            h+='<div class="due-unused-schema">'+rec.schema+'</div>';
-            h+='<div class="due-unused-tbl">'+ut+'</div>';
-            h+='<div class="due-unused-fields">';
-            for(var fc=0;fc<rec.cols.length;fc++)h+='<span class="due-unused-tag">'+rec.cols[fc]+'</span>';
-            h+='</div></div>';
-          }
-        }
-        h+='</div></div>';
-      }
-      R.innerHTML=h;
-      R.querySelectorAll('.due-nav-btn').forEach(function(btn){
-        btn.addEventListener('click',function(){activeTab=btn.dataset.tab;element.dataset.dueTab=activeTab;render();});
-      });
-    }
-    render();
     done();
   }
 });
