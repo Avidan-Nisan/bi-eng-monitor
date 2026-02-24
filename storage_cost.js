@@ -49,10 +49,12 @@ looker.plugins.visualizations.add({
     const mainArea = element.querySelector('#scx-main');
     const label = element.querySelector('#main-label');
 
-    const exploreName = (queryResponse.explore || "").toLowerCase();
-    const isBieDbtUsageExplore = exploreName.includes("bie_dbt_usage") || exploreName.includes("bie dbt usage");
+    // Explore name from Looker is the model key (e.g. "dbt_usage"), not the label ("BIE DBT Usage")
+    const exploreName = (queryResponse.explore || "").trim();
+    const exploreNameLower = exploreName.toLowerCase();
+    const isBieDbtUsageExplore = exploreNameLower === "dbt_usage" || exploreNameLower.includes("bie_dbt_usage") || exploreNameLower.includes("bie dbt usage");
 
-    // BIE DBT Usage explore → show usage view and label; otherwise keep default (e.g. lineage)
+    // BIE DBT Usage explore → show usage view and label; otherwise default (e.g. lineage)
     if (isBieDbtUsageExplore) {
       label.innerText = "DBT Usage";
     } else {
@@ -64,24 +66,18 @@ looker.plugins.visualizations.add({
       const field = allFields.find(f => f.label_short === labelStr || (f.label && f.label.includes(labelStr)));
       return field ? field.name : null;
     };
-
-    // For BIE DBT Usage explore, try common alternate labels in case this explore uses different names
-    const tryLabels = (primary, alternates) => {
-      let id = getFieldId(primary);
-      if (id) return id;
-      for (const alt of alternates) {
-        id = getFieldId(alt);
-        if (id) return id;
-      }
-      return null;
+    // Resolve by field name (e.g. "dbt_usage.table_name") so we work regardless of labels
+    const getFieldIdByName = (suffix) => {
+      const field = allFields.find(f => f.name && (f.name === suffix || f.name.endsWith("." + suffix)));
+      return field ? field.name : null;
     };
 
     const F = {
-      table:  isBieDbtUsageExplore ? tryLabels('Table Name', ['Table', 'table_name', 'Table Name']) : getFieldId('Table Name'),
-      schema: isBieDbtUsageExplore ? tryLabels('Table Schema', ['Schema', 'schema', 'Table Schema']) : getFieldId('Table Schema'),
-      consumer: isBieDbtUsageExplore ? tryLabels('Consumer Type', ['Consumer', 'consumer_type', 'Consumer Type']) : getFieldId('Consumer Type'),
-      column:  isBieDbtUsageExplore ? tryLabels('Column Name', ['Column', 'column_name', 'Column Name']) : getFieldId('Column Name'),
-      usage:   isBieDbtUsageExplore ? tryLabels('Total Column Usage', ['Usage', 'column_usage', 'Total Column Usage']) : getFieldId('Total Column Usage')
+      table:  isBieDbtUsageExplore ? (getFieldIdByName("table_name") || getFieldId("Table Name")) : getFieldId('Table Name'),
+      schema: isBieDbtUsageExplore ? (getFieldIdByName("table_schema") || getFieldId("Table Schema")) : getFieldId('Table Schema'),
+      consumer: isBieDbtUsageExplore ? (getFieldIdByName("consumer_type") || getFieldId("Consumer Type")) : getFieldId('Consumer Type'),
+      column:  isBieDbtUsageExplore ? (getFieldIdByName("column_name") || getFieldId("Column Name")) : getFieldId('Column Name'),
+      usage:   isBieDbtUsageExplore ? (getFieldIdByName("total_column_usage") || getFieldId("Total Column Usage")) : getFieldId('Total Column Usage')
     };
 
     // CONSUMER BRANDING
