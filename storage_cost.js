@@ -48,25 +48,40 @@ looker.plugins.visualizations.add({
   updateAsync: function(data, element, config, queryResponse, details, done) {
     const mainArea = element.querySelector('#scx-main');
     const label = element.querySelector('#main-label');
-    
-    // EXPLORE OVERRIDE: Change label if in the BIE DBT Usage explore
-    const exploreName = queryResponse.explore || "";
-    if (exploreName.toLowerCase().includes("bie_dbt_usage")) {
-        label.innerText = "DBT USAGE LINEAGE";
+
+    const exploreName = (queryResponse.explore || "").toLowerCase();
+    const isBieDbtUsageExplore = exploreName.includes("bie_dbt_usage") || exploreName.includes("bie dbt usage");
+
+    // BIE DBT Usage explore → show usage view and label; otherwise keep default (e.g. lineage)
+    if (isBieDbtUsageExplore) {
+      label.innerText = "DBT Usage";
+    } else {
+      label.innerText = "Usage Explorer";
     }
 
+    const allFields = (queryResponse.fields.dimension_like || []).concat(queryResponse.fields.measure_like || []);
     const getFieldId = (labelStr) => {
-        const field = queryResponse.fields.dimension_like.concat(queryResponse.fields.measure_like)
-                      .find(f => f.label_short === labelStr || f.label.includes(labelStr));
-        return field ? field.name : null;
+      const field = allFields.find(f => f.label_short === labelStr || (f.label && f.label.includes(labelStr)));
+      return field ? field.name : null;
+    };
+
+    // For BIE DBT Usage explore, try common alternate labels in case this explore uses different names
+    const tryLabels = (primary, alternates) => {
+      let id = getFieldId(primary);
+      if (id) return id;
+      for (const alt of alternates) {
+        id = getFieldId(alt);
+        if (id) return id;
+      }
+      return null;
     };
 
     const F = {
-      table: getFieldId('Table Name'),
-      schema: getFieldId('Table Schema'),
-      consumer: getFieldId('Consumer Type'),
-      column: getFieldId('Column Name'),
-      usage: getFieldId('Total Column Usage')
+      table:  isBieDbtUsageExplore ? tryLabels('Table Name', ['Table', 'table_name', 'Table Name']) : getFieldId('Table Name'),
+      schema: isBieDbtUsageExplore ? tryLabels('Table Schema', ['Schema', 'schema', 'Table Schema']) : getFieldId('Table Schema'),
+      consumer: isBieDbtUsageExplore ? tryLabels('Consumer Type', ['Consumer', 'consumer_type', 'Consumer Type']) : getFieldId('Consumer Type'),
+      column:  isBieDbtUsageExplore ? tryLabels('Column Name', ['Column', 'column_name', 'Column Name']) : getFieldId('Column Name'),
+      usage:   isBieDbtUsageExplore ? tryLabels('Total Column Usage', ['Usage', 'column_usage', 'Total Column Usage']) : getFieldId('Total Column Usage')
     };
 
     // CONSUMER BRANDING
@@ -86,8 +101,8 @@ looker.plugins.visualizations.add({
         aggregated[t] = { schema: row[F.schema]?.value || 'N/A', consumers: new Set(), unused: new Set() };
       }
       if (row[F.consumer]?.value) aggregated[t].consumers.add(row[F.consumer].value);
-      if (parseFloat(row[F.usage]?.value) === 0) {
-        aggregated[t].unused.add(row[F.column]?.value);
+      if (F.usage && parseFloat(row[F.usage]?.value) === 0) {
+        if (row[F.column]?.value) aggregated[t].unused.add(row[F.column].value);
       }
     });
 
@@ -123,7 +138,7 @@ looker.plugins.visualizations.add({
       `;
     });
 
-    mainArea.innerHTML = html || '<div style="text-align:center; padding-top:100px; color:#475569">No data found. Ensure dimensions and measures are selected.</div>';
+    mainArea.innerHTML = html || '<div style="text-align:center; padding-top:100px; color:#475569">No data found. For BIE DBT Usage: add dimensions (e.g. Table Name, Table Schema, Consumer Type, Column Name) and measure Total Column Usage.</div>';
     done();
   }
 });
