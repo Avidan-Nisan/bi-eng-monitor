@@ -638,119 +638,93 @@ looker.plugins.visualizations.add({
 
 
 
-    // ========== USAGE ==========
+// ========== DBT USAGE LINEAGE ==========
+    if(mode==='usage' || mode==='dbt_usage') {
+      var tables = {}, consumers = {}, links = [], totalJobs = 0;
 
-    if(mode==='usage'){
+      // Map fields from the DBT Usage View
+      var fTbl = dims.find(f => f.toLowerCase().includes('table_name'));
+      var fCons = dims.find(f => f.toLowerCase().includes('executed_by') || f.toLowerCase().includes('consumer_type'));
+      var fJobs = meas.find(f => f.toLowerCase().includes('num_jobs'));
 
-      function pdt(v){if(!v)return null;var d=new Date(String(v).substring(0,10)+'T00:00:00');return isNaN(d.getTime())?null:d;}
+      data.forEach(function(row) {
+        var tName = gv(row, fTbl) || 'Unknown Table';
+        var cName = gv(row, fCons) || 'Direct Query';
+        var jobs = gn(row, fJobs);
 
-      function dts(d){return d?d.toISOString().substring(0,10):'';}
+        if (!tables[tName]) tables[tName] = { name: tName, val: 0 };
+        if (!consumers[cName]) consumers[cName] = { name: cName, val: 0 };
+        
+        tables[tName].val += jobs;
+        consumers[cName].val += jobs;
+        totalJobs += jobs;
+        
+        links.push({ source: tName, target: cName, val: jobs });
+      });
 
-      var uR=[];data.forEach(function(row){uR.push({dash:gv(row,F.dash),dashId:gv(row,F.dashId),exp:gv(row,F.exp),view:gv(row,F.view),tbl:gv(row,F.tbl),model:gv(row,F.model),ds:dts(pdt(gv(row,F.date))),vc:gn(row,F.vc)});});
+      function rUsageLineage() {
+        var tList = Object.values(tables).sort((a,b) => b.val - a.val);
+        var cList = Object.values(consumers).sort((a,b) => b.val - a.val);
+        
+        var nW = 200, nH = 32, sp = 12, pad = 40;
+        var leftX = pad, rightX = W - nW - pad;
+        var sH = Math.max(tList.length, cList.length) * (nH + sp) + 100;
+        
+        var posT = {}, posC = {};
+        var nodesHtml = '', linesHtml = '';
 
-      var ddV={};uR.forEach(function(r){if(!r.dash||!r.ds)return;var k=r.dash+'||'+r.ds;if(!ddV[k])ddV[k]={d:r.dash,di:r.dashId,m:r.model,vc:r.vc};});
-
-      var dT={};Object.values(ddV).forEach(function(d){if(!dT[d.d])dT[d.d]={vc:0,di:d.di,m:d.m};dT[d.d].vc+=d.vc;});
-
-      var eD={};uR.forEach(function(r){if(r.exp&&r.dash){if(!eD[r.exp])eD[r.exp]={};eD[r.exp][r.dash]=true;}});
-
-      var eT={};Object.keys(eD).forEach(function(e){var tv=0,m='';Object.keys(eD[e]).forEach(function(d){if(dT[d]){tv+=dT[d].vc;if(!m)m=dT[d].m;}});eT[e]={vc:tv,m:m,dc:Object.keys(eD[e]).length};});
-
-      var vE={};uR.forEach(function(r){if(r.view&&r.exp){if(!vE[r.view])vE[r.view]={};vE[r.view][r.exp]=true;}});
-
-      var vT={};Object.keys(vE).forEach(function(v){var tv=0,vd={},m='';Object.keys(vE[v]).forEach(function(e){if(eD[e])Object.keys(eD[e]).forEach(function(d){vd[d]=true;});});Object.keys(vd).forEach(function(d){if(dT[d])tv+=dT[d].vc;});uR.forEach(function(r){if(r.view===v&&r.model&&!m)m=r.model;});vT[v]={vc:tv,m:m,ec:Object.keys(vE[v]).length,dc:Object.keys(vd).length};});
-
-      var tVw={};uR.forEach(function(r){if(r.tbl&&r.view){if(!tVw[r.tbl])tVw[r.tbl]={};tVw[r.tbl][r.view]=true;}});
-
-      var tT={};Object.keys(tVw).forEach(function(t){var tv=0;Object.keys(tVw[t]).forEach(function(v){if(vT[v])tv+=vT[v].vc;});tT[t]={vc:tv,wc:Object.keys(tVw[t]).length};});
-
-
-
-      var aE='dashboard',sC='vc',sD='desc';
-
-      function bL(t,n,m,di){if(!baseUrl)return null;if(t==='dashboard'&&di)return baseUrl+'/dashboards/'+di;if(t==='explore'&&m&&n)return baseUrl+'/explore/'+m+'/'+n;return null;}
-
-
-
-      function gL(){
-
-        var ls=[];
-
-        if(aE==='dashboard')Object.keys(dT).forEach(function(d){var v=dT[d];ls.push({name:d,model:v.m,vc:v.vc,extra:'',link:bL('dashboard',d,v.m,v.di)});});
-
-        else if(aE==='explore')Object.keys(eT).forEach(function(e){var v=eT[e];ls.push({name:e,model:v.m,vc:v.vc,extra:v.dc+' dashboards',link:bL('explore',e,v.m)});});
-
-        else if(aE==='view')Object.keys(vT).forEach(function(w){var v=vT[w];ls.push({name:w,model:v.m,vc:v.vc,extra:v.dc+' dash \u00B7 '+v.ec+' exp',link:null});});
-
-        else Object.keys(tT).forEach(function(t){var v=tT[t];ls.push({name:t,model:'',vc:v.vc,extra:v.wc+' views',link:null});});
-
-        ls.sort(function(a,b){if(sC==='vc')return sD==='asc'?a.vc-b.vc:b.vc-a.vc;var va=a[sC]||'',vb=b[sC]||'';return sD==='asc'?va.localeCompare(vb):vb.localeCompare(va);});
-
-        return ls;
-
-      }
-
-
-
-      function rU(){
-
-        var ls=gL(),tv=0;ls.forEach(function(i){tv+=i.vc;});var col=eC[aE];
-
-        var h=navBar()+'<div class="lx-body"><div class="lx-bar"><div style="display:flex;gap:2px">';
-
-        ['dashboard','explore','view','table'].forEach(function(t,i){var c=eC[t],a=aE===t;h+='<button class="lx-ebtn eb'+(a?' on':'')+'" data-e="'+t+'" style="color:'+(a?c:'')+(i===0?';border-radius:6px 0 0 6px':'')+(i===3?';border-radius:0 6px 6px 0':'')+'">'+t.charAt(0).toUpperCase()+t.slice(1)+'s</button>';});
-
-        h+='</div><div style="color:#475569">'+ls.length+' '+aE+'s \u00B7 <span style="color:'+col+';font-weight:600">'+tv.toLocaleString()+'</span> views (30d)</div></div>';
-
-        h+='<div class="lx-hdr" style="grid-template-columns:1fr 140px 130px 150px 36px">';
-
-        [{k:'name',l:'Name'},{k:'model',l:'Model'},{k:'vc',l:'Views (30d)'},{k:'extra',l:'References'},{k:'lnk',l:''}].forEach(function(c){if(c.k==='lnk'){h+='<div></div>';return;}var a=sC===c.k;h+='<div class="sc'+(a?' on':'')+'" data-c="'+c.k+'">'+c.l+(a?(sD==='asc'?' \u2191':' \u2193'):'')+'</div>';});
-
-        h+='</div><div class="lx-scroll">';
-
-        var mx=ls.length>0?ls.reduce(function(m,i){return Math.max(m,i.vc);},0):1;
-
-        ls.forEach(function(it){
-
-          var bW=mx>0?Math.max(it.vc/mx*100,0):0,vc=it.vc===0?'#ef4444':it.vc<10?'#f59e0b':'#10b981';
-
-          h+='<div class="lx-row" style="grid-template-columns:1fr 140px 130px 150px 36px">';
-
-          h+='<div class="lx-cell" style="color:#e2e8f0" title="'+it.name+'">'+it.name+'</div>';
-
-          h+='<div class="lx-cell" style="color:#64748b">'+(it.model||'-')+'</div>';
-
-          h+='<div class="lx-cell"><div style="display:flex;align-items:center;gap:8px"><span style="color:'+vc+';font-weight:600;min-width:44px">'+it.vc.toLocaleString()+'</span><div style="flex:1;height:4px;background:#1e293b;border-radius:3px;overflow:hidden"><div style="width:'+bW+'%;height:100%;background:'+col+';border-radius:3px;transition:width .3s"></div></div></div></div>';
-
-          h+='<div class="lx-cell" style="color:#475569">'+it.extra+'</div>';
-
-          h+='<div class="lx-cell" style="text-align:center;padding:6px 4px">';
-
-          if(it.link)h+='<a href="'+it.link+'" target="_blank" rel="noopener" class="lx-link" title="Open in Looker">'+ic.lnk+'</a>';
-
-          h+='</div></div>';
-
+        // Draw Left Side (DBT Models/Tables)
+        tList.forEach((t, i) => {
+          var y = 60 + i * (nH + sp);
+          posT[t.name] = { x: leftX + nW, y: y + nH/2 };
+          nodesHtml += `<g transform="translate(${leftX},${y})">
+            <rect width="${nW}" height="${nH}" rx="6" fill="#1e293b" stroke="#334155"/>
+            <text x="12" y="${nH/2+5}" fill="#e2e8f0" font-size="11" font-weight="500">${t.name.split('.').pop()}</text>
+            <text x="${nW-12}" y="${nH/2+5}" text-anchor="end" fill="#64748b" font-size="10">${t.val}</text>
+          </g>`;
         });
 
-        if(!ls.length)h+='<div style="text-align:center;padding:60px;color:#475569">No data</div>';
+        // Draw Right Side (Consumers)
+        cList.forEach((c, i) => {
+          var y = 60 + i * (nH + sp);
+          var pct = totalJobs > 0 ? ((c.val / totalJobs) * 100).toFixed(1) : 0;
+          posC[c.name] = { x: rightX, y: y + nH/2 };
+          nodesHtml += `<g transform="translate(${rightX},${y})">
+            <rect width="${nW}" height="${nH}" rx="6" fill="#0f172a" stroke="#8b5cf6" stroke-opacity="0.5"/>
+            <text x="12" y="${nH/2+5}" fill="#e2e8f0" font-size="11">${c.name}</text>
+            <rect x="${nW-45}" y="${nH/2-7}" width="38" height="14" rx="3" fill="#8b5cf6" fill-opacity="0.1"/>
+            <text x="${nW-26}" y="${nH/2+4}" text-anchor="middle" fill="#a78bfa" font-size="9" font-weight="bold">${pct}%</text>
+          </g>`;
+        });
 
-        h+='</div></div>';
+        // Draw Lineage Lines
+        links.forEach(l => {
+          var p1 = posT[l.source], p2 = posC[l.target];
+          if(!p1 || !p2) return;
+          var op = Math.max(0.1, l.val / (totalJobs / links.length));
+          var sw = Math.max(1, (l.val / totalJobs) * 20);
+          linesHtml += `<path d="M${p1.x} ${p1.y} C${(p1.x+p2.x)/2} ${p1.y}, ${(p1.x+p2.x)/2} ${p2.y}, ${p2.x} ${p2.y}" 
+            fill="none" stroke="#6366f1" stroke-width="${sw}" stroke-opacity="${op > 0.6 ? 0.6 : op}"/>`;
+        });
 
-        R.innerHTML=h;
-
-        R.querySelectorAll('.eb').forEach(function(b){b.addEventListener('click',function(){aE=b.dataset.e;sC='vc';sD='desc';rU();});});
-
-        R.querySelectorAll('.sc').forEach(function(c){c.addEventListener('click',function(){var k=c.dataset.c;if(sC===k)sD=sD==='asc'?'desc':'asc';else{sC=k;sD=k==='vc'?'desc':'asc';}rU();});});
-
+        R.innerHTML = navBar() + `
+          <div class="lx-body">
+            <div class="lx-bar">
+              <div style="color:#94a3b8; font-weight:600; text-transform:uppercase; letter-spacing:1px; font-size:10px;">DBT Model Usage Lineage</div>
+              <div style="color:#475569">${totalJobs.toLocaleString()} Total Jobs</div>
+            </div>
+            <div class="lx-scroll">
+              <svg width="100%" height="${sH}" style="min-width: 800px">
+                <text x="${leftX}" y="40" fill="#64748b" font-size="10" font-weight="bold">DBT MODELS</text>
+                <text x="${rightX}" y="40" fill="#64748b" font-size="10" font-weight="bold">CONSUMERS (% OF JOBS)</text>
+                ${linesHtml}
+                ${nodesHtml}
+              </svg>
+            </div>
+          </div>`;
       }
 
-      rU();done();return;
-
+      rUsageLineage();
+      done();
+      return;
     }
-
-    done();
-
-  }
-
-});
-
