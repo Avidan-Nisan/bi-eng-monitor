@@ -647,7 +647,7 @@ looker.plugins.visualizations.add({
 
       var consumers=Object.values(consumerSet).sort(function(a,b){return a.label.localeCompare(b.label);});
 
-      var nW=220,nH=40,sp=44,pd=24,leftX=pd,cNw=140,cNh=140,cSp=148,rightX=Math.max(W-50,nW*2+200)-cNw-pd,sY=52;
+      var nW=380,nH=40,sp=44,pd=24,leftX=pd,cNw=140,cNh=140,cSp=148,rightX=Math.max(W-50,nW*2+200)-cNw-pd,sY=52;
 
       var posModel={},posConsumer={};
 
@@ -680,19 +680,19 @@ looker.plugins.visualizations.add({
 
         var p=posModel[m.key];
 
-        var nm=m.label.length>28?m.label.substring(0,26)+'\u2026':m.label;
-
-        nd+='<g class="lx-node" transform="translate('+p.x+','+p.y+')"><rect width="'+nW+'" height="'+nH+'" rx="8" fill="#131b2e" stroke="#06b6d4" stroke-width="1.5"/><rect x="2" y="2" width="34" height="'+(nH-4)+'" rx="6" fill="#06b6d408"/><g transform="translate(10,'+(nH/2-8)+')" fill="#06b6d4">'+tI.table+'</g><text x="42" y="'+(nH/2+4)+'" fill="#e2e8f0" font-size="11" font-weight="500">'+nm+'</text></g>';
+        nd+='<g class="lx-node" transform="translate('+p.x+','+p.y+')"><rect width="'+nW+'" height="'+nH+'" rx="8" fill="#131b2e" stroke="#06b6d4" stroke-width="1.5"/><rect x="2" y="2" width="34" height="'+(nH-4)+'" rx="6" fill="#06b6d408"/><g transform="translate(10,'+(nH/2-8)+')" fill="#06b6d4">'+tI.table+'</g><text x="42" y="'+(nH/2+4)+'" fill="#e2e8f0" font-size="11" font-weight="500">'+m.label+'</text></g>';
 
       });
 
       var cLogoSize=112,cLogoX=(cNw-cLogoSize)/2,cLogoY=(cNh-cLogoSize)/2;
       consumers.forEach(function(c){
         var p=posConsumer[c.key];
-        var logo=getConsumerLogo(c.key);
-        var isDataUrl=logo&&logo.indexOf('data:')===0;
-        var logoEl=isDataUrl?'<image xlink:href="'+logo+'" x="'+cLogoX+'" y="'+cLogoY+'" width="'+cLogoSize+'" height="'+cLogoSize+'" preserveAspectRatio="xMidYMid meet"/>':'<g transform="translate('+((cNw-24)/2)+','+((cNh-24)/2)+')" fill="#f59e0b" color="#f59e0b">'+logo+'</g>';
-        nd+='<g class="lx-node" transform="translate('+p.x+','+p.y+')"><rect width="'+cNw+'" height="'+cNh+'" rx="10" fill="#131b2e" stroke="#f59e0b" stroke-width="1.5"/><rect x="2" y="2" width="'+(cNw-4)+'" height="'+(cNh-4)+'" rx="8" fill="#f59e0b08"/>'+logoEl+'</g>';
+        var logo=consumerLogos[c.key];
+        var hasLogo=logo&&(logo.indexOf('data:')===0||(typeof logo==='string'&&logo.length>0&&logo.indexOf('<')!==-1));
+        var contentEl;
+        if(hasLogo){var isDataUrl=logo.indexOf('data:')===0;contentEl=isDataUrl?'<image xlink:href="'+logo+'" x="'+cLogoX+'" y="'+cLogoY+'" width="'+cLogoSize+'" height="'+cLogoSize+'" preserveAspectRatio="xMidYMid meet"/>':'<g transform="translate('+((cNw-24)/2)+','+((cNh-24)/2)+')" fill="#f59e0b" color="#f59e0b">'+logo+'</g>';}
+        else{var lab=(c.label||c.key||'').toString().replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');contentEl='<text x="'+cNw/2+'" y="'+(cNh/2+5)+'" text-anchor="middle" fill="#e2e8f0" font-size="14" font-weight="600">'+lab+'</text>';}
+        nd+='<g class="lx-node" transform="translate('+p.x+','+p.y+')"><rect width="'+cNw+'" height="'+cNh+'" rx="10" fill="#131b2e" stroke="#f59e0b" stroke-width="1.5"/><rect x="2" y="2" width="'+(cNw-4)+'" height="'+(cNh-4)+'" rx="8" fill="#f59e0b08"/>'+contentEl+'</g>';
       });
 
       var h=navBar()+'<div class="lx-body"><div class="lx-bar"><div style="color:#94a3b8">DBT models <span style="color:#06b6d4;font-weight:600">'+models.length+'</span> \u2194 consumers <span style="color:#f59e0b;font-weight:600">'+consumers.length+'</span></div><div style="color:#475569">'+edges.length+' connections \u00B7 '+data.length+' rows</div></div>';
