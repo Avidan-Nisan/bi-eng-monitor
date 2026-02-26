@@ -615,29 +615,29 @@ looker.plugins.visualizations.add({
 
     if(mode==='dbt_usage'){
 
-      var modelSet={}, consumerSet={}, edges=[];
+      var modelSet={}, consumerSet={}, edges=[], edgeMap={};
 
       data.forEach(function(row){
 
         var schema=gv(row,F.table_schema),tbl=gv(row,F.table_name),consumer=gv(row,F.consumer_type);
 
-        if(!tbl||!consumer)return;
-
         var modelKey=(schema?schema+'.':'')+tbl;
 
         var usage=gn(row,F.total_column_usage)||gn(row,F.num_queries)||gn(row,F.num_jobs)||0;
 
-        if(!modelSet[modelKey])modelSet[modelKey]={key:modelKey,label:modelKey,schema:schema||'',name:tbl};
+        if(tbl){if(!modelSet[modelKey])modelSet[modelKey]={key:modelKey,label:modelKey,schema:schema||'',name:tbl};}
 
-        if(!consumerSet[consumer])consumerSet[consumer]={key:consumer,label:consumer};
+        if(consumer){if(!consumerSet[consumer])consumerSet[consumer]={key:consumer,label:consumer};}
 
-        if(usage>0){
+        if(tbl&&consumer&&usage>0){
 
-          var ex=edges.find(function(e){return e.modelKey===modelKey&&e.consumer===consumer;});
+          var ek=modelKey+'|'+consumer;
+
+          var ex=edgeMap[ek];
 
           if(ex){ex.usage+=usage;ex.queries+=gn(row,F.num_queries);ex.jobs+=gn(row,F.num_jobs);}
 
-          else edges.push({modelKey:modelKey,consumer:consumer,usage:usage,queries:gn(row,F.num_queries),jobs:gn(row,F.num_jobs)});
+          else{var newE={modelKey:modelKey,consumer:consumer,usage:usage,queries:gn(row,F.num_queries),jobs:gn(row,F.num_jobs)};edges.push(newE);edgeMap[ek]=newE;}
 
         }
 
@@ -647,7 +647,7 @@ looker.plugins.visualizations.add({
 
       var consumers=Object.values(consumerSet).sort(function(a,b){return a.label.localeCompare(b.label);});
 
-      var nW=220,nH=40,sp=44,pd=24,leftX=pd,cNw=72,cNh=72,cSp=76,rightX=Math.max(W-50,nW*2+200)-cNw-pd,sY=52;
+      var nW=220,nH=40,sp=44,pd=24,leftX=pd,cNw=140,cNh=140,cSp=148,rightX=Math.max(W-50,nW*2+200)-cNw-pd,sY=52;
 
       var posModel={},posConsumer={};
 
@@ -658,7 +658,8 @@ looker.plugins.visualizations.add({
       var sH=Math.max(models.length*sp,consumers.length*cSp)+80,sW=rightX+cNw+pd;
 
       var ed='';
-
+      var maxUsage=0;for(var ei=0;ei<edges.length;ei++)maxUsage+=edges[ei].usage;
+      maxUsage=Math.max(1,maxUsage);
       edges.forEach(function(e){
 
         var pm=posModel[e.modelKey],pc=posConsumer[e.consumer];
@@ -667,7 +668,7 @@ looker.plugins.visualizations.add({
 
         var x1=pm.x+nW,y1=pm.y+nH/2,x2=pc.x,y2=pc.y+cNh/2,mx=(x1+x2)/2;
 
-        var stroke='#475569';var op=0.35+Math.min(0.5,(e.usage/Math.max(1,edges.reduce(function(s,x){return s+x.usage;},0))*10));
+        var stroke='#475569';var op=0.35+Math.min(0.5,(e.usage/maxUsage)*10);
 
         ed+='<path d="M'+x1+' '+y1+' C'+mx+' '+y1+','+mx+' '+y2+','+x2+' '+y2+'" fill="none" stroke="'+stroke+'" stroke-width="1.5" stroke-opacity="'+op+'"/>';
 
@@ -685,7 +686,7 @@ looker.plugins.visualizations.add({
 
       });
 
-      var cLogoSize=56,cLogoX=(cNw-cLogoSize)/2,cLogoY=(cNh-cLogoSize)/2;
+      var cLogoSize=112,cLogoX=(cNw-cLogoSize)/2,cLogoY=(cNh-cLogoSize)/2;
       consumers.forEach(function(c){
         var p=posConsumer[c.key];
         var logo=getConsumerLogo(c.key);
