@@ -693,7 +693,8 @@ looker.plugins.visualizations.add({
 
         var isDataUrl=logo&&logo.indexOf('data:')===0;
 
-        var logoEl=isDataUrl?'<image xlink:href="'+logo+'" x="10" y="'+(nH/2-8)+'" width="16" height="16" preserveAspectRatio="xMidYMid meet"/>':'<g transform="translate(10,'+(nH/2-8)+')" fill="#f59e0b" color="#f59e0b">'+logo+'</g>';
+        var logoSize=28,logoX=5,logoY=nH/2-logoSize/2;
+        var logoEl=isDataUrl?'<image xlink:href="'+logo+'" x="'+logoX+'" y="'+logoY+'" width="'+logoSize+'" height="'+logoSize+'" preserveAspectRatio="xMidYMid meet"/>':'<g transform="translate(10,'+(nH/2-8)+')" fill="#f59e0b" color="#f59e0b">'+logo+'</g>';
 
         nd+='<g class="lx-node" transform="translate('+p.x+','+p.y+')"><rect width="'+nW+'" height="'+nH+'" rx="8" fill="#131b2e" stroke="#f59e0b" stroke-width="1.5"/><rect x="2" y="2" width="34" height="'+(nH-4)+'" rx="6" fill="#f59e0b08"/>'+logoEl+'<text x="42" y="'+(nH/2+4)+'" fill="#e2e8f0" font-size="11" font-weight="500">'+c.label+'</text></g>';
 
