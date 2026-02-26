@@ -627,19 +627,19 @@ looker.plugins.visualizations.add({
 
         var usage=gn(row,F.total_column_usage)||gn(row,F.num_queries)||gn(row,F.num_jobs)||0;
 
-        if(usage<=0)return;
-
         if(!modelSet[modelKey])modelSet[modelKey]={key:modelKey,label:modelKey,schema:schema||'',name:tbl};
 
         if(!consumerSet[consumer])consumerSet[consumer]={key:consumer,label:consumer};
 
-        var ek=modelKey+'|'+consumer;
+        if(usage>0){
 
-        var ex=edges.find(function(e){return e.modelKey===modelKey&&e.consumer===consumer;});
+          var ex=edges.find(function(e){return e.modelKey===modelKey&&e.consumer===consumer;});
 
-        if(ex){ex.usage+=usage;ex.queries+=gn(row,F.num_queries);ex.jobs+=gn(row,F.num_jobs);}
+          if(ex){ex.usage+=usage;ex.queries+=gn(row,F.num_queries);ex.jobs+=gn(row,F.num_jobs);}
 
-        else edges.push({modelKey:modelKey,consumer:consumer,usage:usage,queries:gn(row,F.num_queries),jobs:gn(row,F.num_jobs)});
+          else edges.push({modelKey:modelKey,consumer:consumer,usage:usage,queries:gn(row,F.num_queries),jobs:gn(row,F.num_jobs)});
+
+        }
 
       });
 
@@ -647,15 +647,15 @@ looker.plugins.visualizations.add({
 
       var consumers=Object.values(consumerSet).sort(function(a,b){return a.label.localeCompare(b.label);});
 
-      var nW=220,nH=40,sp=44,pd=24,leftX=pd,rightX=Math.max(W-50,nW*2+200)-nW-pd,sY=52;
+      var nW=220,nH=40,sp=44,pd=24,leftX=pd,cNw=72,cNh=72,cSp=76,rightX=Math.max(W-50,nW*2+200)-cNw-pd,sY=52;
 
       var posModel={},posConsumer={};
 
       models.forEach(function(m,i){posModel[m.key]={x:leftX,y:sY+i*sp};});
 
-      consumers.forEach(function(c,i){posConsumer[c.key]={x:rightX,y:sY+i*sp};});
+      consumers.forEach(function(c,i){posConsumer[c.key]={x:rightX,y:sY+i*cSp};});
 
-      var sH=Math.max(models.length*sp,consumers.length*sp)+80,sW=rightX+nW+pd;
+      var sH=Math.max(models.length*sp,consumers.length*cSp)+80,sW=rightX+cNw+pd;
 
       var ed='';
 
@@ -665,7 +665,7 @@ looker.plugins.visualizations.add({
 
         if(!pm||!pc)return;
 
-        var x1=pm.x+nW,y1=pm.y+nH/2,x2=pc.x,y2=pc.y+nH/2,mx=(x1+x2)/2;
+        var x1=pm.x+nW,y1=pm.y+nH/2,x2=pc.x,y2=pc.y+cNh/2,mx=(x1+x2)/2;
 
         var stroke='#475569';var op=0.35+Math.min(0.5,(e.usage/Math.max(1,edges.reduce(function(s,x){return s+x.usage;},0))*10));
 
@@ -685,19 +685,13 @@ looker.plugins.visualizations.add({
 
       });
 
+      var cLogoSize=56,cLogoX=(cNw-cLogoSize)/2,cLogoY=(cNh-cLogoSize)/2;
       consumers.forEach(function(c){
-
         var p=posConsumer[c.key];
-
         var logo=getConsumerLogo(c.key);
-
         var isDataUrl=logo&&logo.indexOf('data:')===0;
-
-        var logoSize=28,logoX=5,logoY=nH/2-logoSize/2;
-        var logoEl=isDataUrl?'<image xlink:href="'+logo+'" x="'+logoX+'" y="'+logoY+'" width="'+logoSize+'" height="'+logoSize+'" preserveAspectRatio="xMidYMid meet"/>':'<g transform="translate(10,'+(nH/2-8)+')" fill="#f59e0b" color="#f59e0b">'+logo+'</g>';
-
-        nd+='<g class="lx-node" transform="translate('+p.x+','+p.y+')"><rect width="'+nW+'" height="'+nH+'" rx="8" fill="#131b2e" stroke="#f59e0b" stroke-width="1.5"/><rect x="2" y="2" width="34" height="'+(nH-4)+'" rx="6" fill="#f59e0b08"/>'+logoEl+'<text x="42" y="'+(nH/2+4)+'" fill="#e2e8f0" font-size="11" font-weight="500">'+c.label+'</text></g>';
-
+        var logoEl=isDataUrl?'<image xlink:href="'+logo+'" x="'+cLogoX+'" y="'+cLogoY+'" width="'+cLogoSize+'" height="'+cLogoSize+'" preserveAspectRatio="xMidYMid meet"/>':'<g transform="translate('+((cNw-24)/2)+','+((cNh-24)/2)+')" fill="#f59e0b" color="#f59e0b">'+logo+'</g>';
+        nd+='<g class="lx-node" transform="translate('+p.x+','+p.y+')"><rect width="'+cNw+'" height="'+cNh+'" rx="10" fill="#131b2e" stroke="#f59e0b" stroke-width="1.5"/><rect x="2" y="2" width="'+(cNw-4)+'" height="'+(cNh-4)+'" rx="8" fill="#f59e0b08"/>'+logoEl+'</g>';
       });
 
       var h=navBar()+'<div class="lx-body"><div class="lx-bar"><div style="color:#94a3b8">DBT models <span style="color:#06b6d4;font-weight:600">'+models.length+'</span> \u2194 consumers <span style="color:#f59e0b;font-weight:600">'+consumers.length+'</span></div><div style="color:#475569">'+edges.length+' connections \u00B7 '+data.length+' rows</div></div>';
@@ -706,7 +700,7 @@ looker.plugins.visualizations.add({
 
       h+='<text x="'+(leftX+nW/2)+'" y="24" text-anchor="middle" fill="#06b6d4" font-size="10" font-weight="700" letter-spacing="1">DBT MODELS</text>';
 
-      h+='<text x="'+(rightX+nW/2)+'" y="24" text-anchor="middle" fill="#f59e0b" font-size="10" font-weight="700" letter-spacing="1">CONSUMERS</text>';
+      h+='<text x="'+(rightX+cNw/2)+'" y="24" text-anchor="middle" fill="#f59e0b" font-size="10" font-weight="700" letter-spacing="1">CONSUMERS</text>';
 
       h+=ed+nd+'</svg></div></div>';
 
