@@ -12,7 +12,7 @@ looker.plugins.visualizations.add({
 
     overlap_dashboard_id: {type:"string",label:"Overlap Dashboard ID",default:"",section:"Navigation",order:3},
 
-    usage_dashboard_id: {type:"string",label:"Usage Dashboard ID",default:"",section:"Navigation",order:4}
+    usage_dashboard_id: {type:"string",label:"DBT Usage Dashboard ID",default:"",section:"Navigation",order:4}
 
   },
 
@@ -70,11 +70,29 @@ looker.plugins.visualizations.add({
 
     F.vc=meas.find(function(f){var l=f.toLowerCase();return l.indexOf('view_count')!==-1||l.indexOf('dashboard_view')!==-1;});
 
+    // DBT usage view (dbt_usage explore)
+
+    F.table_schema=dims.find(function(f){return f.toLowerCase().indexOf('table_schema')!==-1;});
+
+    F.table_name=dims.find(function(f){return f.toLowerCase().indexOf('table_name')!==-1;});
+
+    F.consumer_type=dims.find(function(f){return f.toLowerCase().indexOf('consumer_type')!==-1;});
+
+    F.executed_by=dims.find(function(f){return f.toLowerCase().indexOf('executed_by')!==-1;});
+
+    F.total_column_usage=meas.find(function(f){return f.toLowerCase().indexOf('total_column_usage')!==-1;});
+
+    F.num_queries=meas.find(function(f){return f.toLowerCase().indexOf('num_queries')!==-1;});
+
+    F.num_jobs=meas.find(function(f){return f.toLowerCase().indexOf('num_jobs')!==-1;});
+
 
 
     var mode;
 
-    if(F.date&&F.vc)mode='usage';
+    if(F.table_schema&&F.table_name&&F.consumer_type)mode='dbt_usage';
+
+    else if(F.date&&F.vc)mode='usage';
 
     else if(F.dash&&F.exp&&F.view)mode='lineage';
 
@@ -122,6 +140,30 @@ looker.plugins.visualizations.add({
 
     var eC={dashboard:'#f97316',explore:'#ec4899',view:'#8b5cf6',table:'#06b6d4'};
 
+    // Consumer type logos (SVG icons) for DBT Usage
+
+    var consumerLogos={
+
+      Looker:'<svg viewBox="0 0 24 24" width="16" height="16"><rect x="3" y="3" width="7" height="7" rx="1" fill="#5D6D7E"/><rect x="14" y="3" width="7" height="7" rx="1" fill="#5D6D7E"/><rect x="3" y="14" width="7" height="7" rx="1" fill="#5D6D7E"/><rect x="14" y="14" width="7" height="7" rx="1" fill="#5D6D7E"/></svg>',
+
+      Redash:'<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 3v18h18"/><path d="M18 9l-5 5-4-4-3 3"/></svg>',
+
+      Amplify:'<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2"><path d="M2 12h4l2-8 4 16 2-8h4"/></svg>',
+
+      DBT:'<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M12 2v3M12 19v3M2 12h3M19 12h3M4.93 4.93l2.12 2.12M17.95 17.95l2.12 2.12M4.93 19.07l2.12-2.12M17.95 6.05l2.12-2.12"/></svg>',
+
+      'Amplify Dashboard':'<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="2" width="9" height="6" rx="1"/><rect x="13" y="2" width="9" height="6" rx="1"/><rect x="2" y="10" width="9" height="6" rx="1"/><rect x="13" y="10" width="9" height="6" rx="1"/></svg>',
+
+      Salesforce:'<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 10h-1.26A8 8 0 109 20h9a5 5 0 000-10z"/></svg>',
+
+      'Service Account':'<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"/></svg>',
+
+      User:'<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 21v-2a4 4 0 00-4-4H8a4 4 0 00-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>'
+
+    };
+
+    function getConsumerLogo(ct){return consumerLogos[ct]||consumerLogos['User'];}
+
 
 
     function doNav(url){
@@ -148,7 +190,7 @@ looker.plugins.visualizations.add({
 
         {id:'overlap',label:'Overlap',icon:ic.ovl,did:config.overlap_dashboard_id},
 
-        {id:'usage',label:'Usage',icon:ic.usg,did:config.usage_dashboard_id}
+        {id:'usage',label:'DBT Usage',icon:ic.usg,did:config.usage_dashboard_id}
 
       ];
 
@@ -376,8 +418,6 @@ looker.plugins.visualizations.add({
 
             var em=mt.filter(function(m){return m.t==='e';}),sm=mt.filter(function(m){return m.t==='s';});
 
-            // Collect unmatched fields
-
             var um1=v1.fields.filter(function(f){return !v1M[f.toLowerCase()];});
 
             var um2=v2.fields.filter(function(f){return !v2M[f.toLowerCase()];});
@@ -420,10 +460,6 @@ looker.plugins.visualizations.add({
 
             h+='<div class="dp-card" data-i="'+idx+'">';
 
-
-
-            // --- Card header ---
-
             h+='<div class="dp-head dp-toggle" data-idx="'+idx+'">';
 
             h+='<div style="min-width:44px;width:44px;height:44px;border-radius:10px;background:rgba('+rgb+',0.06);border:1px solid rgba('+rgb+',0.1);display:flex;align-items:center;justify-content:center;flex-shrink:0"><span style="font-size:13px;color:'+sc+';font-weight:700">'+p.sim+'<span style="font-size:8px;opacity:.6">%</span></span></div>';
@@ -464,17 +500,11 @@ looker.plugins.visualizations.add({
 
             h+='<span style="color:#334155;display:inline-flex;transform:rotate('+(isE?'180':'0')+'deg);transition:transform .2s">'+ic.chD+'</span></div>';
 
-
-
-            // --- Expanded detail ---
-
             if(isE){
 
               h+='<div style="padding:0 16px 20px">';
 
               h+='<div style="background:#0b1120;border:1px solid #162032;border-radius:10px;overflow:hidden">';
-
-
 
               var allM=p.em.concat(p.sm);
 
@@ -483,10 +513,6 @@ looker.plugins.visualizations.add({
               var v1Url=baseUrl&&viewModelMap[p.v1]?baseUrl+'/explore/'+viewModelMap[p.v1]+'/'+p.v1:'';
 
               var v2Url=baseUrl&&viewModelMap[p.v2]?baseUrl+'/explore/'+viewModelMap[p.v2]+'/'+p.v2:'';
-
-
-
-              // Column headers
 
               h+='<div style="display:grid;grid-template-columns:1fr 40px 1fr;border-bottom:1px solid #162032">';
 
@@ -510,25 +536,13 @@ looker.plugins.visualizations.add({
 
               h+='</div>';
 
-
-
-              // Matched rows
-
               if(allM.length>0){
 
                 h+='<div style="padding:6px 16px 2px"><span style="font-size:8px;font-weight:600;color:#334155;text-transform:uppercase;letter-spacing:1px">Matched \u00B7 '+allM.length+'</span></div>';
 
                 allM.forEach(function(m){
 
-                  var isExact=m.t==='e';
-
-                  var dotC=isExact?'#34d399':'#fbbf24';
-
-                  var lbl=isExact?'=':'\u2248';
-
-                  var lblC=isExact?'#10b981':'#eab308';
-
-                  var lblBg=isExact?'rgba(16,185,129,0.08)':'rgba(234,179,8,0.08)';
+                  var isExact=m.t==='e',dotC=isExact?'#34d399':'#fbbf24',lbl=isExact?'=':'\u2248',lblC=isExact?'#10b981':'#eab308',lblBg=isExact?'rgba(16,185,129,0.08)':'rgba(234,179,8,0.08)';
 
                   h+='<div style="display:grid;grid-template-columns:1fr 40px 1fr;align-items:center;padding:0 16px">';
 
@@ -544,10 +558,6 @@ looker.plugins.visualizations.add({
 
               }
 
-
-
-              // Unmatched rows
-
               if(p.um1.length>0||p.um2.length>0){
 
                 h+='<div style="border-top:1px solid #162032;margin-top:4px;padding:6px 16px 2px"><span style="font-size:8px;font-weight:600;color:#1e293b;text-transform:uppercase;letter-spacing:1px">Unmatched \u00B7 '+(p.um1.length+p.um2.length)+'</span></div>';
@@ -556,19 +566,11 @@ looker.plugins.visualizations.add({
 
                   h+='<div style="display:grid;grid-template-columns:1fr 40px 1fr;align-items:center;padding:0 16px">';
 
-                  if(ui<p.um1.length){
-
-                    h+='<div style="padding:4px 0;display:flex;align-items:center;gap:6px;overflow:hidden"><span style="width:4px;height:4px;border-radius:50%;background:#1e293b;flex-shrink:0"></span><span style="font-size:10px;color:#3e4c5e;font-family:\'SF Mono\',Menlo,Consolas,monospace;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="'+p.um1[ui]+'">'+p.um1[ui]+'</span></div>';
-
-                  }else{h+='<div></div>';}
+                  if(ui<p.um1.length){h+='<div style="padding:4px 0;display:flex;align-items:center;gap:6px;overflow:hidden"><span style="width:4px;height:4px;border-radius:50%;background:#1e293b;flex-shrink:0"></span><span style="font-size:10px;color:#3e4c5e;font-family:\'SF Mono\',Menlo,Consolas,monospace;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="'+p.um1[ui]+'">'+p.um1[ui]+'</span></div>';}else{h+='<div></div>';}
 
                   h+='<div></div>';
 
-                  if(ui<p.um2.length){
-
-                    h+='<div style="padding:4px 0;display:flex;align-items:center;gap:6px;overflow:hidden"><span style="width:4px;height:4px;border-radius:50%;background:#1e293b;flex-shrink:0"></span><span style="font-size:10px;color:#3e4c5e;font-family:\'SF Mono\',Menlo,Consolas,monospace;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="'+p.um2[ui]+'">'+p.um2[ui]+'</span></div>';
-
-                  }else{h+='<div></div>';}
+                  if(ui<p.um2.length){h+='<div style="padding:4px 0;display:flex;align-items:center;gap:6px;overflow:hidden"><span style="width:4px;height:4px;border-radius:50%;background:#1e293b;flex-shrink:0"></span><span style="font-size:10px;color:#3e4c5e;font-family:\'SF Mono\',Menlo,Consolas,monospace;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="'+p.um2[ui]+'">'+p.um2[ui]+'</span></div>';}else{h+='<div></div>';}
 
                   h+='</div>';
 
@@ -576,17 +578,11 @@ looker.plugins.visualizations.add({
 
               }
 
-
-
-              h+='<div style="height:8px"></div>';
-
-              h+='</div>'; // close bg container
-
-              h+='</div>'; // close padding wrapper
+              h+='<div style="height:8px"></div></div></div>';
 
             }
 
-            h+='</div>'; // close dp-card
+            h+='</div>';
 
           });
 
@@ -596,35 +592,13 @@ looker.plugins.visualizations.add({
 
         R.innerHTML=h;
 
-
-
-        // Toggle handler - use dp-toggle class, ignore clicks on links
-
         R.querySelectorAll('.dp-toggle').forEach(function(hd){
 
           hd.addEventListener('click',function(e){
 
-            // If the click was on a link (view link), don't toggle
+            var t=e.target;while(t&&t!==hd){if(t.tagName==='A')return;t=t.parentElement;}
 
-            var t=e.target;
-
-            while(t&&t!==hd){
-
-              if(t.tagName==='A')return;
-
-              t=t.parentElement;
-
-            }
-
-            var idx=parseInt(hd.getAttribute('data-idx'));
-
-            if(!isNaN(idx)){
-
-              expD[idx]=!expD[idx];
-
-              rO();
-
-            }
+            var idx=parseInt(hd.getAttribute('data-idx'));if(!isNaN(idx)){expD[idx]=!expD[idx];rO();}
 
           });
 
@@ -638,7 +612,109 @@ looker.plugins.visualizations.add({
 
 
 
-    // ========== USAGE ==========
+    // ========== DBT USAGE (dbt_usage view): models left, consumers right, lines ==========
+
+    if(mode==='dbt_usage'){
+
+      var modelSet={}, consumerSet={}, edges=[];
+
+      data.forEach(function(row){
+
+        var schema=gv(row,F.table_schema),tbl=gv(row,F.table_name),consumer=gv(row,F.consumer_type);
+
+        if(!tbl||!consumer)return;
+
+        var modelKey=(schema?schema+'.':'')+tbl;
+
+        var usage=gn(row,F.total_column_usage)||gn(row,F.num_queries)||gn(row,F.num_jobs)||0;
+
+        if(usage<=0)return;
+
+        if(!modelSet[modelKey])modelSet[modelKey]={key:modelKey,label:modelKey,schema:schema||'',name:tbl};
+
+        if(!consumerSet[consumer])consumerSet[consumer]={key:consumer,label:consumer};
+
+        var ek=modelKey+'|'+consumer;
+
+        var ex=edges.find(function(e){return e.modelKey===modelKey&&e.consumer===consumer;});
+
+        if(ex){ex.usage+=usage;ex.queries+=gn(row,F.num_queries);ex.jobs+=gn(row,F.num_jobs);}
+
+        else edges.push({modelKey:modelKey,consumer:consumer,usage:usage,queries:gn(row,F.num_queries),jobs:gn(row,F.num_jobs)});
+
+      });
+
+      var models=Object.values(modelSet).sort(function(a,b){return a.label.localeCompare(b.label);});
+
+      var consumers=Object.values(consumerSet).sort(function(a,b){return a.label.localeCompare(b.label);});
+
+      var nW=220,nH=40,sp=44,pd=24,leftX=pd,rightX=Math.max(W-50,nW*2+200)-nW-pd,sY=52;
+
+      var posModel={},posConsumer={};
+
+      models.forEach(function(m,i){posModel[m.key]={x:leftX,y:sY+i*sp};});
+
+      consumers.forEach(function(c,i){posConsumer[c.key]={x:rightX,y:sY+i*sp};});
+
+      var sH=Math.max(models.length*sp,consumers.length*sp)+80,sW=rightX+nW+pd;
+
+      var ed='';
+
+      edges.forEach(function(e){
+
+        var pm=posModel[e.modelKey],pc=posConsumer[e.consumer];
+
+        if(!pm||!pc)return;
+
+        var x1=pm.x+nW,y1=pm.y+nH/2,x2=pc.x,y2=pc.y+nH/2,mx=(x1+x2)/2;
+
+        var stroke='#475569';var op=0.35+Math.min(0.5,(e.usage/Math.max(1,edges.reduce(function(s,x){return s+x.usage;},0))*10));
+
+        ed+='<path d="M'+x1+' '+y1+' C'+mx+' '+y1+','+mx+' '+y2+','+x2+' '+y2+'" fill="none" stroke="'+stroke+'" stroke-width="1.5" stroke-opacity="'+op+'"/>';
+
+      });
+
+      var nd='';
+
+      models.forEach(function(m){
+
+        var p=posModel[m.key];
+
+        var nm=m.label.length>28?m.label.substring(0,26)+'\u2026':m.label;
+
+        nd+='<g class="lx-node" transform="translate('+p.x+','+p.y+')"><rect width="'+nW+'" height="'+nH+'" rx="8" fill="#131b2e" stroke="#06b6d4" stroke-width="1.5"/><rect x="2" y="2" width="34" height="'+(nH-4)+'" rx="6" fill="#06b6d408"/><g transform="translate(10,'+(nH/2-8)+')" fill="#06b6d4">'+tI.table+'</g><text x="42" y="'+(nH/2+4)+'" fill="#e2e8f0" font-size="11" font-weight="500">'+nm+'</text></g>';
+
+      });
+
+      consumers.forEach(function(c){
+
+        var p=posConsumer[c.key];
+
+        var logo=getConsumerLogo(c.key);
+
+        nd+='<g class="lx-node" transform="translate('+p.x+','+p.y+')"><rect width="'+nW+'" height="'+nH+'" rx="8" fill="#131b2e" stroke="#f59e0b" stroke-width="1.5"/><rect x="2" y="2" width="34" height="'+(nH-4)+'" rx="6" fill="#f59e0b08"/><g transform="translate(10,'+(nH/2-8)+')" fill="#f59e0b" color="#f59e0b">'+logo+'</g><text x="42" y="'+(nH/2+4)+'" fill="#e2e8f0" font-size="11" font-weight="500">'+c.label+'</text></g>';
+
+      });
+
+      var h=navBar()+'<div class="lx-body"><div class="lx-bar"><div style="color:#94a3b8">DBT models <span style="color:#06b6d4;font-weight:600">'+models.length+'</span> \u2194 consumers <span style="color:#f59e0b;font-weight:600">'+consumers.length+'</span></div><div style="color:#475569">'+edges.length+' connections \u00B7 '+data.length+' rows</div></div>';
+
+      h+='<div class="lx-scroll" style="padding:12px"><svg width="'+sW+'" height="'+sH+'">';
+
+      h+='<text x="'+(leftX+nW/2)+'" y="24" text-anchor="middle" fill="#06b6d4" font-size="10" font-weight="700" letter-spacing="1">DBT MODELS</text>';
+
+      h+='<text x="'+(rightX+nW/2)+'" y="24" text-anchor="middle" fill="#f59e0b" font-size="10" font-weight="700" letter-spacing="1">CONSUMERS</text>';
+
+      h+=ed+nd+'</svg></div></div>';
+
+      R.innerHTML=h;
+
+      done();return;
+
+    }
+
+
+
+    // ========== USAGE (legacy) ==========
 
     if(mode==='usage'){
 
@@ -664,13 +740,9 @@ looker.plugins.visualizations.add({
 
       var tT={};Object.keys(tVw).forEach(function(t){var tv=0;Object.keys(tVw[t]).forEach(function(v){if(vT[v])tv+=vT[v].vc;});tT[t]={vc:tv,wc:Object.keys(tVw[t]).length};});
 
-
-
       var aE='dashboard',sC='vc',sD='desc';
 
       function bL(t,n,m,di){if(!baseUrl)return null;if(t==='dashboard'&&di)return baseUrl+'/dashboards/'+di;if(t==='explore'&&m&&n)return baseUrl+'/explore/'+m+'/'+n;return null;}
-
-
 
       function gL(){
 
@@ -689,8 +761,6 @@ looker.plugins.visualizations.add({
         return ls;
 
       }
-
-
 
       function rU(){
 
