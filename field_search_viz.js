@@ -726,7 +726,9 @@ looker.plugins.visualizations.add({
         nd+='<g class="lx-node" transform="translate('+p.x+','+p.y+')"><rect width="'+cNw+'" height="'+cNh+'" rx="10" fill="#131b2e" stroke="#f59e0b" stroke-width="1.5"/><rect x="2" y="2" width="'+(cNw-4)+'" height="'+(cNh-4)+'" rx="8" fill="#f59e0b08"/>'+contentEl+'</g>';
       });
 
-      var h=navBar()+'<div class="lx-body"><div class="lx-bar"><div style="color:#94a3b8">DBT models <span style="color:#06b6d4;font-weight:600">'+models.length+'</span> \u2194 consumers <span style="color:#f59e0b;font-weight:600">'+consumers.length+'</span></div><div style="color:#475569">'+edges.length+' connections \u00B7 '+data.length+' rows</div></div>';
+      var h=navBar()+'<div class="lx-body">';
+      h+='<div class="lx-bar" style="border-bottom:1px solid rgba(30,41,59,0.25)"><span style="color:#e2e8f0;font-size:12px;font-weight:700">Consumer dependencies</span></div>';
+      h+='<div class="lx-bar"><div style="color:#94a3b8">DBT models <span style="color:#06b6d4;font-weight:600">'+models.length+'</span> \u2194 consumers <span style="color:#f59e0b;font-weight:600">'+consumers.length+'</span></div><div style="color:#475569">'+edges.length+' connections \u00B7 '+data.length+' rows</div></div>';
 
       h+='<div class="lx-scroll" style="padding:12px"><svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" width="'+sW+'" height="'+sH+'">';
 
@@ -736,17 +738,15 @@ looker.plugins.visualizations.add({
 
       h+=ed+nd+'</svg></div>';
 
-      h+='<div class="lx-bar" style="border-top:1px solid #1e293b;padding:10px 16px"><span style="color:#94a3b8;font-size:11px;font-weight:600">Tables and columns with 0 num_jobs or only Looker Dev</span><span style="color:#64748b;font-size:10px;margin-left:8px">'+zeroOrLookerDevOnly.length+' rows</span></div>';
+      h+='<div class="lx-bar" style="border-top:1px solid #1e293b;padding:10px 16px"><span style="color:#e2e8f0;font-size:12px;font-weight:700">Tables and columns with 0 num_jobs or only Looker Dev</span><span style="color:#64748b;font-size:10px;margin-left:8px">'+zeroOrLookerDevOnly.length+' rows</span></div>';
       h+='<div class="lx-scroll" style="max-height:280px;overflow:auto;border-top:1px solid rgba(30,41,59,0.25)">';
-      h+='<div class="lx-hdr" style="grid-template-columns:1fr '+(F.column_name?'1fr ':'')+'120px;padding:8px 16px;font-size:10px;color:#64748b">';
-      h+='<div>Table</div>';
-      if(F.column_name)h+='<div>Column</div>';
-      h+='<div>Reason</div></div>';
+      h+='<div class="lx-hdr" style="grid-template-columns:1fr 1fr 120px;padding:8px 16px;font-size:10px;color:#64748b">';
+      h+='<div>Table</div><div>Column (0 or only Looker Dev)</div><div>Reason</div></div>';
       zeroOrLookerDevOnly.forEach(function(r){
         var reasonClr=r.reason==='0 jobs'?'#94a3b8':'#f59e0b';
-        h+='<div class="lx-row" style="grid-template-columns:1fr '+(F.column_name?'1fr ':'')+'120px;padding:8px 16px;font-size:11px">';
+        h+='<div class="lx-row" style="grid-template-columns:1fr 1fr 120px;padding:8px 16px;font-size:11px">';
         h+='<div class="lx-cell" style="font-family:monospace">'+(r.table||'').replace(/</g,'&lt;')+'</div>';
-        if(F.column_name)h+='<div class="lx-cell">'+(r.column||'—').replace(/</g,'&lt;')+'</div>';
+        h+='<div class="lx-cell">'+(r.column||'—').replace(/</g,'&lt;')+'</div>';
         h+='<div style="color:'+reasonClr+';font-weight:500">'+r.reason.replace(/</g,'&lt;')+'</div></div>';
       });
       if(zeroOrLookerDevOnly.length===0)h+='<div style="padding:16px;color:#64748b;font-size:11px">None</div>';
