@@ -76,6 +76,8 @@ looker.plugins.visualizations.add({
 
     F.table_name=dims.find(function(f){return f.toLowerCase().indexOf('table_name')!==-1;});
 
+    F.column_name=dims.find(function(f){return f.toLowerCase().indexOf('column_name')!==-1;});
+
     F.consumer_type=dims.find(function(f){return f.toLowerCase().indexOf('consumer_type')!==-1;});
 
     F.executed_by=dims.find(function(f){return f.toLowerCase().indexOf('executed_by')!==-1;});
@@ -647,6 +649,29 @@ looker.plugins.visualizations.add({
 
       });
 
+      var tableConsumerJobs={};
+      data.forEach(function(row){
+        var schema=gv(row,F.table_schema),tbl=gv(row,F.table_name),consumer=gv(row,F.consumer_type),col=gv(row,F.column_name);
+        if(!tbl)return;
+        var modelKey=(schema?schema+'.':'')+tbl;
+        var rowKey=F.column_name?modelKey+'|'+(col||'—'):modelKey;
+        if(!tableConsumerJobs[rowKey])tableConsumerJobs[rowKey]={modelKey:modelKey,column:col||'',byConsumer:{}};
+        var c=tableConsumerJobs[rowKey].byConsumer;
+        if(!c[consumer])c[consumer]=0;
+        c[consumer]+=gn(row,F.num_jobs)||0;
+      });
+      var zeroOrLookerDevOnly=[];
+      var lookerDevKey=function(c){return (c||'').toString().trim().toLowerCase()==='looker dev';};
+      Object.keys(tableConsumerJobs).forEach(function(rowKey){
+        var r=tableConsumerJobs[rowKey];
+        var by=r.byConsumer;
+        var total=0;var consumersWithJobs=[];
+        Object.keys(by).forEach(function(c){total+=by[c];if(by[c]>0)consumersWithJobs.push(c);});
+        if(total===0)zeroOrLookerDevOnly.push({table:r.modelKey,column:r.column,reason:'0 jobs'});
+        else if(consumersWithJobs.length===1&&lookerDevKey(consumersWithJobs[0]))zeroOrLookerDevOnly.push({table:r.modelKey,column:r.column,reason:'Only Looker Dev'});
+      });
+      zeroOrLookerDevOnly.sort(function(a,b){return a.table.localeCompare(b.table)||(a.column||'').localeCompare(b.column||'');});
+
       var models=Object.values(modelSet).sort(function(a,b){return a.label.localeCompare(b.label);});
 
       var consumerTables={};edges.forEach(function(e){if(!consumerTables[e.consumer])consumerTables[e.consumer]={};consumerTables[e.consumer][e.modelKey]=1;});
@@ -690,7 +715,7 @@ looker.plugins.visualizations.add({
       });
 
       var cLogoSize=112,cLogoX=(cNw-cLogoSize)/2,cLogoY=(cNh-cLogoSize)/2;
-      function getLogo(key){var k=(key||'').toString().trim();return consumerLogos[key]||(k!==key&&consumerLogos[k])||consumerLogos['User'];}
+      function getLogo(key){var k=(key||'').toString().trim(),l=k.toLowerCase();if(l.indexOf('looker dev')!==-1)return consumerLogos['Looker Dev']||consumerLogos['User'];if(l.indexOf('looker')!==-1)return consumerLogos['Looker']||consumerLogos['User'];return consumerLogos[key]||(k!==key&&consumerLogos[k])||consumerLogos['User'];}
       consumers.forEach(function(c){
         var p=posConsumer[c.key];
         var logo=getLogo(c.key);
@@ -709,7 +734,23 @@ looker.plugins.visualizations.add({
 
       h+='<text x="'+(rightX+cNw/2)+'" y="24" text-anchor="middle" fill="#f59e0b" font-size="10" font-weight="700" letter-spacing="1">CONSUMERS</text>';
 
-      h+=ed+nd+'</svg></div></div>';
+      h+=ed+nd+'</svg></div>';
+
+      h+='<div class="lx-bar" style="border-top:1px solid #1e293b;padding:10px 16px"><span style="color:#94a3b8;font-size:11px;font-weight:600">Tables and columns with 0 num_jobs or only Looker Dev</span><span style="color:#64748b;font-size:10px;margin-left:8px">'+zeroOrLookerDevOnly.length+' rows</span></div>';
+      h+='<div class="lx-scroll" style="max-height:280px;overflow:auto;border-top:1px solid rgba(30,41,59,0.25)">';
+      h+='<div class="lx-hdr" style="grid-template-columns:1fr '+(F.column_name?'1fr ':'')+'120px;padding:8px 16px;font-size:10px;color:#64748b">';
+      h+='<div>Table</div>';
+      if(F.column_name)h+='<div>Column</div>';
+      h+='<div>Reason</div></div>';
+      zeroOrLookerDevOnly.forEach(function(r){
+        var reasonClr=r.reason==='0 jobs'?'#94a3b8':'#f59e0b';
+        h+='<div class="lx-row" style="grid-template-columns:1fr '+(F.column_name?'1fr ':'')+'120px;padding:8px 16px;font-size:11px">';
+        h+='<div class="lx-cell" style="font-family:monospace">'+(r.table||'').replace(/</g,'&lt;')+'</div>';
+        if(F.column_name)h+='<div class="lx-cell">'+(r.column||'—').replace(/</g,'&lt;')+'</div>';
+        h+='<div style="color:'+reasonClr+';font-weight:500">'+r.reason.replace(/</g,'&lt;')+'</div></div>';
+      });
+      if(zeroOrLookerDevOnly.length===0)h+='<div style="padding:16px;color:#64748b;font-size:11px">None</div>';
+      h+='</div></div>';
 
       R.innerHTML=h;
 
