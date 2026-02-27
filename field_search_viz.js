@@ -690,9 +690,10 @@ looker.plugins.visualizations.add({
       });
 
       var cLogoSize=112,cLogoX=(cNw-cLogoSize)/2,cLogoY=(cNh-cLogoSize)/2;
+      function getLogo(key){var k=(key||'').toString().trim();return consumerLogos[key]||(k!==key&&consumerLogos[k])||consumerLogos['User'];}
       consumers.forEach(function(c){
         var p=posConsumer[c.key];
-        var logo=consumerLogos[c.key];
+        var logo=getLogo(c.key);
         var hasLogo=logo&&(logo.indexOf('data:')===0||(typeof logo==='string'&&logo.length>0&&logo.indexOf('<')!==-1));
         var contentEl;
         if(hasLogo){var isDataUrl=logo.indexOf('data:')===0;contentEl=isDataUrl?'<image xlink:href="'+logo+'" x="'+cLogoX+'" y="'+cLogoY+'" width="'+cLogoSize+'" height="'+cLogoSize+'" preserveAspectRatio="xMidYMid meet"/>':'<g transform="translate('+((cNw-24)/2)+','+((cNh-24)/2)+')" fill="#f59e0b" color="#f59e0b">'+logo+'</g>';}
