@@ -12,7 +12,9 @@
 
       overlap_dashboard_id: {type:"string",label:"Overlap Dashboard ID",default:"",section:"Navigation",order:3},
 
-      usage_dashboard_id: {type:"string",label:"DBT Usage Dashboard ID",default:"",section:"Navigation",order:4}
+      usage_dashboard_id: {type:"string",label:"DBT Usage Dashboard ID",default:"",section:"Navigation",order:4},
+
+      dbt_lineage_dashboard_id: {type:"string",label:"DBT Lineage Dashboard ID",default:"",section:"Navigation",order:5}
 
     },
 
@@ -24,7 +26,7 @@
 
       var s=document.createElement('style');
 
-      s.textContent='#lex *{box-sizing:border-box}.lx-nav{display:flex;align-items:center;gap:2px;padding:14px 20px 0;background:linear-gradient(180deg,#0f1629,#0a0e1a);border-bottom:1px solid #334155}.lx-nav-btn{padding:10px 22px;font-size:12px;font-weight:600;cursor:pointer;border:none;background:transparent;color:#475569;border-radius:10px 10px 0 0;transition:all .2s;display:flex;align-items:center;gap:8px;letter-spacing:.3px;text-decoration:none;position:relative}.lx-nav-btn:hover{color:#94a3b8;background:rgba(30,41,59,0.25)}.lx-nav-btn.active{color:#e2e8f0;background:#1e293b;cursor:default;border-bottom:2px solid transparent}.lx-nav-btn.active::after{content:"";position:absolute;bottom:0;left:8px;right:8px;height:3px;border-radius:3px 3px 0 0;z-index:1}.lx-nav-btn.t-lineage.active{color:#10b981}.lx-nav-btn.t-lineage.active::after{background:#10b981;box-shadow:0 0 8px #10b981}.lx-nav-btn.t-overlap.active{color:#8b5cf6}.lx-nav-btn.t-overlap.active::after{background:#8b5cf6;box-shadow:0 0 8px #8b5cf6}.lx-nav-btn.t-usage.active{color:#f59e0b}.lx-nav-btn.t-usage.active::after{background:#f59e0b;box-shadow:0 0 8px #f59e0b}.lx-body{flex:1;background:#131b2e;border-radius:12px 12px 0 0;overflow:hidden;display:flex;flex-direction:column;border:1px solid #1e293b;border-bottom:none;margin:0 12px}.lx-bar{padding:10px 16px;border-bottom:1px solid rgba(30,41,59,0.25);display:flex;align-items:center;justify-content:space-between;font-size:11px;min-height:42px}.lx-scroll{flex:1;overflow:auto}.lx-pill{display:inline-flex;align-items:center;gap:4px;padding:3px 10px;border-radius:6px;font-size:10px;font-weight:500}.lx-node{cursor:pointer;transition:opacity .15s}.lx-node:hover{opacity:.85}.lx-row{display:grid;border-bottom:1px solid rgba(30,41,59,0.1);transition:background .15s}.lx-row:hover{background:rgba(30,41,59,0.3)}.lx-hdr{display:grid;border-bottom:1px solid #1e293b;position:sticky;top:0;background:#131b2e;z-index:1}.lx-hdr>div{padding:10px 12px;font-size:10px;font-weight:600;color:#475569;cursor:pointer;user-select:none;text-transform:uppercase;letter-spacing:.5px;transition:color .15s}.lx-hdr>div:hover{color:#94a3b8}.lx-hdr>div.on{color:#e2e8f0}.lx-cell{padding:8px 12px;font-size:11px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.lx-ebtn{padding:7px 16px;border:1px solid #1e293b;cursor:pointer;font-size:11px;font-weight:500;transition:all .15s;background:transparent;color:#64748b;letter-spacing:.3px}.lx-ebtn:hover{background:#1e293b;color:#94a3b8}.lx-ebtn.on{background:#1e293b;border-color:#334155}.lx-link{color:#475569;text-decoration:none;transition:color .15s;display:inline-flex}.lx-link:hover{color:#e2e8f0}.dp-card{border-bottom:1px solid rgba(30,41,59,0.12)}.dp-head{display:flex;align-items:center;gap:12px;padding:12px 16px;cursor:pointer;transition:background .15s}.dp-head:hover{background:rgba(30,41,59,0.2)}';
+      s.textContent='#lex *{box-sizing:border-box}.lx-nav{display:flex;align-items:center;gap:2px;padding:14px 20px 0;background:linear-gradient(180deg,#0f1629,#0a0e1a);border-bottom:1px solid #334155}.lx-nav-btn{padding:10px 22px;font-size:12px;font-weight:600;cursor:pointer;border:none;background:transparent;color:#475569;border-radius:10px 10px 0 0;transition:all .2s;display:flex;align-items:center;gap:8px;letter-spacing:.3px;text-decoration:none;position:relative}.lx-nav-btn:hover{color:#94a3b8;background:rgba(30,41,59,0.25)}.lx-nav-btn.active{color:#e2e8f0;background:#1e293b;cursor:default;border-bottom:2px solid transparent}.lx-nav-btn.active::after{content:"";position:absolute;bottom:0;left:8px;right:8px;height:3px;border-radius:3px 3px 0 0;z-index:1}.lx-nav-btn.t-lineage.active{color:#10b981}.lx-nav-btn.t-lineage.active::after{background:#10b981;box-shadow:0 0 8px #10b981}.lx-nav-btn.t-overlap.active{color:#8b5cf6}.lx-nav-btn.t-overlap.active::after{background:#8b5cf6;box-shadow:0 0 8px #8b5cf6}.lx-nav-btn.t-usage.active{color:#f59e0b}.lx-nav-btn.t-usage.active::after{background:#f59e0b;box-shadow:0 0 8px #f59e0b}.lx-nav-btn.t-dbt_lineage.active{color:#0ea5e9}.lx-nav-btn.t-dbt_lineage.active::after{background:#0ea5e9;box-shadow:0 0 8px #0ea5e9}.lx-body{flex:1;background:#131b2e;border-radius:12px 12px 0 0;overflow:hidden;display:flex;flex-direction:column;border:1px solid #1e293b;border-bottom:none;margin:0 12px}.lx-bar{padding:10px 16px;border-bottom:1px solid rgba(30,41,59,0.25);display:flex;align-items:center;justify-content:space-between;font-size:11px;min-height:42px}.lx-scroll{flex:1;overflow:auto}.lx-pill{display:inline-flex;align-items:center;gap:4px;padding:3px 10px;border-radius:6px;font-size:10px;font-weight:500}.lx-node{cursor:pointer;transition:opacity .15s}.lx-node:hover{opacity:.85}.lx-row{display:grid;border-bottom:1px solid rgba(30,41,59,0.1);transition:background .15s}.lx-row:hover{background:rgba(30,41,59,0.3)}.lx-hdr{display:grid;border-bottom:1px solid #1e293b;position:sticky;top:0;background:#131b2e;z-index:1}.lx-hdr>div{padding:10px 12px;font-size:10px;font-weight:600;color:#475569;cursor:pointer;user-select:none;text-transform:uppercase;letter-spacing:.5px;transition:color .15s}.lx-hdr>div:hover{color:#94a3b8}.lx-hdr>div.on{color:#e2e8f0}.lx-cell{padding:8px 12px;font-size:11px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.lx-ebtn{padding:7px 16px;border:1px solid #1e293b;cursor:pointer;font-size:11px;font-weight:500;transition:all .15s;background:transparent;color:#64748b;letter-spacing:.3px}.lx-ebtn:hover{background:#1e293b;color:#94a3b8}.lx-ebtn.on{background:#1e293b;border-color:#334155}.lx-link{color:#475569;text-decoration:none;transition:color .15s;display:inline-flex}.lx-link:hover{color:#e2e8f0}.dp-card{border-bottom:1px solid rgba(30,41,59,0.12)}.dp-head{display:flex;align-items:center;gap:12px;padding:12px 16px;cursor:pointer;transition:background .15s}.dp-head:hover{background:rgba(30,41,59,0.2)}';
 
       element.appendChild(s);
 
@@ -88,21 +90,38 @@
 
       F.num_jobs=meas.find(function(f){return f.toLowerCase().indexOf('num_jobs')!==-1;});
 
-
+      F.dbt_model=dims.find(function(f){var l=f.toLowerCase().replace(/\s/g,'_');return l==='model'||(l.indexOf('model')!==-1&&l.indexOf('parent')===-1);});
+      F.parent_1=dims.find(function(f){var l=f.toLowerCase().replace(/\s/g,'_');return l==='parent_1'||l==='parent1';});
+      F.parent_2=dims.find(function(f){var l=f.toLowerCase().replace(/\s/g,'_');return l==='parent_2'||l==='parent2';});
+      F.parent_3=dims.find(function(f){var l=f.toLowerCase().replace(/\s/g,'_');return l==='parent_3'||l==='parent3';});
+      F.parent_4=dims.find(function(f){var l=f.toLowerCase().replace(/\s/g,'_');return l==='parent_4'||l==='parent4';});
+      F.parent_5=dims.find(function(f){var l=f.toLowerCase().replace(/\s/g,'_');return l==='parent_5'||l==='parent5';});
+      F.parent_6=dims.find(function(f){var l=f.toLowerCase().replace(/\s/g,'_');return l==='parent_6'||l==='parent6';});
+      F.parent_7=dims.find(function(f){var l=f.toLowerCase().replace(/\s/g,'_');return l==='parent_7'||l==='parent7';});
+      F.parent_8=dims.find(function(f){var l=f.toLowerCase().replace(/\s/g,'_');return l==='parent_8'||l==='parent8';});
+      F.parent_9=dims.find(function(f){var l=f.toLowerCase().replace(/\s/g,'_');return l==='parent_9'||l==='parent9';});
 
       var mode;
 
       var onUsageDashboard=!(config.usage_dashboard_id==null||config.usage_dashboard_id==='')&&details&&details.dashboard_id&&String(details.dashboard_id).trim()===String(config.usage_dashboard_id).trim();
 
+      var onDbtLineageDashboard=!(config.dbt_lineage_dashboard_id==null||config.dbt_lineage_dashboard_id==='')&&details&&details.dashboard_id&&String(details.dashboard_id).trim()===String(config.dbt_lineage_dashboard_id).trim();
+
       var queryExplore=(queryResponse.meta&&(queryResponse.meta.explore||queryResponse.meta.model))?String(queryResponse.meta.explore||queryResponse.meta.model||'').toLowerCase():'';
 
       var looksLikeDbtUsage=queryExplore.indexOf('dbt')!==-1&&queryExplore.indexOf('usage')!==-1;
+
+      var looksLikeDbtLineage=queryExplore.indexOf('dbt')!==-1&&queryExplore.indexOf('lineage')!==-1;
 
       if(F.table_schema&&F.table_name&&F.consumer_type)mode='dbt_usage';
 
       else if(onUsageDashboard||(looksLikeDbtUsage&&(F.table_name||F.consumer_type)))mode='dbt_usage';
 
       else if(F.date&&F.vc)mode='usage';
+
+      else if(F.dbt_model&&(F.parent_1||F.parent_2||F.parent_3||F.parent_4||F.parent_5||F.parent_6||F.parent_7||F.parent_8||F.parent_9))mode='dbt_lineage';
+
+      else if(onDbtLineageDashboard||(looksLikeDbtLineage&&F.dbt_model))mode='dbt_lineage';
 
       else if(F.dash&&F.exp&&F.view)mode='lineage';
 
@@ -125,6 +144,8 @@
         ovl:'<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2"><circle cx="9" cy="12" r="5"/><circle cx="15" cy="12" r="5"/></svg>',
 
         usg:'<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 20V10"/><path d="M12 20V4"/><path d="M6 20v-6"/></svg>',
+
+        dbtlin:'<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2L2 7l10 5 10-5-10-5z"/><path d="M2 17l10 5 10-5"/></svg>',
 
         lnk:'<svg viewBox="0 0 24 24" width="11" height="11" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 13v6a2 2 0 01-2 2H5a2 2 0 01-2-2V8a2 2 0 012-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg>',
 
@@ -203,7 +224,9 @@
 
           {id:'overlap',label:'Overlap',icon:ic.ovl,did:config.overlap_dashboard_id},
 
-          {id:'usage',label:'DBT Usage',icon:ic.usg,did:config.usage_dashboard_id}
+          {id:'usage',label:'DBT Usage',icon:ic.usg,did:config.usage_dashboard_id},
+
+          {id:'dbt_lineage',label:'DBT Lineage',icon:ic.dbtlin,did:config.dbt_lineage_dashboard_id}
 
         ];
 
@@ -230,6 +253,128 @@
         h+='</div>';
 
         return h;
+
+      }
+
+
+
+      // ========== DBT LINEAGE (model -> parent_1 -> parent_2 -> ...) ==========
+
+      if(mode==='dbt_lineage'){
+
+        if(!F.dbt_model||!(F.parent_1||F.parent_2||F.parent_3||F.parent_4||F.parent_5||F.parent_6||F.parent_7||F.parent_8||F.parent_9)){
+
+          R.innerHTML=navBar()+'<div class="lx-body"><div class="lx-bar" style="border-bottom:1px solid #1e293b"><span style="color:#e2e8f0;font-size:12px;font-weight:700">Model dependencies</span></div><div style="padding:24px 20px;color:#94a3b8;font-size:12px;line-height:1.5">This tile is on the DBT Lineage dashboard but the query does not include the required fields.<br/><br/>Use the <strong style="color:#e2e8f0">madl_dbt_model_lineage</strong> explore and add dimensions: <strong>Model</strong> (child) and at least one <strong>Parent 1</strong> … <strong>Parent 9</strong>.</div></div>';
+
+          done();return;
+
+        }
+
+        var parentKeys=[F.parent_1,F.parent_2,F.parent_3,F.parent_4,F.parent_5,F.parent_6,F.parent_7,F.parent_8,F.parent_9];
+
+        var edges=[], nodeSet={};
+
+        data.forEach(function(row){
+
+          var child=gv(row,F.dbt_model);
+
+          if(!child)return;
+
+          if(!nodeSet[child])nodeSet[child]={id:child,name:child};
+
+          var chain=[child];
+
+          for(var i=0;i<parentKeys.length;i++){var p=parentKeys[i]?gv(row,parentKeys[i]):'';if(!p)break;chain.push(p);if(!nodeSet[p])nodeSet[p]={id:p,name:p};}
+
+          for(var j=1;j<chain.length;j++)edges.push({from:chain[j],to:chain[j-1]});
+
+        });
+
+        var outEdges={};
+
+        edges.forEach(function(e){if(!outEdges[e.from])outEdges[e.from]=[];outEdges[e.from].push(e.to);});
+
+        var inEdges={};
+
+        edges.forEach(function(e){if(!inEdges[e.to])inEdges[e.to]=[];inEdges[e.to].push(e.from);});
+
+        var nodes=Object.values(nodeSet);
+
+        var depth={};
+
+        nodes.forEach(function(n){if(!inEdges[n.id]||inEdges[n.id].length===0)depth[n.id]=0;});
+
+        var changed=true;
+
+        while(changed){changed=false;nodes.forEach(function(n){if(depth[n.id]!=null)return;var par=inEdges[n.id];if(!par)return;var max=-1;par.forEach(function(p){if(depth[p]==null)return;max=Math.max(max,depth[p]);});if(max>=0){depth[n.id]=max+1;changed=true;}});}
+
+        nodes.forEach(function(n){if(depth[n.id]==null)depth[n.id]=0;});
+
+        var byDepth={};
+
+        nodes.forEach(function(n){var d=depth[n.id];if(!byDepth[d])byDepth[d]=[];byDepth[d].push(n);});
+
+        var depths=Object.keys(byDepth).map(Number).sort(function(a,b){return a-b;});
+
+        depths.forEach(function(d){byDepth[d].sort(function(a,b){return a.name.localeCompare(b.name);});});
+
+        var nW=280,nH=36,sp=42,pad=24,gap=80;
+
+        var pos={};
+
+        depths.forEach(function(d,i){var x=pad+i*(nW+gap);(byDepth[d]||[]).forEach(function(n,j){pos[n.id]={x:x,y:52+j*sp};});});
+
+        var sW=pad+depths.length*(nW+gap)-gap+pad,sH=52+Math.max(3,depths.reduce(function(m,d){return Math.max(m,(byDepth[d]||[]).length);},0)*sp)+40;
+
+        var ed='';
+
+        edges.forEach(function(e){
+
+          var from=pos[e.from],to=pos[e.to];
+
+          if(!from||!to)return;
+
+          var x1=from.x+nW,y1=from.y+nH/2,x2=to.x,y2=to.y+nH/2,mx=(x1+x2)/2;
+
+          ed+='<path d="M'+x1+' '+y1+' C'+mx+' '+y1+','+mx+' '+y2+','+x2+' '+y2+'" fill="none" stroke="#475569" stroke-width="1.5" stroke-opacity="0.5"/>';
+
+        });
+
+        var nd='';
+
+        nodes.forEach(function(n){
+
+          var p=pos[n.id];
+
+          if(!p)return;
+
+          var nm=n.name.length>32?n.name.substring(0,30)+'\u2026':n.name;
+
+          nd+='<g class="lx-node" transform="translate('+p.x+','+p.y+')"><rect width="'+nW+'" height="'+nH+'" rx="8" fill="#131b2e" stroke="#0ea5e9" stroke-width="1.5"/><rect x="2" y="2" width="34" height="'+(nH-4)+'" rx="6" fill="#0ea5e908"/><g transform="translate(10,'+(nH/2-8)+')" fill="#0ea5e9">'+tI.table+'</g><text x="42" y="'+(nH/2+4)+'" fill="#e2e8f0" font-size="11" font-weight="500">'+nm.replace(/</g,'&lt;')+'</text></g>';
+
+        });
+
+        var h=navBar()+'<div class="lx-body">';
+
+        h+='<div class="lx-bar" style="border-bottom:1px solid rgba(30,41,59,0.25)"><span style="color:#e2e8f0;font-size:12px;font-weight:700">Model dependencies</span></div>';
+
+        h+='<div class="lx-bar"><div style="color:#94a3b8">Models <span style="color:#0ea5e9;font-weight:600">'+nodes.length+'</span> \u00B7 edges <span style="color:#0ea5e9;font-weight:600">'+edges.length+'</span></div><div style="color:#475569">'+data.length+' rows \u00B7 depth 0 (roots) \u2192 leaf</div></div>';
+
+        h+='<div class="lx-scroll" style="padding:12px"><svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" width="'+sW+'" height="'+sH+'">';
+
+        depths.forEach(function(d,i){
+
+          var x=pad+i*(nW+gap);
+
+          h+='<text x="'+(x+nW/2)+'" y="20" text-anchor="middle" fill="#64748b" font-size="9" font-weight="700">Depth '+d+'</text>';
+
+        });
+
+        h+=ed+nd+'</svg></div></div>';
+
+        R.innerHTML=h;
+
+        done();return;
 
       }
 
