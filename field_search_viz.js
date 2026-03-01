@@ -40,7 +40,10 @@
 
       if(!data||data.length===0){R.innerHTML='<div style="padding:40px;color:#475569;text-align:center">No data available</div>';done();return;}
 
-
+      var DATA_CAP=500;
+      if(data.length>DATA_CAP)data=data.slice(0,DATA_CAP);
+      R.innerHTML='<div style="padding:48px;text-align:center;color:#94a3b8;font-size:13px">Loading\u2026</div>';
+      setTimeout(function(){
 
       var dims=queryResponse.fields.dimension_like.map(function(f){return f.name;});
 
@@ -1053,6 +1056,9 @@
       }
 
       done();
+
+    },0);
+    return;
 
     }
 
