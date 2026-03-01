@@ -272,7 +272,7 @@
 
         if(!F.dbt_model||!(F.parent_1||F.parent_2||F.parent_3||F.parent_4||F.parent_5||F.parent_6||F.parent_7||F.parent_8||F.parent_9)){
 
-          R.innerHTML=navBar()+'<div class="lx-body"><div class="lx-bar" style="border-bottom:1px solid #1e293b"><span style="color:#e2e8f0;font-size:12px;font-weight:700">Model dependencies</span></div><div style="padding:24px 20px;color:#94a3b8;font-size:12px;line-height:1.5">This tile is on the DBT Lineage dashboard but the query does not include the required fields.<br/><br/>Use the <strong style="color:#e2e8f0">madl_dbt_model_lineage</strong> explore and add dimensions: <strong>Model</strong> (child) and at least one <strong>Parent 1</strong> … <strong>Parent 9</strong>.</div></div>';
+          R.innerHTML=navBar()+'<div class="lx-body"><div class="lx-bar" style="border-bottom:1px solid #1e293b"><span style="color:#e2e8f0;font-size:12px;font-weight:700">Model dependencies</span></div><div style="padding:24px 20px;color:#94a3b8;font-size:12px;line-height:1.5">This tile is on the DBT Lineage dashboard but the query does not include the required fields.<br/><br/>Use the <strong style="color:#e2e8f0">madl_dbt_model_lineage</strong> explore and add dimensions: <strong>Model</strong> and at least one <strong>Parent 1</strong> … <strong>Parent 9</strong>.</div></div>';
 
           done();return;
 
@@ -366,7 +366,7 @@
 
         h+='<div class="lx-bar" style="border-bottom:1px solid rgba(30,41,59,0.25)"><span style="color:#e2e8f0;font-size:12px;font-weight:700">Model dependencies</span></div>';
 
-        h+='<div class="lx-bar"><div style="color:#94a3b8">Models <span style="color:#0ea5e9;font-weight:600">'+nodes.length+'</span> \u00B7 edges <span style="color:#0ea5e9;font-weight:600">'+edges.length+'</span></div><div style="color:#475569">'+data.length+' rows \u00B7 level 0 (roots) \u2192 leaf</div></div>';
+        h+='<div class="lx-bar"><div style="color:#94a3b8">Models <span style="color:#0ea5e9;font-weight:600">'+nodes.length+'</span> \u00B7 edges <span style="color:#0ea5e9;font-weight:600">'+edges.length+'</span></div><div style="color:#475569">'+data.length+' rows \u00B7 level 0 roots \u2192 leaf</div></div>';
 
         h+='<div class="lx-scroll" style="padding:12px"><svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" width="'+sW+'" height="'+sH+'">';
 
@@ -934,7 +934,7 @@
         h+='<div class="lx-bar" style="border-top:1px solid #1e293b;padding:10px 16px"><span style="color:#e2e8f0;font-size:12px;font-weight:700">Tables and columns with 0 num_jobs or only Looker Dev</span><span style="color:#64748b;font-size:10px;margin-left:8px">'+zeroOrLookerDevOnly.length+' rows</span></div>';
         h+='<div class="lx-scroll" style="max-height:280px;overflow:auto;border-top:1px solid rgba(30,41,59,0.25)">';
         h+='<div class="lx-hdr" style="grid-template-columns:1fr 1fr 120px;padding:8px 16px;font-size:10px;color:#64748b">';
-        h+='<div>Table</div><div>Column (0 or only Looker Dev)</div><div>Reason</div></div>';
+        h+='<div>Table</div><div>Column - 0 or only Looker Dev</div><div>Reason</div></div>';
         zeroOrLookerDevOnly.forEach(function(r){
           var reasonClr=r.reason==='0 jobs'?'#94a3b8':'#f59e0b';
           h+='<div class="lx-row" style="grid-template-columns:1fr 1fr 120px;padding:8px 16px;font-size:11px">';
@@ -1009,11 +1009,11 @@
 
           ['dashboard','explore','view','table'].forEach(function(t,i){var c=eC[t],a=aE===t;h+='<button class="lx-ebtn eb'+(a?' on':'')+'" data-e="'+t+'" style="color:'+(a?c:'')+(i===0?';border-radius:6px 0 0 6px':'')+(i===3?';border-radius:0 6px 6px 0':'')+'">'+t.charAt(0).toUpperCase()+t.slice(1)+'s</button>';});
 
-          h+='</div><div style="color:#475569">'+ls.length+' '+aE+'s \u00B7 <span style="color:'+col+';font-weight:600">'+tv.toLocaleString()+'</span> views (30d)</div></div>';
+          h+='</div><div style="color:#475569">'+ls.length+' '+aE+'s \u00B7 <span style="color:'+col+';font-weight:600">'+tv.toLocaleString()+'</span> views 30d</div></div>';
 
           h+='<div class="lx-hdr" style="grid-template-columns:1fr 140px 130px 150px 36px">';
 
-          [{k:'name',l:'Name'},{k:'model',l:'Model'},{k:'vc',l:'Views (30d)'},{k:'extra',l:'References'},{k:'lnk',l:''}].forEach(function(c){if(c.k==='lnk'){h+='<div></div>';return;}var a=sC===c.k;h+='<div class="sc'+(a?' on':'')+'" data-c="'+c.k+'">'+c.l+(a?(sD==='asc'?' \u2191':' \u2193'):'')+'</div>';});
+          [{k:'name',l:'Name'},{k:'model',l:'Model'},{k:'vc',l:'Views 30d'},{k:'extra',l:'References'},{k:'lnk',l:''}].forEach(function(c){if(c.k==='lnk'){h+='<div></div>';return;}var a=sC===c.k;h+='<div class="sc'+(a?' on':'')+'" data-c="'+c.k+'">'+c.l+(a?(sD==='asc'?' \u2191':' \u2193'):'')+'</div>';});
 
           h+='</div><div class="lx-scroll">';
 
