@@ -90,16 +90,17 @@
 
       F.num_jobs=meas.find(function(f){return f.toLowerCase().indexOf('num_jobs')!==-1;});
 
-      F.dbt_model=dims.find(function(f){var l=f.toLowerCase().replace(/\s/g,'_');return l==='model'||l.endsWith('_model')||(l.indexOf('model')!==-1&&l.indexOf('parent')===-1);});
-      F.parent_1=dims.find(function(f){var l=f.toLowerCase().replace(/\s/g,'_');return l==='parent_1'||l==='parent1'||l.endsWith('_parent_1');});
-      F.parent_2=dims.find(function(f){var l=f.toLowerCase().replace(/\s/g,'_');return l==='parent_2'||l==='parent2'||l.endsWith('_parent_2');});
-      F.parent_3=dims.find(function(f){var l=f.toLowerCase().replace(/\s/g,'_');return l==='parent_3'||l==='parent3'||l.endsWith('_parent_3');});
-      F.parent_4=dims.find(function(f){var l=f.toLowerCase().replace(/\s/g,'_');return l==='parent_4'||l==='parent4'||l.endsWith('_parent_4');});
-      F.parent_5=dims.find(function(f){var l=f.toLowerCase().replace(/\s/g,'_');return l==='parent_5'||l==='parent5'||l.endsWith('_parent_5');});
-      F.parent_6=dims.find(function(f){var l=f.toLowerCase().replace(/\s/g,'_');return l==='parent_6'||l==='parent6'||l.endsWith('_parent_6');});
-      F.parent_7=dims.find(function(f){var l=f.toLowerCase().replace(/\s/g,'_');return l==='parent_7'||l==='parent7'||l.endsWith('_parent_7');});
-      F.parent_8=dims.find(function(f){var l=f.toLowerCase().replace(/\s/g,'_');return l==='parent_8'||l==='parent8'||l.endsWith('_parent_8');});
-      F.parent_9=dims.find(function(f){var l=f.toLowerCase().replace(/\s/g,'_');return l==='parent_9'||l==='parent9'||l.endsWith('_parent_9');});
+      function matchDbtLineageDim(name,canon){var l=(name||'').toLowerCase().replace(/\s/g,'_');return l===canon||l==='parent'+canon.replace('_','')||l.endsWith('_'+canon)||l.endsWith('.'+canon);}
+      F.dbt_model=dims.find(function(f){var l=(f||'').toLowerCase().replace(/\s/g,'_');return l==='model'||l.endsWith('_model')||l.endsWith('.model')||(l.indexOf('model')!==-1&&l.indexOf('parent')===-1);});
+      F.parent_1=dims.find(function(f){return matchDbtLineageDim(f,'parent_1');});
+      F.parent_2=dims.find(function(f){return matchDbtLineageDim(f,'parent_2');});
+      F.parent_3=dims.find(function(f){return matchDbtLineageDim(f,'parent_3');});
+      F.parent_4=dims.find(function(f){return matchDbtLineageDim(f,'parent_4');});
+      F.parent_5=dims.find(function(f){return matchDbtLineageDim(f,'parent_5');});
+      F.parent_6=dims.find(function(f){return matchDbtLineageDim(f,'parent_6');});
+      F.parent_7=dims.find(function(f){return matchDbtLineageDim(f,'parent_7');});
+      F.parent_8=dims.find(function(f){return matchDbtLineageDim(f,'parent_8');});
+      F.parent_9=dims.find(function(f){return matchDbtLineageDim(f,'parent_9');});
 
       var mode;
 
@@ -122,6 +123,8 @@
       else if(F.dbt_model&&(F.parent_1||F.parent_2||F.parent_3||F.parent_4||F.parent_5||F.parent_6||F.parent_7||F.parent_8||F.parent_9))mode='dbt_lineage';
 
       else if(onDbtLineageDashboard||(looksLikeDbtLineage&&F.dbt_model))mode='dbt_lineage';
+
+      else if(looksLikeDbtLineage)mode='dbt_lineage';
 
       else if(F.dash&&F.exp&&F.view)mode='lineage';
 
