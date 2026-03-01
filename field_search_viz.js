@@ -41,9 +41,9 @@
       if(!data||data.length===0){R.innerHTML='<div style="padding:40px;color:#475569;text-align:center">No data available</div>';done();return;}
 
       var fields=queryResponse&&queryResponse.fields;
-      var dims=fields&&fields.dimension_like?fields.dimension_like.map(function(f){return f.name;});
+      var dims=fields&&fields.dimension_like?fields.dimension_like.map(function(f){return f.name;}):[];
 
-      var meas=fields.measure_like?fields.measure_like.map(function(f){return f.name;}):[];
+      var meas=fields&&fields.measure_like?fields.measure_like.map(function(f){return f.name;}):[];
 
       var F={};
 
