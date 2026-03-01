@@ -40,20 +40,14 @@
 
       if(!data||data.length===0){R.innerHTML='<div style="padding:40px;color:#475569;text-align:center">No data available</div>';done();return;}
 
-      var DATA_CAP=200;
-      if(data.length>DATA_CAP)data=data.slice(0,DATA_CAP);
-      R.innerHTML='<div style="padding:48px;text-align:center;color:#94a3b8;font-size:13px">Loading\u2026</div>';
-      setTimeout(function(){
-
       var fields=queryResponse&&queryResponse.fields;
-      if(!fields||!fields.dimension_like){R.innerHTML='<div style="padding:40px;color:#94a3b8;text-align:center;font-size:12px">No query fields. Check the explore.</div>';done();return;}
-      var dims=fields.dimension_like.map(function(f){return f.name;});
+      var dims=fields&&fields.dimension_like?fields.dimension_like.map(function(f){return f.name;});
 
       var meas=fields.measure_like?fields.measure_like.map(function(f){return f.name;}):[];
 
       var F={};
 
-      F.dash=dims.find(function(f){var l=f.toLowerCase().replace(/\s/g,'_');return (l.indexOf('dashboard')!==-1&&l.indexOf('title')!==-1)||l.endsWith('dashboard_title')||l.endsWith('dashboardtitle');});
+      F.dash=dims.find(function(f){var l=f.toLowerCase().replace(/\s/g,'_');return l.indexOf('dashboard')!==-1&&l.indexOf('title')!==-1;});
 
       F.dashId=dims.find(function(f){return f.toLowerCase().indexOf('dashboard_id')!==-1;});
 
@@ -272,7 +266,7 @@
 
         if(!F.dbt_model||!(F.parent_1||F.parent_2||F.parent_3||F.parent_4||F.parent_5||F.parent_6||F.parent_7||F.parent_8||F.parent_9)){
 
-          R.innerHTML=navBar()+'<div class="lx-body"><div class="lx-bar" style="border-bottom:1px solid #1e293b"><span style="color:#e2e8f0;font-size:12px;font-weight:700">Model dependencies</span></div><div style="padding:24px 20px;color:#94a3b8;font-size:12px;line-height:1.5">This tile is on the DBT Lineage dashboard but the query does not include the required fields.<br/><br/>Use the <strong style="color:#e2e8f0">madl_dbt_model_lineage</strong> explore and add dimensions: <strong>Model</strong> and at least one <strong>Parent 1</strong> … <strong>Parent 9</strong>.</div></div>';
+          R.innerHTML=navBar()+'<div class="lx-body"><div class="lx-bar" style="border-bottom:1px solid #1e293b"><span style="color:#e2e8f0;font-size:12px;font-weight:700">Model dependencies</span></div><div style="padding:24px 20px;color:#94a3b8;font-size:12px;line-height:1.5">This tile is on the DBT Lineage dashboard but the query does not include the required fields.<br/><br/>Use the <strong style="color:#e2e8f0">madl_dbt_model_lineage</strong> explore and add dimensions: <strong>Model</strong> (child) and at least one <strong>Parent 1</strong> … <strong>Parent 9</strong>.</div></div>';
 
           done();return;
 
@@ -314,7 +308,7 @@
 
         var changed=true,iter=0,maxIter=Math.max(20,nodes.length);
 
-        while(changed&&iter<maxIter){changed=false;iter++;nodes.forEach(function(n){if(depth[n.id]!=null)return;var par=inEdges[n.id];if(!par)return;var allSet=par.every(function(p){return depth[p]!=null;});if(!allSet)return;var max=-1;par.forEach(function(p){max=Math.max(max,depth[p]);});depth[n.id]=max+1;changed=true;});}}
+        while(changed&&iter<maxIter){changed=false;iter++;nodes.forEach(function(n){if(depth[n.id]!=null)return;var par=inEdges[n.id];if(!par)return;var max=-1;par.forEach(function(p){max=Math.max(max,depth[p]!=null?depth[p]:-1);});depth[n.id]=max+1;changed=true;});}}
 
         nodes.forEach(function(n){if(depth[n.id]==null)depth[n.id]=0;});
 
@@ -358,7 +352,7 @@
 
           var nm=n.name.length>32?n.name.substring(0,30)+'\u2026':n.name;
 
-          nd+='<g class="lx-node" transform="translate('+p.x+','+p.y+')"><rect width="'+nW+'" height="'+nH+'" rx="8" fill="#131b2e" stroke="#0ea5e9" stroke-width="1.5"/><rect x="2" y="2" width="34" height="'+(nH-4)+'" rx="6" fill="#0ea5e908"/><g transform="translate(10,'+(nH/2-8)+')" fill="#0ea5e9">'+tI.table+'</g><text x="42" y="'+(nH/2+4)+'" fill="#e2e8f0" font-size="11" font-weight="500">'+nm.replace(new RegExp('<','g'),'&lt;')+'</text></g>';
+          nd+='<g class="lx-node" transform="translate('+p.x+','+p.y+')"><rect width="'+nW+'" height="'+nH+'" rx="8" fill="#131b2e" stroke="#0ea5e9" stroke-width="1.5"/><rect x="2" y="2" width="34" height="'+(nH-4)+'" rx="6" fill="#0ea5e908"/><g transform="translate(10,'+(nH/2-8)+')" fill="#0ea5e9">'+tI.table+'</g><text x="42" y="'+(nH/2+4)+'" fill="#e2e8f0" font-size="11" font-weight="500">'+nm.replace(/</g,'&lt;')+'</text></g>';
 
         });
 
@@ -366,7 +360,7 @@
 
         h+='<div class="lx-bar" style="border-bottom:1px solid rgba(30,41,59,0.25)"><span style="color:#e2e8f0;font-size:12px;font-weight:700">Model dependencies</span></div>';
 
-        h+='<div class="lx-bar"><div style="color:#94a3b8">Models <span style="color:#0ea5e9;font-weight:600">'+nodes.length+'</span> \u00B7 edges <span style="color:#0ea5e9;font-weight:600">'+edges.length+'</span></div><div style="color:#475569">'+data.length+' rows \u00B7 level 0 roots \u2192 leaf</div></div>';
+        h+='<div class="lx-bar"><div style="color:#94a3b8">Models <span style="color:#0ea5e9;font-weight:600">'+nodes.length+'</span> \u00B7 edges <span style="color:#0ea5e9;font-weight:600">'+edges.length+'</span></div><div style="color:#475569">'+data.length+' rows \u00B7 level 0 (roots) \u2192 leaf</div></div>';
 
         h+='<div class="lx-scroll" style="padding:12px"><svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" width="'+sW+'" height="'+sH+'">';
 
@@ -396,7 +390,7 @@
 
         setTimeout(function(){
 
-        var useData=data;
+        var useData=data.length>800?data.slice(0,800):data;
 
         var seen={},rows=[];
 
@@ -410,11 +404,9 @@
 
           var k=[r.dash,r.exp,r.view,r.tbl,r.model,r.extV,r.incV].join('||');
 
-          if(seen[k]){var s=seen[k];if(!s._fs)s._fs=new Set(s.fields);rf.forEach(function(f){if(f)s._fs.add(f);});}else{seen[k]=r;rows.push(r);}
+          if(seen[k]){rf.forEach(function(f){if(f&&seen[k].fields.indexOf(f)===-1)seen[k].fields.push(f);});}else{seen[k]=r;rows.push(r);}
 
         });
-
-        Object.keys(seen).forEach(function(k){var s=seen[k];if(s._fs){s.fields=Array.from(s._fs);delete s._fs;}});
 
         var Tb={},Vw={},Ex={},Da={},v2t={},v2v={},e2v={},d2e={},vM={};
 
@@ -460,21 +452,13 @@
 
         var ae=Object.values(Tb).concat(Object.values(Vw)).concat(Object.values(Ex)).concat(Object.values(Da));
 
-        var aeById={};ae.forEach(function(e){aeById[e.id]=e;});
-
-        var invSrc={};ae.forEach(function(e){(e.src||[]).forEach(function(s){if(!invSrc[s])invSrc[s]=[];invSrc[s].push(e.id);});});
-
         var sel=null,up=[],dn=[];
 
-        function gUp(id,d,vi){if(d>15)return[];vi=vi||{};if(vi[id])return[];vi[id]=true;var e=aeById[id];if(!e||!e.src)return[];var r=[];e.src.forEach(function(s){if(!vi[s]){r.push(s);r=r.concat(gUp(s,(d||0)+1,vi));}});return r.filter(function(x,i,a){return a.indexOf(x)===i;});}
+        function gUp(id,d,vi){if(d>15)return[];vi=vi||{};if(vi[id])return[];vi[id]=true;var e=ae.find(function(x){return x.id===id;});if(!e||!e.src)return[];var r=[];e.src.forEach(function(s){if(!vi[s]){r.push(s);r=r.concat(gUp(s,(d||0)+1,vi));}});return r.filter(function(x,i,a){return a.indexOf(x)===i;});}
 
-        function gDn(id,d,vi){if(d>15)return[];vi=vi||{};if(vi[id])return[];vi[id]=true;var r=[],ch=invSrc[id]||[];ch.forEach(function(cid){if(!vi[cid]){r.push(cid);r=r.concat(gDn(cid,(d||0)+1,vi));}});return r.filter(function(x,i,a){return a.indexOf(x)===i;});}
+        function gDn(id,d,vi){if(d>15)return[];vi=vi||{};if(vi[id])return[];vi[id]=true;var r=[];ae.forEach(function(e){(e.src||[]).forEach(function(s){if(s===id&&!vi[e.id]){r.push(e.id);r=r.concat(gDn(e.id,(d||0)+1,vi));}});});return r.filter(function(x,i,a){return a.indexOf(x)===i;});}
 
-
-
-        var LINEAGE_CAP=80,visCapMsg='';
-
-        var btByType={table:[],view:[],explore:[],dashboard:[]};ae.forEach(function(e){if(btByType[e.type])btByType[e.type].push(e);});['table','view','explore','dashboard'].forEach(function(t){btByType[t].sort(function(a,b){return a.name.localeCompare(b.name);});});
+        var LINEAGE_CAP=100,visCapMsg='';
 
         function rL(){
 
@@ -482,7 +466,7 @@
 
           if(sel){up=gUp(sel.id,0);dn=gDn(sel.id,0);var ids=[sel.id].concat(up).concat(dn),idSet=new Set(ids);vis=ae.filter(function(e){return idSet.has(e.id);});}
 
-          else if(ae.length>LINEAGE_CAP*4){vis=[];['table','view','explore','dashboard'].forEach(function(ty){var arr=btByType[ty]||[];for(var i=0;i<Math.min(LINEAGE_CAP,arr.length);i++)vis.push(arr[i]);});visCapMsg='Showing first '+LINEAGE_CAP+' per category. Click a node to focus.';}
+          else if(ae.length>LINEAGE_CAP*4){vis=[];['table','view','explore','dashboard'].forEach(function(ty){var arr=ae.filter(function(e){return e.type===ty;});arr.sort(function(a,b){return a.name.localeCompare(b.name);});for(var i=0;i<Math.min(LINEAGE_CAP,arr.length);i++)vis.push(arr[i]);});visCapMsg='Showing first '+LINEAGE_CAP+' per category. Click a node to focus.';}
 
           else{vis=ae;visCapMsg='';}
 
@@ -522,7 +506,7 @@
 
           R.innerHTML=h;
 
-          R.querySelectorAll('.nd').forEach(function(n){n.addEventListener('click',function(){var id=n.dataset.id,en=aeById[id];if(sel&&sel.id===id){sel=null;up=[];dn=[];}else sel=en;rL();});});
+          R.querySelectorAll('.nd').forEach(function(n){n.addEventListener('click',function(){var id=n.dataset.id,en=ae.find(function(e){return e.id===id;});if(sel&&sel.id===id){sel=null;up=[];dn=[];}else sel=en;rL();});});
 
         }
 
@@ -915,7 +899,7 @@
           var hasLogo=logo&&(logo.indexOf('data:')===0||(typeof logo==='string'&&logo.length>0&&logo.indexOf('<')!==-1));
           var contentEl;
           if(hasLogo){var isDataUrl=logo.indexOf('data:')===0;contentEl=isDataUrl?'<image xlink:href="'+logo+'" x="'+cLogoX+'" y="'+cLogoY+'" width="'+cLogoSize+'" height="'+cLogoSize+'" preserveAspectRatio="xMidYMid meet"/>':'<g transform="translate('+((cNw-24)/2)+','+((cNh-24)/2)+')" fill="#f59e0b" color="#f59e0b">'+logo+'</g>';}
-          else{var lab=(c.label||c.key||'').toString().replace(new RegExp('&','g'),'&amp;').replace(new RegExp('<','g'),'&lt;').replace(new RegExp('>','g'),'&gt;');contentEl='<text x="'+cNw/2+'" y="'+(cNh/2+5)+'" text-anchor="middle" fill="#e2e8f0" font-size="14" font-weight="600">'+lab+'</text>';}
+          else{var lab=(c.label||c.key||'').toString().replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');contentEl='<text x="'+cNw/2+'" y="'+(cNh/2+5)+'" text-anchor="middle" fill="#e2e8f0" font-size="14" font-weight="600">'+lab+'</text>';}
           nd+='<g class="lx-node" transform="translate('+p.x+','+p.y+')"><rect width="'+cNw+'" height="'+cNh+'" rx="10" fill="#131b2e" stroke="#f59e0b" stroke-width="1.5"/><rect x="2" y="2" width="'+(cNw-4)+'" height="'+(cNh-4)+'" rx="8" fill="#f59e0b08"/>'+contentEl+'</g>';
         });
 
@@ -934,13 +918,13 @@
         h+='<div class="lx-bar" style="border-top:1px solid #1e293b;padding:10px 16px"><span style="color:#e2e8f0;font-size:12px;font-weight:700">Tables and columns with 0 num_jobs or only Looker Dev</span><span style="color:#64748b;font-size:10px;margin-left:8px">'+zeroOrLookerDevOnly.length+' rows</span></div>';
         h+='<div class="lx-scroll" style="max-height:280px;overflow:auto;border-top:1px solid rgba(30,41,59,0.25)">';
         h+='<div class="lx-hdr" style="grid-template-columns:1fr 1fr 120px;padding:8px 16px;font-size:10px;color:#64748b">';
-        h+='<div>Table</div><div>Column - 0 or only Looker Dev</div><div>Reason</div></div>';
+        h+='<div>Table</div><div>Column (0 or only Looker Dev)</div><div>Reason</div></div>';
         zeroOrLookerDevOnly.forEach(function(r){
           var reasonClr=r.reason==='0 jobs'?'#94a3b8':'#f59e0b';
           h+='<div class="lx-row" style="grid-template-columns:1fr 1fr 120px;padding:8px 16px;font-size:11px">';
-          h+='<div class="lx-cell" style="font-family:monospace">'+(r.table||'').replace(new RegExp('<','g'),'&lt;')+'</div>';
-          h+='<div class="lx-cell">'+(r.column||'—').replace(new RegExp('<','g'),'&lt;')+'</div>';
-          h+='<div style="color:'+reasonClr+';font-weight:500">'+r.reason.replace(new RegExp('<','g'),'&lt;')+'</div></div>';
+          h+='<div class="lx-cell" style="font-family:monospace">'+(r.table||'').replace(/</g,'&lt;')+'</div>';
+          h+='<div class="lx-cell">'+(r.column||'—').replace(/</g,'&lt;')+'</div>';
+          h+='<div style="color:'+reasonClr+';font-weight:500">'+r.reason.replace(/</g,'&lt;')+'</div></div>';
         });
         if(zeroOrLookerDevOnly.length===0)h+='<div style="padding:16px;color:#64748b;font-size:11px">None</div>';
         h+='</div></div>';
@@ -1009,11 +993,11 @@
 
           ['dashboard','explore','view','table'].forEach(function(t,i){var c=eC[t],a=aE===t;h+='<button class="lx-ebtn eb'+(a?' on':'')+'" data-e="'+t+'" style="color:'+(a?c:'')+(i===0?';border-radius:6px 0 0 6px':'')+(i===3?';border-radius:0 6px 6px 0':'')+'">'+t.charAt(0).toUpperCase()+t.slice(1)+'s</button>';});
 
-          h+='</div><div style="color:#475569">'+ls.length+' '+aE+'s \u00B7 <span style="color:'+col+';font-weight:600">'+tv.toLocaleString()+'</span> views 30d</div></div>';
+          h+='</div><div style="color:#475569">'+ls.length+' '+aE+'s \u00B7 <span style="color:'+col+';font-weight:600">'+tv.toLocaleString()+'</span> views (30d)</div></div>';
 
           h+='<div class="lx-hdr" style="grid-template-columns:1fr 140px 130px 150px 36px">';
 
-          [{k:'name',l:'Name'},{k:'model',l:'Model'},{k:'vc',l:'Views 30d'},{k:'extra',l:'References'},{k:'lnk',l:''}].forEach(function(c){if(c.k==='lnk'){h+='<div></div>';return;}var a=sC===c.k;h+='<div class="sc'+(a?' on':'')+'" data-c="'+c.k+'">'+c.l+(a?(sD==='asc'?' \u2191':' \u2193'):'')+'</div>';});
+          [{k:'name',l:'Name'},{k:'model',l:'Model'},{k:'vc',l:'Views (30d)'},{k:'extra',l:'References'},{k:'lnk',l:''}].forEach(function(c){if(c.k==='lnk'){h+='<div></div>';return;}var a=sC===c.k;h+='<div class="sc'+(a?' on':'')+'" data-c="'+c.k+'">'+c.l+(a?(sD==='asc'?' \u2191':' \u2193'):'')+'</div>';});
 
           h+='</div><div class="lx-scroll">';
 
@@ -1058,9 +1042,6 @@
       }
 
       done();
-
-    },100);
-    return;
 
     }
 
