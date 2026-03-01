@@ -48,7 +48,7 @@
 
       var F={};
 
-      F.dash=dims.find(function(f){var l=f.toLowerCase();return l.indexOf('dashboard')!==-1&&l.indexOf('title')!==-1;});
+      F.dash=dims.find(function(f){var l=f.toLowerCase().replace(/\s/g,'_');return (l.indexOf('dashboard')!==-1&&l.indexOf('title')!==-1)||l.endsWith('dashboard_title')||l.endsWith('dashboardtitle');});
 
       F.dashId=dims.find(function(f){return f.toLowerCase().indexOf('dashboard_id')!==-1;});
 
@@ -309,7 +309,7 @@
 
         var changed=true;
 
-        while(changed){changed=false;nodes.forEach(function(n){if(depth[n.id]!=null)return;var par=inEdges[n.id];if(!par)return;var max=-1;par.forEach(function(p){if(depth[p]==null)return;max=Math.max(max,depth[p]);});if(max>=0){depth[n.id]=max+1;changed=true;}});}
+        while(changed){changed=false;nodes.forEach(function(n){if(depth[n.id]!=null)return;var par=inEdges[n.id];if(!par)return;var allSet=par.every(function(p){return depth[p]!=null;});if(!allSet)return;var max=-1;par.forEach(function(p){max=Math.max(max,depth[p]);});depth[n.id]=max+1;changed=true;});}}
 
         nodes.forEach(function(n){if(depth[n.id]==null)depth[n.id]=0;});
 
