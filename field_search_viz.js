@@ -358,7 +358,7 @@
 
           var nm=n.name.length>32?n.name.substring(0,30)+'\u2026':n.name;
 
-          nd+='<g class="lx-node" transform="translate('+p.x+','+p.y+')"><rect width="'+nW+'" height="'+nH+'" rx="8" fill="#131b2e" stroke="#0ea5e9" stroke-width="1.5"/><rect x="2" y="2" width="34" height="'+(nH-4)+'" rx="6" fill="#0ea5e908"/><g transform="translate(10,'+(nH/2-8)+')" fill="#0ea5e9">'+tI.table+'</g><text x="42" y="'+(nH/2+4)+'" fill="#e2e8f0" font-size="11" font-weight="500">'+nm.replace(/</g,'&lt;')+'</text></g>';
+          nd+='<g class="lx-node" transform="translate('+p.x+','+p.y+')"><rect width="'+nW+'" height="'+nH+'" rx="8" fill="#131b2e" stroke="#0ea5e9" stroke-width="1.5"/><rect x="2" y="2" width="34" height="'+(nH-4)+'" rx="6" fill="#0ea5e908"/><g transform="translate(10,'+(nH/2-8)+')" fill="#0ea5e9">'+tI.table+'</g><text x="42" y="'+(nH/2+4)+'" fill="#e2e8f0" font-size="11" font-weight="500">'+nm.replace(new RegExp('<','g'),'&lt;')+'</text></g>';
 
         });
 
@@ -915,7 +915,7 @@
           var hasLogo=logo&&(logo.indexOf('data:')===0||(typeof logo==='string'&&logo.length>0&&logo.indexOf('<')!==-1));
           var contentEl;
           if(hasLogo){var isDataUrl=logo.indexOf('data:')===0;contentEl=isDataUrl?'<image xlink:href="'+logo+'" x="'+cLogoX+'" y="'+cLogoY+'" width="'+cLogoSize+'" height="'+cLogoSize+'" preserveAspectRatio="xMidYMid meet"/>':'<g transform="translate('+((cNw-24)/2)+','+((cNh-24)/2)+')" fill="#f59e0b" color="#f59e0b">'+logo+'</g>';}
-          else{var lab=(c.label||c.key||'').toString().replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');contentEl='<text x="'+cNw/2+'" y="'+(cNh/2+5)+'" text-anchor="middle" fill="#e2e8f0" font-size="14" font-weight="600">'+lab+'</text>';}
+          else{var lab=(c.label||c.key||'').toString().replace(new RegExp('&','g'),'&amp;').replace(new RegExp('<','g'),'&lt;').replace(new RegExp('>','g'),'&gt;');contentEl='<text x="'+cNw/2+'" y="'+(cNh/2+5)+'" text-anchor="middle" fill="#e2e8f0" font-size="14" font-weight="600">'+lab+'</text>';}
           nd+='<g class="lx-node" transform="translate('+p.x+','+p.y+')"><rect width="'+cNw+'" height="'+cNh+'" rx="10" fill="#131b2e" stroke="#f59e0b" stroke-width="1.5"/><rect x="2" y="2" width="'+(cNw-4)+'" height="'+(cNh-4)+'" rx="8" fill="#f59e0b08"/>'+contentEl+'</g>';
         });
 
@@ -938,9 +938,9 @@
         zeroOrLookerDevOnly.forEach(function(r){
           var reasonClr=r.reason==='0 jobs'?'#94a3b8':'#f59e0b';
           h+='<div class="lx-row" style="grid-template-columns:1fr 1fr 120px;padding:8px 16px;font-size:11px">';
-          h+='<div class="lx-cell" style="font-family:monospace">'+(r.table||'').replace(/</g,'&lt;')+'</div>';
-          h+='<div class="lx-cell">'+(r.column||'—').replace(/</g,'&lt;')+'</div>';
-          h+='<div style="color:'+reasonClr+';font-weight:500">'+r.reason.replace(/</g,'&lt;')+'</div></div>';
+          h+='<div class="lx-cell" style="font-family:monospace">'+(r.table||'').replace(new RegExp('<','g'),'&lt;')+'</div>';
+          h+='<div class="lx-cell">'+(r.column||'—').replace(new RegExp('<','g'),'&lt;')+'</div>';
+          h+='<div style="color:'+reasonClr+';font-weight:500">'+r.reason.replace(new RegExp('<','g'),'&lt;')+'</div></div>';
         });
         if(zeroOrLookerDevOnly.length===0)h+='<div style="padding:16px;color:#64748b;font-size:11px">None</div>';
         h+='</div></div>';
