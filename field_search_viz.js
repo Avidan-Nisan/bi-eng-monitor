@@ -288,7 +288,11 @@
 
           if(!nodeSet[child])nodeSet[child]={id:child,name:child};
 
-          for(var i=0;i<parentKeys.length;i++){var p=parentKeys[i]?gv(row,parentKeys[i]):'';if(!p)continue;if(!nodeSet[p])nodeSet[p]={id:p,name:p};var ek=p+'|'+child;if(!edgeKeys[ek]){edgeKeys[ek]=true;edges.push({from:p,to:child});}}
+          var chain=[child];
+
+          for(var i=0;i<parentKeys.length;i++){var p=parentKeys[i]?gv(row,parentKeys[i]):'';if(!p)break;chain.push(p);if(!nodeSet[p])nodeSet[p]={id:p,name:p};}
+
+          for(var j=1;j<chain.length;j++){var from=chain[j],to=chain[j-1],ek=from+'|'+to;if(!edgeKeys[ek]){edgeKeys[ek]=true;edges.push({from:from,to:to});}}
 
         });
 
@@ -312,11 +316,15 @@
 
         nodes.forEach(function(n){if(depth[n.id]==null)depth[n.id]=0;});
 
+        var maxDepth=0;
+
+        nodes.forEach(function(n){if(depth[n.id]>maxDepth)maxDepth=depth[n.id];});
+
         var byDepth={};
 
-        nodes.forEach(function(n){var d=depth[n.id];if(!byDepth[d])byDepth[d]=[];byDepth[d].push(n);});
+        nodes.forEach(function(n){var d=maxDepth-depth[n.id];if(!byDepth[d])byDepth[d]=[];byDepth[d].push(n);});
 
-        var depths=Object.keys(byDepth).map(Number).sort(function(a,b){return a-b;});
+        var depths=Object.keys(byDepth).map(Number).sort(function(a,b){return b-a;});
 
         depths.forEach(function(d){byDepth[d].sort(function(a,b){return a.name.localeCompare(b.name);});});
 
@@ -360,7 +368,7 @@
 
         h+='<div class="lx-bar" style="border-bottom:1px solid rgba(30,41,59,0.25)"><span style="color:#e2e8f0;font-size:12px;font-weight:700">Model dependencies</span></div>';
 
-        h+='<div class="lx-bar"><div style="color:#94a3b8">Models <span style="color:#0ea5e9;font-weight:600">'+nodes.length+'</span> \u00B7 edges <span style="color:#0ea5e9;font-weight:600">'+edges.length+'</span></div><div style="color:#475569">'+data.length+' rows \u00B7 level 0 (roots) \u2192 leaf</div></div>';
+        h+='<div class="lx-bar"><div style="color:#94a3b8">Models <span style="color:#0ea5e9;font-weight:600">'+nodes.length+'</span> \u00B7 edges <span style="color:#0ea5e9;font-weight:600">'+edges.length+'</span></div><div style="color:#475569">'+data.length+' rows \u00B7 upstream (Level 3 \u2192 Model)</div></div>';
 
         h+='<div class="lx-scroll" style="padding:12px"><svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" width="'+sW+'" height="'+sH+'">';
 
@@ -368,7 +376,7 @@
 
           var x=pad+i*(nW+gap);
 
-          h+='<text x="'+(x+nW/2)+'" y="20" text-anchor="middle" fill="#64748b" font-size="9" font-weight="700">Level '+d+'</text>';
+          h+='<text x="'+(x+nW/2)+'" y="20" text-anchor="middle" fill="#64748b" font-size="9" font-weight="700">'+(d===0?'Model':'Level '+d)+'</text>';
 
         });
 
