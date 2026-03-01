@@ -40,7 +40,7 @@
 
       if(!data||data.length===0){R.innerHTML='<div style="padding:40px;color:#475569;text-align:center">No data available</div>';done();return;}
 
-      var DATA_CAP=500;
+      var DATA_CAP=200;
       if(data.length>DATA_CAP)data=data.slice(0,DATA_CAP);
       R.innerHTML='<div style="padding:48px;text-align:center;color:#94a3b8;font-size:13px">Loading\u2026</div>';
       setTimeout(function(){
@@ -394,7 +394,7 @@
 
         setTimeout(function(){
 
-        var useData=data.length>800?data.slice(0,800):data;
+        var useData=data;
 
         var seen={},rows=[];
 
@@ -1057,7 +1057,7 @@
 
       done();
 
-    },0);
+    },100);
     return;
 
     }
