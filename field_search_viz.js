@@ -44,10 +44,13 @@
       if(data.length>DATA_CAP)data=data.slice(0,DATA_CAP);
       R.innerHTML='<div style="padding:48px;text-align:center;color:#94a3b8;font-size:13px">Loading\u2026</div>';
       setTimeout(function(){
+      try{
 
-      var dims=queryResponse.fields.dimension_like.map(function(f){return f.name;});
+      var fields=queryResponse&&queryResponse.fields;
+      if(!fields||!fields.dimension_like){R.innerHTML='<div style="padding:40px;color:#94a3b8;text-align:center;font-size:12px">No query fields. Check the explore.</div>';done();return;}
+      var dims=fields.dimension_like.map(function(f){return f.name;});
 
-      var meas=queryResponse.fields.measure_like?queryResponse.fields.measure_like.map(function(f){return f.name;}):[];
+      var meas=fields.measure_like?fields.measure_like.map(function(f){return f.name;}):[];
 
       var F={};
 
@@ -1057,6 +1060,7 @@
 
       done();
 
+    }catch(err){R.innerHTML='<div style="padding:40px;color:#94a3b8;text-align:center;font-size:12px">Error loading viz.</div>';done();}
     },100);
     return;
 
