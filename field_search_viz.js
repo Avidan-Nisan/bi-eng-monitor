@@ -307,9 +307,9 @@
 
         nodes.forEach(function(n){if(!inEdges[n.id]||inEdges[n.id].length===0)depth[n.id]=0;});
 
-        var changed=true;
+        var changed=true,iter=0,maxIter=Math.max(20,nodes.length);
 
-        while(changed){changed=false;nodes.forEach(function(n){if(depth[n.id]!=null)return;var par=inEdges[n.id];if(!par)return;var allSet=par.every(function(p){return depth[p]!=null;});if(!allSet)return;var max=-1;par.forEach(function(p){max=Math.max(max,depth[p]);});depth[n.id]=max+1;changed=true;});}}
+        while(changed&&iter<maxIter){changed=false;iter++;nodes.forEach(function(n){if(depth[n.id]!=null)return;var par=inEdges[n.id];if(!par)return;var allSet=par.every(function(p){return depth[p]!=null;});if(!allSet)return;var max=-1;par.forEach(function(p){max=Math.max(max,depth[p]);});depth[n.id]=max+1;changed=true;});}}
 
         nodes.forEach(function(n){if(depth[n.id]==null)depth[n.id]=0;});
 
@@ -393,15 +393,17 @@
 
           var fv=gv(row,F.flds),rf=fv?fv.split('|').map(function(f){return f.trim();}).filter(function(f){return f.length>0&&f.indexOf('.')===-1;}):[];
 
-          var mv=gv(row,F.model);if(!mv)Object.keys(row).forEach(function(k){if(k.toLowerCase().indexOf('model')!==-1&&row[k]&&row[k].value)mv=row[k].value;});
+          var mv=gv(row,F.model);if(!mv&&row){var keys=Object.keys(row);for(var ki=0;ki<keys.length;ki++){var k=keys[ki];if(k.toLowerCase().indexOf('model')!==-1&&row[k]&&row[k].value){mv=row[k].value;break;}}}
 
           var r={dash:gv(row,F.dash),exp:gv(row,F.exp),view:gv(row,F.view),tbl:gv(row,F.tbl),model:mv,fields:rf,extV:gv(row,F.ext),incV:gv(row,F.inc)};
 
           var k=[r.dash,r.exp,r.view,r.tbl,r.model,r.extV,r.incV].join('||');
 
-          if(seen[k]){rf.forEach(function(f){if(seen[k].fields.indexOf(f)===-1)seen[k].fields.push(f);});}else{seen[k]=r;rows.push(r);}
+          if(seen[k]){var s=seen[k];if(!s._fs)s._fs=new Set(s.fields);rf.forEach(function(f){if(f)s._fs.add(f);});}else{seen[k]=r;rows.push(r);}
 
         });
+
+        Object.keys(seen).forEach(function(k){var s=seen[k];if(s._fs){s.fields=Array.from(s._fs);delete s._fs;}});
 
         var Tb={},Vw={},Ex={},Da={},v2t={},v2v={},e2v={},d2e={},vM={};
 
