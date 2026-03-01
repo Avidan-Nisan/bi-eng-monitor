@@ -308,7 +308,7 @@
 
         var changed=true,iter=0,maxIter=Math.max(20,nodes.length);
 
-        while(changed&&iter<maxIter){changed=false;iter++;nodes.forEach(function(n){if(depth[n.id]!=null)return;var par=inEdges[n.id];if(!par)return;var max=-1;par.forEach(function(p){max=Math.max(max,depth[p]!=null?depth[p]:-1);});depth[n.id]=max+1;changed=true;});}}
+        while(changed&&iter<maxIter){changed=false;iter++;nodes.forEach(function(n){if(depth[n.id]!=null)return;var par=inEdges[n.id];if(!par)return;var max=-1;par.forEach(function(p){max=Math.max(max,depth[p]!=null?depth[p]:-1);});depth[n.id]=max+1;changed=true;});}
 
         nodes.forEach(function(n){if(depth[n.id]==null)depth[n.id]=0;});
 
