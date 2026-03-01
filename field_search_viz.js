@@ -278,7 +278,7 @@
 
         var parentKeys=[F.parent_1,F.parent_2,F.parent_3,F.parent_4,F.parent_5,F.parent_6,F.parent_7,F.parent_8,F.parent_9];
 
-        var edges=[], nodeSet={};
+        var edges=[], nodeSet={}, edgeKeys={};
 
         data.forEach(function(row){
 
@@ -288,11 +288,7 @@
 
           if(!nodeSet[child])nodeSet[child]={id:child,name:child};
 
-          var chain=[child];
-
-          for(var i=0;i<parentKeys.length;i++){var p=parentKeys[i]?gv(row,parentKeys[i]):'';if(!p)break;chain.push(p);if(!nodeSet[p])nodeSet[p]={id:p,name:p};}
-
-          for(var j=1;j<chain.length;j++)edges.push({from:chain[j],to:chain[j-1]});
+          for(var i=0;i<parentKeys.length;i++){var p=parentKeys[i]?gv(row,parentKeys[i]):'';if(!p)continue;if(!nodeSet[p])nodeSet[p]={id:p,name:p};var ek=p+'|'+child;if(!edgeKeys[ek]){edgeKeys[ek]=true;edges.push({from:p,to:child});}}
 
         });
 
