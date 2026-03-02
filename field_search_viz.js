@@ -132,13 +132,9 @@
 
       else mode='lineage';
 
-
-
       function gv(row,k){return k&&row[k]?row[k].value||'':'';}
 
       function gn(row,k){return k&&row[k]?parseFloat(row[k].value)||0:0;}
-
-
 
       var ic={
 
@@ -204,8 +200,6 @@
 
             function getConsumerLogo(ct){return consumerLogos[ct]||consumerLogos['User'];}
 
-
-
       function doNav(url){
 
         try{if(typeof LookerCharts!=='undefined'&&LookerCharts.Utils&&LookerCharts.Utils.openUrl){LookerCharts.Utils.openUrl(url);return;}}catch(e){}
@@ -219,8 +213,6 @@
         window.location.href=url;
 
       }
-
-
 
       function navBar(){
 
@@ -261,8 +253,6 @@
         return h;
 
       }
-
-
 
       // ========== DBT LINEAGE (model -> parent_1 -> parent_2 -> ...) ==========
 
@@ -447,8 +437,6 @@
 
       }
 
-
-
       // ========== LINEAGE ==========
 
       if(mode==='lineage'){
@@ -585,8 +573,6 @@
 
       }
 
-
-
       // ========== OVERLAP ==========
 
       if(mode==='overlap'){
@@ -605,13 +591,9 @@
 
         function igc(c){return!c||c.length<=2||genC.indexOf(c)!==-1;}
 
-
-
         var viewModelMap={};
 
         data.forEach(function(row){var vn=gv(row,F.view),mv=gv(row,F.model);if(vn&&mv&&!viewModelMap[vn])viewModelMap[vn]=mv;});
-
-
 
         var views={};
 
@@ -619,8 +601,6 @@
         Object.keys(views).forEach(function(vn){var v=views[vn];if(v._fs){v.fields=Array.from(v._fs);delete v._fs;}});
 
         var expD={},simR=null;
-
-
 
         function mkVL(vn){
 
@@ -635,8 +615,6 @@
           return '<span style="color:#a78bfa;font-weight:500">'+vn+'</span>';
 
         }
-
-
 
         function analyze(){
 
@@ -677,8 +655,6 @@
           }catch(e){console.log('LEX_V3 overlap error:',e);simR=[];rO();}},100);
 
         }
-
-
 
         function rO(){
 
@@ -854,8 +830,6 @@
 
       }
 
-
-
       // ========== DBT USAGE (dbt_usage view): models left, consumers right, lines ==========
 
       if(mode==='dbt_usage'){
@@ -984,19 +958,38 @@
 
         h+=ed+nd+'</svg></div>';
 
-        h+='<div class="lx-bar" style="border-top:1px solid #1e293b;padding:10px 16px"><span style="color:#e2e8f0;font-size:12px;font-weight:700">Tables and columns with 0 num_jobs or only Looker Dev</span><span style="color:#64748b;font-size:10px;margin-left:8px">'+zeroOrLookerDevOnly.length+' rows</span></div>';
-        h+='<div class="lx-scroll" style="max-height:280px;overflow:auto;border-top:1px solid rgba(30,41,59,0.25)">';
+        var noUseList = zeroOrLookerDevOnly.filter(function(r){ return r.reason === '0 jobs'; });
+        var lookerDevOnlyList = zeroOrLookerDevOnly.filter(function(r){ return r.reason === 'Only Looker Dev'; });
+        h+='<div class="lx-bar" style="border-top:1px solid #1e293b;padding:10px 16px">';
+        h+='<span style="color:#e2e8f0;font-size:12px;font-weight:700">Tables without use or only Looker Dev</span>';
+        h+='<div style="display:flex;gap:0;margin-top:8px;border-bottom:1px solid #334155">';
+        h+='<button type="button" id="lx-tab-unused" class="lx-subtab lx-tab-active" style="padding:6px 12px;font-size:11px;color:#e2e8f0;background:transparent;border:none;border-bottom:2px solid #3b82f6;cursor:pointer;font-weight:600" onclick="var u=document.getElementById(\'lx-unused-content\'); var l=document.getElementById(\'lx-lookerdev-content\'); u.style.display=\'block\'; l.style.display=\'none\'; this.style.borderBottom=\'2px solid #3b82f6\'; this.style.color=\'#e2e8f0\'; document.getElementById(\'lx-tab-lookerdev\').style.borderBottom=\'2px solid transparent\'; document.getElementById(\'lx-tab-lookerdev\').style.color=\'#94a3b8\';">Unused (0 jobs) ('+noUseList.length+')</button>';
+        h+='<button type="button" id="lx-tab-lookerdev" class="lx-subtab" style="padding:6px 12px;font-size:11px;color:#94a3b8;background:transparent;border:none;border-bottom:2px solid transparent;cursor:pointer" onclick="var u=document.getElementById(\'lx-unused-content\'); var l=document.getElementById(\'lx-lookerdev-content\'); u.style.display=\'none\'; l.style.display=\'block\'; document.getElementById(\'lx-tab-unused\').style.borderBottom=\'2px solid transparent\'; document.getElementById(\'lx-tab-unused\').style.color=\'#94a3b8\'; this.style.borderBottom=\'2px solid #f59e0b\'; this.style.color=\'#f59e0b\';">Only Looker Dev ('+lookerDevOnlyList.length+')</button>';
+        h+='</div></div>';
+        h+='<div id="lx-unused-content" class="lx-zero-tab-panel" style="border-top:1px solid rgba(30,41,59,0.25)">';
+        h+='<div class="lx-scroll" style="max-height:280px;overflow:auto">';
         h+='<div class="lx-hdr" style="grid-template-columns:1fr 1fr 120px;padding:8px 16px;font-size:10px;color:#64748b">';
-        h+='<div>Table</div><div>Column (0 or only Looker Dev)</div><div>Reason</div></div>';
-        zeroOrLookerDevOnly.forEach(function(r){
-          var reasonClr=r.reason==='0 jobs'?'#94a3b8':'#f59e0b';
+        h+='<div>Table</div><div>Column (0 jobs)</div><div>Reason</div></div>';
+        noUseList.forEach(function(r){
           h+='<div class="lx-row" style="grid-template-columns:1fr 1fr 120px;padding:8px 16px;font-size:11px">';
           h+='<div class="lx-cell" style="font-family:monospace">'+(r.table||'').replace(/</g,'&lt;')+'</div>';
           h+='<div class="lx-cell">'+(r.column||'—').replace(/</g,'&lt;')+'</div>';
-          h+='<div style="color:'+reasonClr+';font-weight:500">'+r.reason.replace(/</g,'&lt;')+'</div></div>';
+          h+='<div style="color:#94a3b8;font-weight:500">'+(r.reason||'').replace(/</g,'&lt;')+'</div></div>';
         });
-        if(zeroOrLookerDevOnly.length===0)h+='<div style="padding:16px;color:#64748b;font-size:11px">None</div>';
+        if(noUseList.length===0) h+='<div style="padding:16px;color:#64748b;font-size:11px">None</div>';
         h+='</div></div>';
+        h+='<div id="lx-lookerdev-content" class="lx-zero-tab-panel" style="display:none;border-top:1px solid rgba(30,41,59,0.25)">';
+        h+='<div class="lx-scroll" style="max-height:280px;overflow:auto">';
+        h+='<div class="lx-hdr" style="grid-template-columns:1fr 1fr 120px;padding:8px 16px;font-size:10px;color:#64748b">';
+        h+='<div>Table</div><div>Column (only Looker Dev)</div><div>Reason</div></div>';
+        lookerDevOnlyList.forEach(function(r){
+          h+='<div class="lx-row" style="grid-template-columns:1fr 1fr 120px;padding:8px 16px;font-size:11px">';
+          h+='<div class="lx-cell" style="font-family:monospace">'+(r.table||'').replace(/</g,'&lt;')+'</div>';
+          h+='<div class="lx-cell">'+(r.column||'—').replace(/</g,'&lt;')+'</div>';
+          h+='<div style="color:#f59e0b;font-weight:500">'+(r.reason||'').replace(/</g,'&lt;')+'</div></div>';
+        });
+        if(lookerDevOnlyList.length===0) h+='<div style="padding:16px;color:#64748b;font-size:11px">None</div>';
+        h+='</div></div></div>';
 
         R.innerHTML=h;
 
@@ -1025,8 +1018,6 @@
         done();return;
 
       }
-
-
 
       // ========== USAGE (legacy) ==========
 
