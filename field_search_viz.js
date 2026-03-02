@@ -278,9 +278,21 @@
 
         var parentKeys=[F.parent_1,F.parent_2,F.parent_3,F.parent_4,F.parent_5,F.parent_6,F.parent_7,F.parent_8,F.parent_9];
 
+        var modelRowCount={};
+
+        data.forEach(function(row){var m=gv(row,F.dbt_model);if(m){modelRowCount[m]=(modelRowCount[m]||0)+1;}});
+
+        var focusModel=null,maxRows=0;
+
+        Object.keys(modelRowCount).forEach(function(m){if(modelRowCount[m]>maxRows){maxRows=modelRowCount[m];focusModel=m;}});
+
+        var useData=data;
+
+        if(focusModel&&Object.keys(modelRowCount).length>1){useData=data.filter(function(row){return gv(row,F.dbt_model)===focusModel;});}
+
         var edges=[], nodeSet={}, edgeKeys={};
 
-        data.forEach(function(row){
+        useData.forEach(function(row){
 
           var child=gv(row,F.dbt_model);
 
@@ -368,7 +380,8 @@
 
         h+='<div class="lx-bar" style="border-bottom:1px solid rgba(30,41,59,0.25)"><span style="color:#e2e8f0;font-size:12px;font-weight:700">Model dependencies</span></div>';
 
-        h+='<div class="lx-bar"><div style="color:#94a3b8">Models <span style="color:#0ea5e9;font-weight:600">'+nodes.length+'</span> \u00B7 edges <span style="color:#0ea5e9;font-weight:600">'+edges.length+'</span></div><div style="color:#475569">'+data.length+' rows \u00B7 upstream (Level 3 \u2192 Model)</div></div>';
+        var subTitle=(focusModel&&useData.length<data.length)?'Showing lineage for <strong style="color:#e2e8f0">'+String(focusModel).replace(/</g,'&lt;')+'</strong> \u00B7 ':'';
+        h+='<div class="lx-bar"><div style="color:#94a3b8">Models <span style="color:#0ea5e9;font-weight:600">'+nodes.length+'</span> \u00B7 edges <span style="color:#0ea5e9;font-weight:600">'+edges.length+'</span></div><div style="color:#475569">'+subTitle+useData.length+' rows \u00B7 upstream (Level 3 \u2192 Model)</div></div>';
 
         h+='<div class="lx-scroll" style="padding:12px"><svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" width="'+sW+'" height="'+sH+'">';
 
