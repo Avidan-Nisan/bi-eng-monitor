@@ -405,21 +405,39 @@
 
           }
 
-          var svg=R.querySelector('svg');
+          function findLineageClickEl(node){
 
-          if(svg)svg.querySelectorAll('.lx-dbt-lineage-click').forEach(function(el){
+            var el=node;
 
-            el.addEventListener('click',function(){
+            while(el&&el!==R){
 
-              var modelId=el.getAttribute('data-model-id');
+              if(el.getAttribute&&el.getAttribute('data-model-id')!==null)return el;
 
-              if(!modelId)return;
+              el=el.parentNode;
 
-              var url=buildLineageFilterUrl(modelId);
+            }
 
-              if(url)doNav(url);
+            return null;
 
-            });
+          }
+
+          var scrollWrap=R.querySelector('.lx-scroll');
+
+          var clickRoot=scrollWrap||R;
+
+          clickRoot.addEventListener('click',function(ev){
+
+            var el=findLineageClickEl(ev.target);
+
+            if(!el)return;
+
+            var modelId=el.getAttribute('data-model-id');
+
+            if(!modelId)return;
+
+            var url=buildLineageFilterUrl(modelId);
+
+            if(url){ev.preventDefault();ev.stopPropagation();doNav(url);}
 
           });
 
