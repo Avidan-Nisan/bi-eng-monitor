@@ -320,11 +320,11 @@
 
         var depth={};
 
-        nodes.forEach(function(n){if(!inEdges[n.id]||inEdges[n.id].length===0)depth[n.id]=0;});
+        nodes.forEach(function(n){if(!outEdges[n.id]||outEdges[n.id].length===0)depth[n.id]=0;});
 
         var changed=true,iter=0,maxIter=Math.max(20,nodes.length);
 
-        while(changed&&iter<maxIter){changed=false;iter++;nodes.forEach(function(n){if(depth[n.id]!=null)return;var par=inEdges[n.id];if(!par)return;var max=-1;par.forEach(function(p){max=Math.max(max,depth[p]!=null?depth[p]:-1);});depth[n.id]=max+1;changed=true;});}
+        while(changed&&iter<maxIter){changed=false;iter++;nodes.forEach(function(n){if(depth[n.id]!=null)return;var children=outEdges[n.id];if(!children||children.length===0)return;var max=-1;children.forEach(function(c){max=Math.max(max,depth[c]!=null?depth[c]:-1);});depth[n.id]=max+1;changed=true;});}
 
         nodes.forEach(function(n){if(depth[n.id]==null)depth[n.id]=0;});
 
@@ -334,7 +334,7 @@
 
         var byDepth={};
 
-        nodes.forEach(function(n){var d=maxDepth-depth[n.id];if(!byDepth[d])byDepth[d]=[];byDepth[d].push(n);});
+        nodes.forEach(function(n){var d=depth[n.id];if(!byDepth[d])byDepth[d]=[];byDepth[d].push(n);});
 
         var depths=Object.keys(byDepth).map(Number).sort(function(a,b){return b-a;});
 
