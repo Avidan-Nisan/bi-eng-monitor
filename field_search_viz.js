@@ -278,17 +278,7 @@
 
         var parentKeys=[F.parent_1,F.parent_2,F.parent_3,F.parent_4,F.parent_5,F.parent_6,F.parent_7,F.parent_8,F.parent_9];
 
-        var modelRowCount={};
-
-        data.forEach(function(row){var m=gv(row,F.dbt_model);if(m){modelRowCount[m]=(modelRowCount[m]||0)+1;}});
-
-        var focusModel=null,maxRows=0;
-
-        Object.keys(modelRowCount).forEach(function(m){if(modelRowCount[m]>maxRows){maxRows=modelRowCount[m];focusModel=m;}});
-
         var useData=data;
-
-        if(focusModel&&Object.keys(modelRowCount).length>1){useData=data.filter(function(row){return gv(row,F.dbt_model)===focusModel;});}
 
         var edges=[], nodeSet={}, edgeKeys={};
 
@@ -372,7 +362,7 @@
 
           var nm=n.name.length>32?n.name.substring(0,30)+'\u2026':n.name;
 
-          nd+='<g class="lx-node" transform="translate('+p.x+','+p.y+')"><rect width="'+nW+'" height="'+nH+'" rx="8" fill="#131b2e" stroke="#0ea5e9" stroke-width="1.5"/><rect x="2" y="2" width="34" height="'+(nH-4)+'" rx="6" fill="#0ea5e908"/><g transform="translate(10,'+(nH/2-8)+')" fill="#0ea5e9">'+tI.table+'</g><text x="42" y="'+(nH/2+4)+'" fill="#e2e8f0" font-size="11" font-weight="500">'+nm.replace(/</g,'&lt;')+'</text></g>';
+          nd+='<g class="lx-node lx-dbt-lineage-click" data-model-id="'+String(n.id).replace(/"/g,'&quot;')+'" style="cursor:pointer" transform="translate('+p.x+','+p.y+')"><rect width="'+nW+'" height="'+nH+'" rx="8" fill="#131b2e" stroke="#0ea5e9" stroke-width="1.5"/><rect x="2" y="2" width="34" height="'+(nH-4)+'" rx="6" fill="#0ea5e908"/><g transform="translate(10,'+(nH/2-8)+')" fill="#0ea5e9">'+tI.table+'</g><text x="42" y="'+(nH/2+4)+'" fill="#e2e8f0" font-size="11" font-weight="500">'+nm.replace(/</g,'&lt;')+'</text></g>';
 
         });
 
@@ -380,8 +370,8 @@
 
         h+='<div class="lx-bar" style="border-bottom:1px solid rgba(30,41,59,0.25)"><span style="color:#e2e8f0;font-size:12px;font-weight:700">Model dependencies</span></div>';
 
-        var subTitle=(focusModel&&useData.length<data.length)?'Showing lineage for <strong style="color:#e2e8f0">'+String(focusModel).replace(/</g,'&lt;')+'</strong> \u00B7 ':'';
-        h+='<div class="lx-bar"><div style="color:#94a3b8">Models <span style="color:#0ea5e9;font-weight:600">'+nodes.length+'</span> \u00B7 edges <span style="color:#0ea5e9;font-weight:600">'+edges.length+'</span></div><div style="color:#475569">'+subTitle+useData.length+' rows \u00B7 upstream (Level 3 \u2192 Model)</div></div>';
+        var singleModelLabel=(byDepth[0]&&byDepth[0].length===1)?'Showing lineage for <strong style="color:#e2e8f0">'+String(byDepth[0][0].name).replace(/</g,'&lt;')+'</strong> \u00B7 ':'';
+        h+='<div class="lx-bar"><div style="color:#94a3b8">Models <span style="color:#0ea5e9;font-weight:600">'+nodes.length+'</span> \u00B7 edges <span style="color:#0ea5e9;font-weight:600">'+edges.length+'</span></div><div style="color:#475569">'+singleModelLabel+useData.length+' rows \u00B7 upstream (Level 3 \u2192 Model)</div></div>';
 
         h+='<div class="lx-scroll" style="padding:12px"><svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" width="'+sW+'" height="'+sH+'">';
 
@@ -396,6 +386,44 @@
         h+=ed+nd+'</svg></div></div>';
 
         R.innerHTML=h;
+
+        (function(){
+
+          var dashId=details&&details.dashboard_id;
+
+          var filterModelName=(F.dbt_model||'Model').toString().replace(/"/g,'');
+
+          function buildLineageFilterUrl(modelValue){
+
+            if(!baseUrl||!dashId||!modelValue)return null;
+
+            var u=baseUrl.replace(/\/+$/,'')+'/dashboards/'+String(dashId).trim();
+
+            u+='?'+encodeURIComponent(filterModelName)+'='+encodeURIComponent(modelValue);
+
+            return u;
+
+          }
+
+          var svg=R.querySelector('svg');
+
+          if(svg)svg.querySelectorAll('.lx-dbt-lineage-click').forEach(function(el){
+
+            el.addEventListener('click',function(){
+
+              var modelId=el.getAttribute('data-model-id');
+
+              if(!modelId)return;
+
+              var url=buildLineageFilterUrl(modelId);
+
+              if(url)doNav(url);
+
+            });
+
+          });
+
+        })();
 
         done();return;
 
