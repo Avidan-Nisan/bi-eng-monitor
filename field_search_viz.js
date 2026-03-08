@@ -336,114 +336,82 @@ looker.plugins.visualizations.add({
 
         var pos={};
 
-        depths.forEach(function(d,i){var x=pad+i*(nW+gap);(byDepth[d]||[]).forEach(function(n,j){pos[n.id]={x:x,y:52+j*sp};});});
-
-        var sW=pad+depths.length*(nW+gap)-gap+pad,sH=52+Math.max(3,depths.reduce(function(m,d){return Math.max(m,(byDepth[d]||[]).length);},0)*sp)+40;
-
-        var ed='';
-
-        edges.forEach(function(e){
-
-          var from=pos[e.from],to=pos[e.to];
-
-          if(!from||!to)return;
-
-          var x1=from.x+nW,y1=from.y+nH/2,x2=to.x,y2=to.y+nH/2,mx=(x1+x2)/2;
-
-          ed+='<path d="M'+x1+' '+y1+' C'+mx+' '+y1+','+mx+' '+y2+','+x2+' '+y2+'" fill="none" stroke="#475569" stroke-width="1.5" stroke-opacity="0.5"/>';
-
-        });
-
-        var nd='';
-
-        nodes.forEach(function(n){
-
-          var p=pos[n.id];
-
-          if(!p)return;
-
-          var nm=n.name.length>32?n.name.substring(0,30)+'\u2026':n.name;
-
-          nd+='<g class="lx-node lx-dbt-lineage-click" data-model-id="'+String(n.id).replace(/"/g,'&quot;')+'" style="cursor:pointer" transform="translate('+p.x+','+p.y+')"><rect width="'+nW+'" height="'+nH+'" rx="8" fill="#131b2e" stroke="#0ea5e9" stroke-width="1.5"/><rect x="2" y="2" width="34" height="'+(nH-4)+'" rx="6" fill="#0ea5e908"/><g transform="translate(10,'+(nH/2-8)+')" fill="#0ea5e9">'+tI.table+'</g><text x="42" y="'+(nH/2+4)+'" fill="#e2e8f0" font-size="11" font-weight="500">'+nm.replace(/</g,'&lt;')+'</text></g>';
-
-        });
-
-        var h=navBar()+'<div class="lx-body">';
-
-        h+='<div class="lx-bar" style="border-bottom:1px solid rgba(30,41,59,0.25)"><span style="color:#e2e8f0;font-size:12px;font-weight:700">Model dependencies</span></div>';
-
-        var singleModelLabel=(byDepth[0]&&byDepth[0].length===1)?'Showing lineage for <strong style="color:#e2e8f0">'+String(byDepth[0][0].name).replace(/</g,'&lt;')+'</strong> \u00B7 ':'';
-        h+='<div class="lx-bar"><div style="color:#94a3b8">Models <span style="color:#0ea5e9;font-weight:600">'+nodes.length+'</span> \u00B7 edges <span style="color:#0ea5e9;font-weight:600">'+edges.length+'</span></div><div style="color:#475569">'+singleModelLabel+useData.length+' rows \u00B7 upstream (Level 3 \u2192 Model)</div></div>';
-
-        h+='<div class="lx-scroll" style="padding:12px"><svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" width="'+sW+'" height="'+sH+'">';
-
-        depths.forEach(function(d,i){
-
-          var x=pad+i*(nW+gap);
-
-          h+='<text x="'+(x+nW/2)+'" y="20" text-anchor="middle" fill="#64748b" font-size="9" font-weight="700">'+(d===0?'Model':'Level '+d)+'</text>';
-
-        });
-
-        h+=ed+nd+'</svg></div></div>';
-
-        R.innerHTML=h;
-
-        (function(){
-
-          var dashId=details&&details.dashboard_id;
-
-          var filterModelName=(F.dbt_model||'Model').toString().replace(/"/g,'');
-
-          function buildLineageFilterUrl(modelValue){
-
-            if(!baseUrl||!dashId||!modelValue)return null;
-
-            var u=baseUrl.replace(/\/+$/,'')+'/dashboards/'+String(dashId).trim();
-
-            u+='?'+encodeURIComponent(filterModelName)+'='+encodeURIComponent(modelValue);
-
-            return u;
-
-          }
-
-          function findLineageClickEl(node){
-
-            var el=node;
-
-            while(el&&el!==R){
-
-              if(el.getAttribute&&el.getAttribute('data-model-id')!==null)return el;
-
-              el=el.parentNode;
-
-            }
-
-            return null;
-
-          }
-
-          var scrollWrap=R.querySelector('.lx-scroll');
-
-          var clickRoot=scrollWrap||R;
-
-          clickRoot.addEventListener('click',function(ev){
-
-            var el=findLineageClickEl(ev.target);
-
-            if(!el)return;
-
-            var modelId=el.getAttribute('data-model-id');
-
-            if(!modelId)return;
-
-            var url=buildLineageFilterUrl(modelId);
-
-            if(url){ev.preventDefault();ev.stopPropagation();doNav(url);}
-
+        var levelColors=['#06b6d4','#8b5cf6','#f59e0b','#10b981','#ec4899','#0ea5e9'];
+        function colorForDepth(d){return levelColors[Math.min(d,levelColors.length-1)]||levelColors[0];}
+        function getRelevantIds(selectedId){
+          if(!selectedId)return null;
+          var set={};
+          set[selectedId]=true;
+          function addUpstream(id){var parents=inEdges[id];if(!parents)return;parents.forEach(function(pid){if(!set[pid]){set[pid]=true;addUpstream(pid);}});}
+          function addDownstream(id){var children=outEdges[id];if(!children)return;children.forEach(function(cid){if(!set[cid]){set[cid]=true;addDownstream(cid);}});}
+          addUpstream(selectedId);addDownstream(selectedId);
+          return set;
+        }
+        var selectedModelId=null;
+        function renderDbtLineage(){
+          var relSet=getRelevantIds(selectedModelId);
+          var visNodes=relSet?nodes.filter(function(n){return relSet[n.id];}):nodes;
+          var visEdges=relSet?edges.filter(function(e){return relSet[e.from]&&relSet[e.to];}):edges;
+          var byDepthVis={};
+          visNodes.forEach(function(n){var d=depth[n.id];if(!byDepthVis[d])byDepthVis[d]=[];byDepthVis[d].push(n);});
+          var depthsVis=Object.keys(byDepthVis).map(Number).sort(function(a,b){return b-a;});
+          depthsVis.forEach(function(d){byDepthVis[d].sort(function(a,b){return a.name.localeCompare(b.name);});});
+          var pos={};
+          depthsVis.forEach(function(d,i){var x=pad+i*(nW+gap);(byDepthVis[d]||[]).forEach(function(n,j){pos[n.id]={x:x,y:52+j*sp};});});
+          var sW=pad+depthsVis.length*(nW+gap)-gap+pad,sH=52+Math.max(3,depthsVis.reduce(function(m,d){return Math.max(m,(byDepthVis[d]||[]).length);},0)*sp)+40;
+          var ed='';
+          visEdges.forEach(function(e){
+            var from=pos[e.from],to=pos[e.to];
+            if(!from||!to)return;
+            var x1=from.x+nW,y1=from.y+nH/2,x2=to.x,y2=to.y+nH/2,mx=(x1+x2)/2;
+            ed+='<path d="M'+x1+' '+y1+' C'+mx+' '+y1+','+mx+' '+y2+','+x2+' '+y2+'" fill="none" stroke="#475569" stroke-width="1.5" stroke-opacity="0.5"/>';
           });
-
-        })();
+          var nd='';
+          visNodes.forEach(function(n){
+            var p=pos[n.id];
+            if(!p)return;
+            var nm=n.name.length>32?n.name.substring(0,30)+'\u2026':n.name;
+            var d=depth[n.id],col=colorForDepth(d);
+            var isSel=selectedModelId===n.id;
+            var stroke=isSel?'#e2e8f0':col;
+            var strokeW=isSel?2.5:1.5;
+            nd+='<g class="lx-node lx-dbt-lineage-click" data-model-id="'+String(n.id).replace(/"/g,'&quot;')+'" style="cursor:pointer" transform="translate('+p.x+','+p.y+')"><rect width="'+nW+'" height="'+nH+'" rx="8" fill="'+(isSel?'#1e293b':'#131b2e')+'" stroke="'+stroke+'" stroke-width="'+strokeW+'"/><rect x="2" y="2" width="34" height="'+(nH-4)+'" rx="6" fill="'+col+'08"/><g transform="translate(10,'+(nH/2-8)+')" fill="'+col+'">'+tI.table+'</g><text x="42" y="'+(nH/2+4)+'" fill="#e2e8f0" font-size="11" font-weight="500">'+nm.replace(/</g,'&lt;')+'</text></g>';
+          });
+          var barLabel='';
+          if(selectedModelId){
+            var selNode=nodeSet[selectedModelId];
+            var upCount=0;function countUp(id,vi){vi=vi||{};if(vi[id])return;vi[id]=true;var p=inEdges[id];if(p)p.forEach(function(pid){upCount++;countUp(pid,vi);});}
+            var dnCount=0;function countDn(id,vi){vi=vi||{};if(vi[id])return;vi[id]=true;var c=outEdges[id];if(c)c.forEach(function(cid){dnCount++;countDn(cid,vi);});}
+            countUp(selectedModelId);countDn(selectedModelId);
+            barLabel='Showing lineage for <strong style="color:#e2e8f0">'+(selNode?String(selNode.name).replace(/</g,'&lt;'):selectedModelId)+'</strong> \u00B7 <span style="color:#06b6d4">\u2191 '+upCount+'</span> <span style="color:#f59e0b">\u2193 '+dnCount+'</span> \u00B7 Click again to clear';
+          }else{
+            barLabel=(byDepth[0]&&byDepth[0].length===1)?'Showing lineage for <strong style="color:#e2e8f0">'+String(byDepth[0][0].name).replace(/</g,'&lt;')+'</strong> \u00B7 ':'';
+            barLabel+='Models <span style="color:#0ea5e9;font-weight:600">'+nodes.length+'</span> \u00B7 edges <span style="color:#0ea5e9;font-weight:600">'+edges.length+'</span> \u00B7 Click a node to focus';
+          }
+          var h=navBar()+'<div class="lx-body">';
+          h+='<div class="lx-bar" style="border-bottom:1px solid rgba(30,41,59,0.25)"><span style="color:#e2e8f0;font-size:12px;font-weight:700">Model dependencies</span></div>';
+          h+='<div class="lx-bar"><div style="color:#94a3b8">'+barLabel+'</div><div style="color:#475569">'+useData.length+' rows \u00B7 upstream (Level 3 \u2192 Model)</div></div>';
+          h+='<div class="lx-scroll" style="padding:12px" id="lx-dbt-lineage-scroll"><svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" width="'+sW+'" height="'+sH+'">';
+          depthsVis.forEach(function(d,i){
+            var x=pad+i*(nW+gap);
+            h+='<text x="'+(x+nW/2)+'" y="20" text-anchor="middle" fill="'+colorForDepth(d)+'" font-size="9" font-weight="700">'+(d===0?'Model':'Level '+d)+'</text>';
+          });
+          h+=ed+nd+'</svg></div></div>';
+          R.innerHTML=h;
+          var scrollWrap=R.querySelector('#lx-dbt-lineage-scroll')||R.querySelector('.lx-scroll');
+          if(scrollWrap){
+            scrollWrap.addEventListener('click',function(ev){
+              var el=ev.target;while(el&&el!==R){if(el.getAttribute&&el.getAttribute('data-model-id')!=null)break;el=el.parentNode;}
+              if(!el||el===R)return;
+              var modelId=el.getAttribute('data-model-id');
+              if(!modelId)return;
+              ev.preventDefault();ev.stopPropagation();
+              selectedModelId=selectedModelId===modelId?null:modelId;
+              renderDbtLineage();
+            });
+          }
+        }
+        renderDbtLineage();
 
         done();return;
 
