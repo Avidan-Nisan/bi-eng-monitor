@@ -193,13 +193,18 @@ looker.plugins.visualizations.add({
 
         Amplify:'<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2"><path d="M2 12h4l2-8 4 16 2-8h4"/></svg>',
 
-        DBT:'<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M12 2v3M12 19v3M2 12h3M19 12h3M4.93 4.93l2.12 2.12M17.95 17.95l2.12 2.12M4.93 19.07l2.12-2.12M17.95 6.05l2.12-2.12"/></svg>',
+        DBT:'<svg viewBox="0 0 24 24" width="24" height="24"><path fill="#FF694B" fill-rule="evenodd" d="M12 2A10 10 0 0 1 22 12 10 10 0 0 1 12 22 10 10 0 0 1 2 12 10 10 0 0 1 12 2z M12 8l-4 4 4 4 4-4-4-4z"/></svg>',
+        dbt:'<svg viewBox="0 0 24 24" width="24" height="24"><path fill="#FF694B" fill-rule="evenodd" d="M12 2A10 10 0 0 1 22 12 10 10 0 0 1 12 22 10 10 0 0 1 2 12 10 10 0 0 1 12 2z M12 8l-4 4 4 4 4-4-4-4z"/></svg>',
 
         'Amplify Dashboard':'data:image/png;base64,'+AMPLIFY_DASHBOARD_LOGO_B64,
 
         Salesforce:'data:image/png;base64,'+SALESFORCE_LOGO_B64,
 
         'Service Account':'data:image/png;base64,'+SERVICE_ACCOUNT_LOGO_B64,
+
+        Tableau:'<svg viewBox="0 0 24 24" width="24" height="24"><path fill="#E8762D" d="M10 5h1.5v4H10V5zm0 5h1.5v4H10v-4z"/><path fill="#E8762D" d="M7 8.5h4v1.5H7V8.5z"/><path fill="#5B8BD9" d="M13 6h1.5v3H13V6zm0 4.5h1.5v3H13v-3z"/><path fill="#5B8BD9" d="M11 9.5h3v1.5h-3V9.5z"/><path fill="#C02F42" d="M6 11h3v1.5H6V11zm4 0h3v1.5h-3V11z"/><path fill="#6B4E9B" d="M8 13h1.5v4H8v-4zm4 0h1.5v4h-1.5v-4z"/><path fill="#6B4E9B" d="M10.5 14.5h3v1.5h-3v-1.5z"/></svg>',
+
+        Workato:'<svg viewBox="0 0 24 24" width="24" height="24"><path fill="#36C5C0" d="M6 18V8.5c0-.3.1-.5.3-.7.2-.2.5-.3.8-.3.3 0 .5.1.7.3l3 3.5 3-3.5c.2-.2.4-.3.7-.3.3 0 .6.1.8.3.2.2.3.4.3.7V18h-2v-7.2l-2 2.3-2-2.3V18H6zm12-11.5c0 1.4-1.1 2.5-2.5 2.5S13 7.9 13 6.5 14.1 4 15.5 4 18 5.1 18 6.5z"/></svg>',
 
         User:'data:image/png;base64,'+USER_LOGO_B64
 
@@ -980,8 +985,10 @@ looker.plugins.visualizations.add({
         });
 
         var consumerTables={};edges.forEach(function(e){if(!consumerTables[e.consumer])consumerTables[e.consumer]={};consumerTables[e.consumer][e.modelKey]=1;});
+        var totalTables=Object.keys(modelSet).length;
         var allModels=Object.values(modelSet).sort(function(a,b){return a.label.localeCompare(b.label);});
-        var allConsumers=Object.values(consumerSet).sort(function(a,b){var na=Object.keys(consumerTables[a.key]||{}).length,nb=Object.keys(consumerTables[b.key]||{}).length;return nb-na;});
+        function consumerPct(c){var n=Object.keys(consumerTables[c.key]||{}).length;return totalTables?Math.round((n/totalTables)*100):0;}
+        var allConsumers=Object.values(consumerSet).sort(function(a,b){return consumerPct(b)-consumerPct(a);});
 
         var nW=380,nH=40,sp=44,pd=24,leftX=pd,cNw=140,cNh=140,cSp=148,sY=52;
         var selectedUsageNode=null;
@@ -1029,7 +1036,7 @@ looker.plugins.visualizations.add({
             nd+='<g class="lx-node lx-dbt-click" data-dbt-type="model" data-key="'+mk+'" style="cursor:pointer" transform="translate('+p.x+','+p.y+')"><rect width="'+nW+'" height="'+nH+'" rx="8" fill="'+(isSel?'#1e293b':'#131b2e')+'" stroke="'+stroke+'" stroke-width="'+strokeW+'"/><rect x="2" y="2" width="34" height="'+(nH-4)+'" rx="6" fill="#06b6d408"/><g transform="translate(10,'+(nH/2-8)+')" fill="#06b6d4">'+tI.table+'</g><text x="42" y="'+(nH/2+4)+'" fill="#e2e8f0" font-size="11" font-weight="500">'+(m.label.length>32?m.label.substring(0,30)+'\u2026':m.label).replace(/</g,'&lt;')+'</text></g>';
           });
           var cLogoSize=112,cLogoX=(cNw-cLogoSize)/2,cLogoY=(cNh-cLogoSize)/2;
-          function getLogo(key){var k=(key||'').toString().trim(),l=k.toLowerCase();if(l.indexOf('looker dev')!==-1)return consumerLogos['Looker Dev']||consumerLogos['User'];if(l.indexOf('looker')!==-1)return consumerLogos['Looker']||consumerLogos['User'];return consumerLogos[key]||(k!==key&&consumerLogos[k])||consumerLogos['User'];}
+          function getLogo(key){var k=(key||'').toString().trim(),l=k.toLowerCase();if(l.indexOf('looker dev')!==-1)return consumerLogos['Looker Dev']||consumerLogos['User'];if(l.indexOf('looker')!==-1)return consumerLogos['Looker']||consumerLogos['User'];if(l.indexOf('dbt')!==-1)return consumerLogos['dbt']||consumerLogos['DBT']||consumerLogos['User'];if(l.indexOf('tableau')!==-1)return consumerLogos['Tableau']||consumerLogos['User'];if(l.indexOf('workato')!==-1)return consumerLogos['Workato']||consumerLogos['User'];return consumerLogos[key]||(k!==key&&consumerLogos[k])||consumerLogos['User'];}
           consumers.forEach(function(c){
             var p=posConsumer[c.key];
             var logo=getLogo(c.key);
@@ -1037,10 +1044,11 @@ looker.plugins.visualizations.add({
             var contentEl;
             if(hasLogo){var isDataUrl=logo.indexOf('data:')===0;contentEl=isDataUrl?'<image xlink:href="'+logo+'" x="'+cLogoX+'" y="'+cLogoY+'" width="'+cLogoSize+'" height="'+cLogoSize+'" preserveAspectRatio="xMidYMid meet"/>':'<g transform="translate('+((cNw-24)/2)+','+((cNh-24)/2)+')" fill="#f59e0b" color="#f59e0b">'+logo+'</g>';}
             else{var lab=(c.label||c.key||'').toString().replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');contentEl='<text x="'+cNw/2+'" y="'+(cNh/2+5)+'" text-anchor="middle" fill="#e2e8f0" font-size="14" font-weight="600">'+lab+'</text>';}
+            var pct=consumerPct(c);var pctText=(pct+'% of tables').replace(/</g,'&lt;');
             var ck=(c.key||'').replace(/"/g,'&quot;');
             var isSel=selectedUsageNode&&selectedUsageNode.type==='consumer'&&selectedUsageNode.key===c.key;
             var stroke=isSel?'#e2e8f0':'#f59e0b';var strokeW=isSel?2.5:1.5;
-            nd+='<g class="lx-node lx-dbt-click" data-dbt-type="consumer" data-key="'+ck+'" style="cursor:pointer" transform="translate('+p.x+','+p.y+')"><rect width="'+cNw+'" height="'+cNh+'" rx="10" fill="'+(isSel?'#1e293b':'#131b2e')+'" stroke="'+stroke+'" stroke-width="'+strokeW+'"/><rect x="2" y="2" width="'+(cNw-4)+'" height="'+(cNh-4)+'" rx="8" fill="#f59e0b08"/>'+contentEl+'</g>';
+            nd+='<g class="lx-node lx-dbt-click" data-dbt-type="consumer" data-key="'+ck+'" style="cursor:pointer" transform="translate('+p.x+','+p.y+')"><rect width="'+cNw+'" height="'+cNh+'" rx="10" fill="'+(isSel?'#1e293b':'#131b2e')+'" stroke="'+stroke+'" stroke-width="'+strokeW+'"/><rect x="2" y="2" width="'+(cNw-4)+'" height="'+(cNh-4)+'" rx="8" fill="#f59e0b08"/>'+contentEl+'<text x="'+cNw/2+'" y="'+(cNh-10)+'" text-anchor="middle" fill="#94a3b8" font-size="10">'+pctText+'</text></g>';
           });
           var barLabel='';
           if(selectedUsageNode){
