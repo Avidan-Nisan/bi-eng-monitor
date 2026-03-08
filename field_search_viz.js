@@ -118,7 +118,9 @@ looker.plugins.visualizations.add({
 
       var looksLikeDbtLineage=queryExplore.indexOf('dbt')!==-1&&queryExplore.indexOf('lineage')!==-1;
 
-      if(onDataDysonDashboard&&F.table_name&&F.consumer_type)mode='data_dyson';
+      var hasNumJobsInQuery=!!(F.num_jobs&&fields&&fields.measure_like&&fields.measure_like.some(function(m){return m.name===F.num_jobs;}));
+
+      if(F.table_name&&F.consumer_type&&hasNumJobsInQuery)mode='data_dyson';
 
       else if(F.table_schema&&F.table_name&&F.consumer_type)mode='dbt_usage';
 
@@ -226,7 +228,7 @@ looker.plugins.visualizations.add({
 
         var tabs=[
 
-          {id:'lineage',label:'Lineage',icon:ic.lin,did:config.lineage_dashboard_id},
+          {id:'lineage',label:'Looker Lineage',icon:ic.lin,did:config.lineage_dashboard_id},
 
           {id:'overlap',label:'Overlap',icon:ic.ovl,did:config.overlap_dashboard_id},
 
