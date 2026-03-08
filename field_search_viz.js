@@ -888,15 +888,20 @@ looker.plugins.visualizations.add({
           }
         });
         function parseModelKey(k){var i=(k||'').indexOf('.');return i!==-1?{schema:k.substring(0,i),table:k.substring(i+1)}:{schema:'',table:k||''};}
-        var tablesCleanupList=Object.keys(tableJobs).filter(function(k){return tableJobs[k]===0;}).sort().map(function(k){var p=parseModelKey(k);return {schema:p.schema,table:p.table};});
-        var tablesAllList=Object.keys(tableJobs).sort().map(function(k){var p=parseModelKey(k);return {schema:p.schema,table:p.table,total:tableJobs[k]};});
+        function sortTablesAbc(a,b){return (a.schema||'').localeCompare(b.schema||'')||(a.table||'').localeCompare(b.table||'');}
+        function sortColumnsAbc(a,b){return (a.schema||'').localeCompare(b.schema||'')||(a.table||'').localeCompare(b.table||'')||(a.column||'').localeCompare(b.column||'');}
+        var tablesCleanupList=Object.keys(tableJobs).filter(function(k){return tableJobs[k]===0;}).map(function(k){var p=parseModelKey(k);return {schema:p.schema,table:p.table};});
+        tablesCleanupList.sort(sortTablesAbc);
+        var tablesAllList=Object.keys(tableJobs).map(function(k){var p=parseModelKey(k);return {schema:p.schema,table:p.table,total:tableJobs[k]};});
+        tablesAllList.sort(sortTablesAbc);
         var columnsCleanupList=[];
         if(F.column_name||colKey){
           Object.keys(columnJobs).forEach(function(k){if(columnJobs[k].jobs===0)columnsCleanupList.push({table:columnJobs[k].modelKey,column:columnJobs[k].column});});
-          columnsCleanupList.sort(function(a,b){return a.table.localeCompare(b.table)||a.column.localeCompare(b.column);});
         }
-        var columnsAllList=Object.keys(columnJobs).map(function(k){var p=parseModelKey(columnJobs[k].modelKey);return {schema:p.schema,table:p.table,column:columnJobs[k].column,total:columnJobs[k].jobs};}).sort(function(a,b){return a.schema.localeCompare(b.schema)||a.table.localeCompare(b.table)||a.column.localeCompare(b.column);});
+        var columnsAllList=Object.keys(columnJobs).map(function(k){var p=parseModelKey(columnJobs[k].modelKey);return {schema:p.schema,table:p.table,column:columnJobs[k].column,total:columnJobs[k].jobs};});
+        columnsAllList.sort(sortColumnsAbc);
         var columnsCleanupListWithSchema=columnsCleanupList.map(function(r){var p=parseModelKey(r.table);return {schema:p.schema,table:p.table,column:r.column};});
+        columnsCleanupListWithSchema.sort(sortColumnsAbc);
 
         var measureLabel='num jobs';
         var tabTablesLabel='Tables cleanup ('+tablesAllList.length+')';
@@ -909,20 +914,21 @@ looker.plugins.visualizations.add({
         h+='</div>';
         h+='<div id="lx-tables-content" class="lx-zero-tab-panel" style="border-top:1px solid #1e293b;flex:1;display:flex;flex-direction:column;min-height:0">';
         h+='<div class="lx-scroll" style="flex:1;min-height:200px;overflow:auto;padding:0">';
+        var tableCols='220px 1fr 80px';
         if(tablesCleanupList.length>0){
           h+='<div style="padding:12px 20px 8px;color:#94a3b8;font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:0.05em">Tables with 0 total '+measureLabel+'</div>';
-          h+='<div class="lx-hdr" style="grid-template-columns:120px 1fr 100px;padding:4px 20px;font-size:10px;color:#64748b;border-bottom:1px solid #1e293b">';
+          h+='<div class="lx-hdr" style="grid-template-columns:'+tableCols+';padding:4px 20px;font-size:10px;color:#64748b;border-bottom:1px solid #1e293b">';
           h+='<div>Schema</div><div>Table</div><div style="text-align:right">Total</div></div>';
           tablesCleanupList.forEach(function(r){
-            h+='<div class="lx-row" style="grid-template-columns:120px 1fr 100px;padding:10px 20px;font-size:12px;border-bottom:1px solid rgba(30,41,59,0.5)">';
+            h+='<div class="lx-row" style="grid-template-columns:'+tableCols+';padding:10px 20px;font-size:12px;border-bottom:1px solid rgba(30,41,59,0.5)">';
             h+='<div class="lx-cell" style="font-family:ui-monospace,monospace;color:#f87171">'+(r.schema||'').replace(/</g,'&lt;')+'</div><div class="lx-cell" style="font-family:ui-monospace,monospace;color:#f87171">'+(r.table||'').replace(/</g,'&lt;')+'</div><div style="text-align:right;color:#94a3b8">0</div></div>';
           });
         }
-        h+='<div class="lx-hdr" style="grid-template-columns:120px 1fr 100px;padding:4px 20px;font-size:10px;color:#64748b;border-bottom:1px solid #1e293b">';
+        h+='<div class="lx-hdr" style="grid-template-columns:'+tableCols+';padding:4px 20px;font-size:10px;color:#64748b;border-bottom:1px solid #1e293b">';
         h+='<div>Schema</div><div>Table</div><div style="text-align:right">Total '+measureLabel+'</div></div>';
         tablesAllList.forEach(function(r){
           var isZero=r.total===0;
-          h+='<div class="lx-row" style="grid-template-columns:120px 1fr 100px;padding:10px 20px;font-size:12px;border-bottom:1px solid rgba(30,41,59,0.3)">';
+          h+='<div class="lx-row" style="grid-template-columns:'+tableCols+';padding:10px 20px;font-size:12px;border-bottom:1px solid rgba(30,41,59,0.3)">';
           h+='<div class="lx-cell" style="font-family:ui-monospace,monospace;color:'+(isZero?'#f87171':'#94a3b8')+'">'+(r.schema||'').replace(/</g,'&lt;')+'</div><div class="lx-cell" style="font-family:ui-monospace,monospace;color:'+(isZero?'#f87171':'#e2e8f0')+'">'+(r.table||'').replace(/</g,'&lt;')+'</div><div style="text-align:right;color:'+(isZero?'#f87171':'#94a3b8')+';font-variant-numeric:tabular-nums">'+(r.total|0).toLocaleString()+'</div></div>';
         });
         if(tablesAllList.length===0) h+='<div style="padding:24px 20px;color:#64748b;font-size:12px;text-align:center">No table data read. Add <strong>Table Name</strong> and <strong>Num Jobs</strong> to your query. If you use a tile or dashboard filter, ensure it doesn’t exclude the tables you want to see.</div>';
