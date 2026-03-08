@@ -887,8 +887,9 @@ looker.plugins.visualizations.add({
             columnJobs[colKeyStr].jobs+=jobs;
           }
         });
-        var tablesCleanupList=Object.keys(tableJobs).filter(function(k){return tableJobs[k]===0;}).sort().map(function(k){return {table:k};});
-        var tablesAllList=Object.keys(tableJobs).sort().map(function(k){return {table:k,total:tableJobs[k]};});
+        function parseModelKey(k){var i=(k||'').indexOf('.');return i!==-1?{schema:k.substring(0,i),table:k.substring(i+1)}:{schema:'',table:k||''};}
+        var tablesCleanupList=Object.keys(tableJobs).filter(function(k){return tableJobs[k]===0;}).sort().map(function(k){var p=parseModelKey(k);return {schema:p.schema,table:p.table};});
+        var tablesAllList=Object.keys(tableJobs).sort().map(function(k){var p=parseModelKey(k);return {schema:p.schema,table:p.table,total:tableJobs[k]};});
         var columnsCleanupList=[];
         if(F.column_name||colKey){
           Object.keys(columnJobs).forEach(function(k){if(columnJobs[k].jobs===0)columnsCleanupList.push({table:columnJobs[k].modelKey,column:columnJobs[k].column});});
@@ -897,35 +898,37 @@ looker.plugins.visualizations.add({
         var columnsAllList=Object.keys(columnJobs).map(function(k){return {table:columnJobs[k].modelKey,column:columnJobs[k].column,total:columnJobs[k].jobs};}).sort(function(a,b){return a.table.localeCompare(b.table)||a.column.localeCompare(b.column);});
 
         var measureLabel='num jobs';
-        var h=navBar()+'<div class="lx-body" style="background:#0f172a">';
+        var tabTablesLabel='Tables cleanup ('+tablesCleanupList.length+' / '+tablesAllList.length+')';
+        var tabColumnsLabel='Columns cleanup ('+columnsCleanupList.length+' / '+columnsAllList.length+')';
+        var h=navBar()+'<div class="lx-body" style="background:#0f172a;display:flex;flex-direction:column;min-height:0">';
         h+='<div class="lx-bar" style="border-bottom:1px solid #334155;padding:16px 20px"><span style="color:#e2e8f0;font-size:14px;font-weight:700;letter-spacing:0.02em">Data Dyson</span><span style="color:#64748b;font-size:11px;margin-left:12px">Cleanup candidates by total '+measureLabel+'</span></div>';
-        h+='<div class="lx-bar" style="border-bottom:1px solid #1e293b;padding:12px 20px;gap:0;display:flex">';
-        h+='<button type="button" id="lx-tab-tables" class="lx-subtab lx-tab-active" style="padding:8px 16px;font-size:12px;color:#e2e8f0;background:transparent;border:none;border-bottom:2px solid #14b8a6;cursor:pointer;font-weight:600;border-radius:6px 6px 0 0" onclick="var t=document.getElementById(\'lx-tables-content\'); var c=document.getElementById(\'lx-columns-content\'); t.style.display=\'block\'; c.style.display=\'none\'; this.style.borderBottom=\'2px solid #14b8a6\'; this.style.color=\'#e2e8f0\'; document.getElementById(\'lx-tab-columns\').style.borderBottom=\'2px solid transparent\'; document.getElementById(\'lx-tab-columns\').style.color=\'#94a3b8\';">Tables cleanup ('+tablesCleanupList.length+')</button>';
-        h+='<button type="button" id="lx-tab-columns" class="lx-subtab" style="padding:8px 16px;font-size:12px;color:#94a3b8;background:transparent;border:none;border-bottom:2px solid transparent;cursor:pointer;border-radius:6px 6px 0 0" onclick="var t=document.getElementById(\'lx-tables-content\'); var c=document.getElementById(\'lx-columns-content\'); t.style.display=\'none\'; c.style.display=\'block\'; document.getElementById(\'lx-tab-tables\').style.borderBottom=\'2px solid transparent\'; document.getElementById(\'lx-tab-tables\').style.color=\'#94a3b8\'; this.style.borderBottom=\'2px solid #14b8a6\'; this.style.color=\'#14b8a6\';">Columns cleanup ('+columnsCleanupList.length+')</button>';
+        h+='<div class="lx-bar" style="border-bottom:1px solid #1e293b;padding:12px 20px;display:flex;flex-wrap:nowrap;gap:4px">';
+        h+='<button type="button" id="lx-tab-tables" class="lx-subtab lx-tab-active" style="padding:8px 16px;font-size:12px;color:#e2e8f0;background:transparent;border:none;border-bottom:2px solid #14b8a6;cursor:pointer;font-weight:600;border-radius:6px 6px 0 0" data-dyson-tab="tables">'+tabTablesLabel+'</button>';
+        h+='<button type="button" id="lx-tab-columns" class="lx-subtab" style="padding:8px 16px;font-size:12px;color:#94a3b8;background:transparent;border:none;border-bottom:2px solid transparent;cursor:pointer;border-radius:6px 6px 0 0" data-dyson-tab="columns">'+tabColumnsLabel+'</button>';
         h+='</div>';
-        h+='<div id="lx-tables-content" class="lx-zero-tab-panel" style="border-top:1px solid #1e293b">';
-        h+='<div class="lx-scroll" style="max-height:320px;overflow:auto;padding:0">';
+        h+='<div id="lx-tables-content" class="lx-zero-tab-panel" style="border-top:1px solid #1e293b;flex:1;display:flex;flex-direction:column;min-height:0">';
+        h+='<div class="lx-scroll" style="flex:1;min-height:200px;overflow:auto;padding:0">';
         if(tablesCleanupList.length>0){
           h+='<div style="padding:12px 20px 8px;color:#94a3b8;font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:0.05em">Tables with 0 total '+measureLabel+'</div>';
-          h+='<div class="lx-hdr" style="grid-template-columns:1fr 100px;padding:10px 20px;font-size:10px;color:#64748b;border-bottom:1px solid #1e293b">';
-          h+='<div>Table</div><div style="text-align:right">Total</div></div>';
+          h+='<div class="lx-hdr" style="grid-template-columns:120px 1fr 100px;padding:10px 20px;font-size:10px;color:#64748b;border-bottom:1px solid #1e293b">';
+          h+='<div>Schema</div><div>Table</div><div style="text-align:right">Total</div></div>';
           tablesCleanupList.forEach(function(r){
-            h+='<div class="lx-row" style="grid-template-columns:1fr 100px;padding:10px 20px;font-size:12px;border-bottom:1px solid rgba(30,41,59,0.5)">';
-            h+='<div class="lx-cell" style="font-family:ui-monospace,monospace;color:#f87171">'+(r.table||'').replace(/</g,'&lt;')+'</div><div style="text-align:right;color:#94a3b8">0</div></div>';
+            h+='<div class="lx-row" style="grid-template-columns:120px 1fr 100px;padding:10px 20px;font-size:12px;border-bottom:1px solid rgba(30,41,59,0.5)">';
+            h+='<div class="lx-cell" style="font-family:ui-monospace,monospace;color:#f87171">'+(r.schema||'').replace(/</g,'&lt;')+'</div><div class="lx-cell" style="font-family:ui-monospace,monospace;color:#f87171">'+(r.table||'').replace(/</g,'&lt;')+'</div><div style="text-align:right;color:#94a3b8">0</div></div>';
           });
         }
         h+='<div style="padding:12px 20px 8px;color:#94a3b8;font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:0.05em">All tables in result ('+tablesAllList.length+')</div>';
-        h+='<div class="lx-hdr" style="grid-template-columns:1fr 100px;padding:10px 20px;font-size:10px;color:#64748b;border-bottom:1px solid #1e293b">';
-        h+='<div>Table</div><div style="text-align:right">Total '+measureLabel+'</div></div>';
+        h+='<div class="lx-hdr" style="grid-template-columns:120px 1fr 100px;padding:10px 20px;font-size:10px;color:#64748b;border-bottom:1px solid #1e293b">';
+        h+='<div>Schema</div><div>Table</div><div style="text-align:right">Total '+measureLabel+'</div></div>';
         tablesAllList.forEach(function(r){
           var isZero=r.total===0;
-          h+='<div class="lx-row" style="grid-template-columns:1fr 100px;padding:10px 20px;font-size:12px;border-bottom:1px solid rgba(30,41,59,0.3)">';
-          h+='<div class="lx-cell" style="font-family:ui-monospace,monospace;color:'+(isZero?'#f87171':'#e2e8f0')+'">'+(r.table||'').replace(/</g,'&lt;')+'</div><div style="text-align:right;color:'+(isZero?'#f87171':'#94a3b8')+';font-variant-numeric:tabular-nums">'+(r.total|0).toLocaleString()+'</div></div>';
+          h+='<div class="lx-row" style="grid-template-columns:120px 1fr 100px;padding:10px 20px;font-size:12px;border-bottom:1px solid rgba(30,41,59,0.3)">';
+          h+='<div class="lx-cell" style="font-family:ui-monospace,monospace;color:'+(isZero?'#f87171':'#94a3b8')+'">'+(r.schema||'').replace(/</g,'&lt;')+'</div><div class="lx-cell" style="font-family:ui-monospace,monospace;color:'+(isZero?'#f87171':'#e2e8f0')+'">'+(r.table||'').replace(/</g,'&lt;')+'</div><div style="text-align:right;color:'+(isZero?'#f87171':'#94a3b8')+';font-variant-numeric:tabular-nums">'+(r.total|0).toLocaleString()+'</div></div>';
         });
         if(tablesAllList.length===0) h+='<div style="padding:24px 20px;color:#64748b;font-size:12px;text-align:center">No table data read. Add <strong>Table Name</strong> and <strong>Num Jobs</strong> to your query. If you use a tile or dashboard filter, ensure it doesn’t exclude the tables you want to see.</div>';
         h+='</div></div>';
-        h+='<div id="lx-columns-content" class="lx-zero-tab-panel" style="display:none;border-top:1px solid #1e293b">';
-        h+='<div class="lx-scroll" style="max-height:320px;overflow:auto;padding:0">';
+        h+='<div id="lx-columns-content" class="lx-zero-tab-panel" style="display:none;border-top:1px solid #1e293b;flex:1;flex-direction:column;min-height:0">';
+        h+='<div class="lx-scroll" style="flex:1;min-height:200px;overflow:auto;padding:0">';
         if(columnsCleanupList.length>0){
           h+='<div style="padding:12px 20px 8px;color:#94a3b8;font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:0.05em">Columns with 0 total '+measureLabel+'</div>';
           h+='<div class="lx-hdr" style="grid-template-columns:1fr 1fr 80px;padding:10px 20px;font-size:10px;color:#64748b;border-bottom:1px solid #1e293b">';
@@ -947,6 +950,26 @@ looker.plugins.visualizations.add({
         h+='</div></div></div>';
 
         R.innerHTML=h;
+        (function(){
+          var root=R;
+          var t=root.querySelector('#lx-tables-content');
+          var c=root.querySelector('#lx-columns-content');
+          var bt=root.querySelector('#lx-tab-tables');
+          var bc=root.querySelector('#lx-tab-columns');
+          if(!t||!c||!bt||!bc)return;
+          function showTables(){
+            t.style.display='flex'; c.style.display='none';
+            bt.style.borderBottom='2px solid #14b8a6'; bt.style.color='#e2e8f0';
+            bc.style.borderBottom='2px solid transparent'; bc.style.color='#94a3b8';
+          }
+          function showColumns(){
+            t.style.display='none'; c.style.display='flex';
+            bc.style.borderBottom='2px solid #14b8a6'; bc.style.color='#14b8a6';
+            bt.style.borderBottom='2px solid transparent'; bt.style.color='#94a3b8';
+          }
+          bt.addEventListener('click',showTables);
+          bc.addEventListener('click',showColumns);
+        })();
         done();return;
       }
 
