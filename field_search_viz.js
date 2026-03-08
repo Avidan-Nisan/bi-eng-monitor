@@ -140,9 +140,9 @@ looker.plugins.visualizations.add({
 
       else mode='lineage';
 
-      function gv(row,k){return k&&row[k]?row[k].value||'':'';}
-
-      function gn(row,k){return k&&row[k]?parseFloat(row[k].value)||0:0;}
+      function cellVal(row,k){if(!k||row[k]==null)return undefined;var v=row[k];return (typeof v==='object'&&v!==null&&'value' in v)?v.value:v;}
+      function gv(row,k){var x=cellVal(row,k);return x!=null?String(x):'';}
+      function gn(row,k){var x=cellVal(row,k);return x!=null?parseFloat(x)||0:0;}
 
       var ic={
 
