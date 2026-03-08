@@ -979,97 +979,99 @@ looker.plugins.visualizations.add({
 
         });
 
-        var models=Object.values(modelSet).sort(function(a,b){return a.label.localeCompare(b.label);});
-
         var consumerTables={};edges.forEach(function(e){if(!consumerTables[e.consumer])consumerTables[e.consumer]={};consumerTables[e.consumer][e.modelKey]=1;});
-        var consumers=Object.values(consumerSet).sort(function(a,b){var na=Object.keys(consumerTables[a.key]||{}).length,nb=Object.keys(consumerTables[b.key]||{}).length;return nb-na;});
+        var allModels=Object.values(modelSet).sort(function(a,b){return a.label.localeCompare(b.label);});
+        var allConsumers=Object.values(consumerSet).sort(function(a,b){var na=Object.keys(consumerTables[a.key]||{}).length,nb=Object.keys(consumerTables[b.key]||{}).length;return nb-na;});
 
-        var nW=380,nH=40,sp=44,pd=24,leftX=pd,cNw=140,cNh=140,cSp=148,rightX=Math.max(W-50,nW*2+200)-cNw-pd,sY=52;
-
-        var posModel={},posConsumer={};
-
-        models.forEach(function(m,i){posModel[m.key]={x:leftX,y:sY+i*sp};});
-
-        consumers.forEach(function(c,i){posConsumer[c.key]={x:rightX,y:sY+i*cSp};});
-
-        var sH=Math.max(models.length*sp,consumers.length*cSp)+80,sW=rightX+cNw+pd;
-
-        var ed='';
-        var maxUsage=0;for(var ei=0;ei<edges.length;ei++)maxUsage+=edges[ei].usage;
-        maxUsage=Math.max(1,maxUsage);
-        edges.forEach(function(e){
-
-          var pm=posModel[e.modelKey],pc=posConsumer[e.consumer];
-
-          if(!pm||!pc)return;
-
-          var x1=pm.x+nW,y1=pm.y+nH/2,x2=pc.x,y2=pc.y+cNh/2,mx=(x1+x2)/2;
-
-          var stroke='#475569';var op=0.35+Math.min(0.5,(e.usage/maxUsage)*10);
-
-          ed+='<path d="M'+x1+' '+y1+' C'+mx+' '+y1+','+mx+' '+y2+','+x2+' '+y2+'" fill="none" stroke="'+stroke+'" stroke-width="1.5" stroke-opacity="'+op+'"/>';
-
-        });
-
-        var nd='';
-
-        models.forEach(function(m){
-
-          var p=posModel[m.key];
-
-          var mk=(m.key||'').replace(/"/g,'&quot;');
-          nd+='<g class="lx-node lx-dbt-click" data-dbt-type="model" data-key="'+mk+'" style="cursor:pointer" transform="translate('+p.x+','+p.y+')"><rect width="'+nW+'" height="'+nH+'" rx="8" fill="#131b2e" stroke="#06b6d4" stroke-width="1.5"/><rect x="2" y="2" width="34" height="'+(nH-4)+'" rx="6" fill="#06b6d408"/><g transform="translate(10,'+(nH/2-8)+')" fill="#06b6d4">'+tI.table+'</g><text x="42" y="'+(nH/2+4)+'" fill="#e2e8f0" font-size="11" font-weight="500">'+m.label+'</text></g>';
-
-        });
-
-        var cLogoSize=112,cLogoX=(cNw-cLogoSize)/2,cLogoY=(cNh-cLogoSize)/2;
-        function getLogo(key){var k=(key||'').toString().trim(),l=k.toLowerCase();if(l.indexOf('looker dev')!==-1)return consumerLogos['Looker Dev']||consumerLogos['User'];if(l.indexOf('looker')!==-1)return consumerLogos['Looker']||consumerLogos['User'];return consumerLogos[key]||(k!==key&&consumerLogos[k])||consumerLogos['User'];}
-        consumers.forEach(function(c){
-          var p=posConsumer[c.key];
-          var logo=getLogo(c.key);
-          var hasLogo=logo&&(logo.indexOf('data:')===0||(typeof logo==='string'&&logo.length>0&&logo.indexOf('<')!==-1));
-          var contentEl;
-          if(hasLogo){var isDataUrl=logo.indexOf('data:')===0;contentEl=isDataUrl?'<image xlink:href="'+logo+'" x="'+cLogoX+'" y="'+cLogoY+'" width="'+cLogoSize+'" height="'+cLogoSize+'" preserveAspectRatio="xMidYMid meet"/>':'<g transform="translate('+((cNw-24)/2)+','+((cNh-24)/2)+')" fill="#f59e0b" color="#f59e0b">'+logo+'</g>';}
-          else{var lab=(c.label||c.key||'').toString().replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');contentEl='<text x="'+cNw/2+'" y="'+(cNh/2+5)+'" text-anchor="middle" fill="#e2e8f0" font-size="14" font-weight="600">'+lab+'</text>';}
-          var ck=(c.key||'').replace(/"/g,'&quot;');
-          nd+='<g class="lx-node lx-dbt-click" data-dbt-type="consumer" data-key="'+ck+'" style="cursor:pointer" transform="translate('+p.x+','+p.y+')"><rect width="'+cNw+'" height="'+cNh+'" rx="10" fill="#131b2e" stroke="#f59e0b" stroke-width="1.5"/><rect x="2" y="2" width="'+(cNw-4)+'" height="'+(cNh-4)+'" rx="8" fill="#f59e0b08"/>'+contentEl+'</g>';
-        });
-
-        var h=navBar()+'<div class="lx-body">';
-        h+='<div class="lx-bar" style="border-bottom:1px solid rgba(30,41,59,0.25)"><span style="color:#e2e8f0;font-size:12px;font-weight:700">Consumer dependencies</span></div>';
-        h+='<div class="lx-bar"><div style="color:#94a3b8">DBT models <span style="color:#06b6d4;font-weight:600">'+models.length+'</span> \u2194 consumers <span style="color:#f59e0b;font-weight:600">'+consumers.length+'</span></div><div style="color:#475569">'+edges.length+' connections \u00B7 '+data.length+' rows</div></div>';
-
-        h+='<div class="lx-scroll" style="padding:12px"><svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" width="'+sW+'" height="'+sH+'">';
-
-        h+='<text x="'+(leftX+nW/2)+'" y="24" text-anchor="middle" fill="#06b6d4" font-size="10" font-weight="700" letter-spacing="1">DBT MODELS</text>';
-
-        h+='<text x="'+(rightX+cNw/2)+'" y="24" text-anchor="middle" fill="#f59e0b" font-size="10" font-weight="700" letter-spacing="1">CONSUMERS</text>';
-
-        h+=ed+nd+'</svg></div>';
-
-        R.innerHTML=h;
-
-        (function(){
-          var dashId=details&&details.dashboard_id;
-          var filterTableName=(F.table_name||'Table Name').toString().replace(/"/g,'');
-          var filterConsumerType=(F.consumer_type||'Consumer Type').toString().replace(/"/g,'');
-          function buildFilterUrl(type,value){
-            if(!baseUrl||!dashId||!value)return null;
-            var u=baseUrl.replace(/\/+$/,'')+'/dashboards/'+String(dashId).trim();
-            if(type==='model')u+='?'+encodeURIComponent(filterTableName)+'='+encodeURIComponent(value);
-            else if(type==='consumer')u+='?'+encodeURIComponent(filterConsumerType)+'='+encodeURIComponent(value);
-            return u;
+        var nW=380,nH=40,sp=44,pd=24,leftX=pd,cNw=140,cNh=140,cSp=148,sY=52;
+        var selectedUsageNode=null;
+        function getRelevantUsage(){
+          if(!selectedUsageNode)return {models:allModels,consumers:allConsumers,edges:edges};
+          var type=selectedUsageNode.type,key=selectedUsageNode.key;
+          var visModelKeys={},visConsumerKeys={};
+          if(type==='model'){
+            visModelKeys[key]=true;
+            edges.forEach(function(e){if(e.modelKey===key)visConsumerKeys[e.consumer]=true;});
+          }else{
+            visConsumerKeys[key]=true;
+            edges.forEach(function(e){if(e.consumer===key)visModelKeys[e.modelKey]=true;});
           }
-          var svg=R.querySelector('svg');
-          if(svg)svg.querySelectorAll('.lx-dbt-click').forEach(function(el){
-            el.addEventListener('click',function(){
+          var models=allModels.filter(function(m){return visModelKeys[m.key];});
+          var consumers=allConsumers.filter(function(c){return visConsumerKeys[c.key];});
+          var visEdges=edges.filter(function(e){return visModelKeys[e.modelKey]&&visConsumerKeys[e.consumer];});
+          return {models:models,consumers:consumers,edges:visEdges};
+        }
+        function renderDbtUsage(){
+          var vis=getRelevantUsage();
+          var models=vis.models,consumers=vis.consumers,visEdges=vis.edges;
+          var rightX=Math.max(W-50,nW*2+200)-cNw-pd;
+          var posModel={},posConsumer={};
+          models.forEach(function(m,i){posModel[m.key]={x:leftX,y:sY+i*sp};});
+          consumers.forEach(function(c,i){posConsumer[c.key]={x:rightX,y:sY+i*cSp};});
+          var sH=Math.max(models.length*sp,consumers.length*cSp)+80,sW=rightX+cNw+pd;
+
+          var ed='';
+          var maxUsage=0;visEdges.forEach(function(e){maxUsage+=e.usage;});
+          maxUsage=Math.max(1,maxUsage);
+          visEdges.forEach(function(e){
+            var pm=posModel[e.modelKey],pc=posConsumer[e.consumer];
+            if(!pm||!pc)return;
+            var x1=pm.x+nW,y1=pm.y+nH/2,x2=pc.x,y2=pc.y+cNh/2,mx=(x1+x2)/2;
+            var stroke='#475569';var op=0.35+Math.min(0.5,(e.usage/maxUsage)*10);
+            ed+='<path d="M'+x1+' '+y1+' C'+mx+' '+y1+','+mx+' '+y2+','+x2+' '+y2+'" fill="none" stroke="'+stroke+'" stroke-width="1.5" stroke-opacity="'+op+'"/>';
+          });
+          var nd='';
+          models.forEach(function(m){
+            var p=posModel[m.key];
+            var mk=(m.key||'').replace(/"/g,'&quot;');
+            var isSel=selectedUsageNode&&selectedUsageNode.type==='model'&&selectedUsageNode.key===m.key;
+            var stroke=isSel?'#e2e8f0':'#06b6d4';var strokeW=isSel?2.5:1.5;
+            nd+='<g class="lx-node lx-dbt-click" data-dbt-type="model" data-key="'+mk+'" style="cursor:pointer" transform="translate('+p.x+','+p.y+')"><rect width="'+nW+'" height="'+nH+'" rx="8" fill="'+(isSel?'#1e293b':'#131b2e')+'" stroke="'+stroke+'" stroke-width="'+strokeW+'"/><rect x="2" y="2" width="34" height="'+(nH-4)+'" rx="6" fill="#06b6d408"/><g transform="translate(10,'+(nH/2-8)+')" fill="#06b6d4">'+tI.table+'</g><text x="42" y="'+(nH/2+4)+'" fill="#e2e8f0" font-size="11" font-weight="500">'+(m.label.length>32?m.label.substring(0,30)+'\u2026':m.label).replace(/</g,'&lt;')+'</text></g>';
+          });
+          var cLogoSize=112,cLogoX=(cNw-cLogoSize)/2,cLogoY=(cNh-cLogoSize)/2;
+          function getLogo(key){var k=(key||'').toString().trim(),l=k.toLowerCase();if(l.indexOf('looker dev')!==-1)return consumerLogos['Looker Dev']||consumerLogos['User'];if(l.indexOf('looker')!==-1)return consumerLogos['Looker']||consumerLogos['User'];return consumerLogos[key]||(k!==key&&consumerLogos[k])||consumerLogos['User'];}
+          consumers.forEach(function(c){
+            var p=posConsumer[c.key];
+            var logo=getLogo(c.key);
+            var hasLogo=logo&&(logo.indexOf('data:')===0||(typeof logo==='string'&&logo.length>0&&logo.indexOf('<')!==-1));
+            var contentEl;
+            if(hasLogo){var isDataUrl=logo.indexOf('data:')===0;contentEl=isDataUrl?'<image xlink:href="'+logo+'" x="'+cLogoX+'" y="'+cLogoY+'" width="'+cLogoSize+'" height="'+cLogoSize+'" preserveAspectRatio="xMidYMid meet"/>':'<g transform="translate('+((cNw-24)/2)+','+((cNh-24)/2)+')" fill="#f59e0b" color="#f59e0b">'+logo+'</g>';}
+            else{var lab=(c.label||c.key||'').toString().replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');contentEl='<text x="'+cNw/2+'" y="'+(cNh/2+5)+'" text-anchor="middle" fill="#e2e8f0" font-size="14" font-weight="600">'+lab+'</text>';}
+            var ck=(c.key||'').replace(/"/g,'&quot;');
+            var isSel=selectedUsageNode&&selectedUsageNode.type==='consumer'&&selectedUsageNode.key===c.key;
+            var stroke=isSel?'#e2e8f0':'#f59e0b';var strokeW=isSel?2.5:1.5;
+            nd+='<g class="lx-node lx-dbt-click" data-dbt-type="consumer" data-key="'+ck+'" style="cursor:pointer" transform="translate('+p.x+','+p.y+')"><rect width="'+cNw+'" height="'+cNh+'" rx="10" fill="'+(isSel?'#1e293b':'#131b2e')+'" stroke="'+stroke+'" stroke-width="'+strokeW+'"/><rect x="2" y="2" width="'+(cNw-4)+'" height="'+(cNh-4)+'" rx="8" fill="#f59e0b08"/>'+contentEl+'</g>';
+          });
+          var barLabel='';
+          if(selectedUsageNode){
+            var name=selectedUsageNode.type==='model'?(modelSet[selectedUsageNode.key]&&modelSet[selectedUsageNode.key].label)||selectedUsageNode.key:(consumerSet[selectedUsageNode.key]&&consumerSet[selectedUsageNode.key].label)||selectedUsageNode.key;
+            barLabel='Showing <strong style="color:#e2e8f0">'+String(name).replace(/</g,'&lt;')+'</strong> \u00B7 '+models.length+' model'+(models.length!==1?'s':'')+' \u2194 '+consumers.length+' consumer'+(consumers.length!==1?'s':'')+' \u00B7 Click again to clear';
+          }else{
+            barLabel='DBT models <span style="color:#06b6d4;font-weight:600">'+allModels.length+'</span> \u2194 consumers <span style="color:#f59e0b;font-weight:600">'+allConsumers.length+'</span> \u00B7 Click a node to focus';
+          }
+          var h=navBar()+'<div class="lx-body">';
+          h+='<div class="lx-bar" style="border-bottom:1px solid rgba(30,41,59,0.25)"><span style="color:#e2e8f0;font-size:12px;font-weight:700">Consumer dependencies</span></div>';
+          h+='<div class="lx-bar"><div style="color:#94a3b8">'+barLabel+'</div><div style="color:#475569">'+visEdges.length+' connections \u00B7 '+data.length+' rows</div></div>';
+          h+='<div class="lx-scroll" style="padding:12px" id="lx-dbt-usage-scroll"><svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" width="'+sW+'" height="'+sH+'">';
+          h+='<text x="'+(leftX+nW/2)+'" y="24" text-anchor="middle" fill="#06b6d4" font-size="10" font-weight="700" letter-spacing="1">DBT MODELS</text>';
+          h+='<text x="'+(rightX+cNw/2)+'" y="24" text-anchor="middle" fill="#f59e0b" font-size="10" font-weight="700" letter-spacing="1">CONSUMERS</text>';
+          h+=ed+nd+'</svg></div></div>';
+          R.innerHTML=h;
+          var scrollWrap=R.querySelector('#lx-dbt-usage-scroll')||R.querySelector('.lx-scroll');
+          if(scrollWrap){
+            scrollWrap.addEventListener('click',function(ev){
+              var el=ev.target;while(el&&el!==R){if(el.getAttribute&&el.getAttribute('data-dbt-type')!=null&&el.getAttribute('data-key')!=null)break;el=el.parentNode;}
+              if(!el||el===R)return;
               var t=el.getAttribute('data-dbt-type'),k=el.getAttribute('data-key');
               if(!t||!k)return;
-              var url=buildFilterUrl(t,k);
-              if(url)doNav(url);
+              ev.preventDefault();ev.stopPropagation();
+              var next={type:t,key:k};
+              selectedUsageNode=selectedUsageNode&&selectedUsageNode.type===t&&selectedUsageNode.key===k?null:next;
+              renderDbtUsage();
             });
-          });
-        })();
+          }
+        }
+        renderDbtUsage();
 
         done();return;
 
