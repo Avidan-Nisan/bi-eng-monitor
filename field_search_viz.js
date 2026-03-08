@@ -1,4 +1,4 @@
-  looker.plugins.visualizations.add({
+looker.plugins.visualizations.add({
 
     id: "lineage_explorer",
 
@@ -14,7 +14,9 @@
 
       usage_dashboard_id: {type:"string",label:"DBT Usage Dashboard ID",default:"",section:"Navigation",order:4},
 
-      dbt_lineage_dashboard_id: {type:"string",label:"DBT Lineage Dashboard ID",default:"",section:"Navigation",order:5}
+      dbt_lineage_dashboard_id: {type:"string",label:"DBT Lineage Dashboard ID",default:"",section:"Navigation",order:5},
+
+      data_dyson_dashboard_id: {type:"string",label:"Data Dyson Dashboard ID",default:"",section:"Navigation",order:6}
 
     },
 
@@ -26,7 +28,7 @@
 
       var s=document.createElement('style');
 
-      s.textContent='#lex *{box-sizing:border-box}.lx-nav{display:flex;align-items:center;gap:2px;padding:14px 20px 0;background:linear-gradient(180deg,#0f1629,#0a0e1a);border-bottom:1px solid #334155}.lx-nav-btn{padding:10px 22px;font-size:12px;font-weight:600;cursor:pointer;border:none;background:transparent;color:#94a3b8;border-radius:10px 10px 0 0;transition:all .2s;display:flex;align-items:center;gap:8px;letter-spacing:.3px;text-decoration:none;position:relative}.lx-nav-btn:hover{color:#cbd5e1;background:rgba(30,41,59,0.25)}.lx-nav-btn.active{color:#e2e8f0;background:#1e293b;cursor:default;border-bottom:2px solid transparent;font-weight:700}.lx-nav-btn.active::after{content:"";position:absolute;bottom:0;left:4px;right:4px;height:4px;border-radius:4px 4px 0 0;z-index:1}.lx-nav-btn.t-lineage.active{color:#10b981!important}.lx-nav-btn.t-lineage.active::after{background:#10b981;box-shadow:0 0 10px #10b981}.lx-nav-btn.t-overlap.active{color:#8b5cf6!important}.lx-nav-btn.t-overlap.active::after{background:#8b5cf6;box-shadow:0 0 10px #8b5cf6}.lx-nav-btn.t-usage.active{color:#f59e0b!important}.lx-nav-btn.t-usage.active::after{background:#f59e0b;box-shadow:0 0 10px #f59e0b}.lx-nav-btn.t-dbt_lineage.active{color:#0ea5e9!important}.lx-nav-btn.t-dbt_lineage.active::after{background:#0ea5e9;box-shadow:0 0 10px #0ea5e9}.lx-body{flex:1;background:#131b2e;border-radius:12px 12px 0 0;overflow:hidden;display:flex;flex-direction:column;border:1px solid #1e293b;border-bottom:none;margin:0 12px}.lx-bar{padding:10px 16px;border-bottom:1px solid rgba(30,41,59,0.25);display:flex;align-items:center;justify-content:space-between;font-size:11px;min-height:42px}.lx-scroll{flex:1;overflow:auto}.lx-pill{display:inline-flex;align-items:center;gap:4px;padding:3px 10px;border-radius:6px;font-size:10px;font-weight:500}.lx-node{cursor:pointer;transition:opacity .15s}.lx-node:hover{opacity:.85}.lx-row{display:grid;border-bottom:1px solid rgba(30,41,59,0.1);transition:background .15s}.lx-row:hover{background:rgba(30,41,59,0.3)}.lx-hdr{display:grid;border-bottom:1px solid #1e293b;position:sticky;top:0;background:#131b2e;z-index:1}.lx-hdr>div{padding:10px 12px;font-size:10px;font-weight:600;color:#475569;cursor:pointer;user-select:none;text-transform:uppercase;letter-spacing:.5px;transition:color .15s}.lx-hdr>div:hover{color:#94a3b8}.lx-hdr>div.on{color:#e2e8f0}.lx-cell{padding:8px 12px;font-size:11px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.lx-ebtn{padding:7px 16px;border:1px solid #1e293b;cursor:pointer;font-size:11px;font-weight:500;transition:all .15s;background:transparent;color:#64748b;letter-spacing:.3px}.lx-ebtn:hover{background:#1e293b;color:#94a3b8}.lx-ebtn.on{background:#1e293b;border-color:#334155}.lx-link{color:#475569;text-decoration:none;transition:color .15s;display:inline-flex}.lx-link:hover{color:#e2e8f0}.dp-card{border-bottom:1px solid rgba(30,41,59,0.12)}.dp-head{display:flex;align-items:center;gap:12px;padding:12px 16px;cursor:pointer;transition:background .15s}.dp-head:hover{background:rgba(30,41,59,0.2)}';
+      s.textContent='#lex *{box-sizing:border-box}.lx-nav{display:flex;align-items:center;gap:2px;padding:14px 20px 0;background:linear-gradient(180deg,#0f1629,#0a0e1a);border-bottom:1px solid #334155}.lx-nav-btn{padding:10px 22px;font-size:12px;font-weight:600;cursor:pointer;border:none;background:transparent;color:#94a3b8;border-radius:10px 10px 0 0;transition:all .2s;display:flex;align-items:center;gap:8px;letter-spacing:.3px;text-decoration:none;position:relative}.lx-nav-btn:hover{color:#cbd5e1;background:rgba(30,41,59,0.25)}.lx-nav-btn.active{color:#e2e8f0;background:#1e293b;cursor:default;border-bottom:2px solid transparent;font-weight:700}.lx-nav-btn.active::after{content:"";position:absolute;bottom:0;left:4px;right:4px;height:4px;border-radius:4px 4px 0 0;z-index:1}.lx-nav-btn.t-lineage.active{color:#10b981!important}.lx-nav-btn.t-lineage.active::after{background:#10b981;box-shadow:0 0 10px #10b981}.lx-nav-btn.t-overlap.active{color:#8b5cf6!important}.lx-nav-btn.t-overlap.active::after{background:#8b5cf6;box-shadow:0 0 10px #8b5cf6}.lx-nav-btn.t-usage.active{color:#f59e0b!important}.lx-nav-btn.t-usage.active::after{background:#f59e0b;box-shadow:0 0 10px #f59e0b}.lx-nav-btn.t-dbt_lineage.active{color:#0ea5e9!important}.lx-nav-btn.t-dbt_lineage.active::after{background:#0ea5e9;box-shadow:0 0 10px #0ea5e9}.lx-nav-btn.t-data_dyson.active{color:#14b8a6!important}.lx-nav-btn.t-data_dyson.active::after{background:#14b8a6;box-shadow:0 0 10px #14b8a6}.lx-body{flex:1;background:#131b2e;border-radius:12px 12px 0 0;overflow:hidden;display:flex;flex-direction:column;border:1px solid #1e293b;border-bottom:none;margin:0 12px}.lx-bar{padding:10px 16px;border-bottom:1px solid rgba(30,41,59,0.25);display:flex;align-items:center;justify-content:space-between;font-size:11px;min-height:42px}.lx-scroll{flex:1;overflow:auto}.lx-pill{display:inline-flex;align-items:center;gap:4px;padding:3px 10px;border-radius:6px;font-size:10px;font-weight:500}.lx-node{cursor:pointer;transition:opacity .15s}.lx-node:hover{opacity:.85}.lx-row{display:grid;border-bottom:1px solid rgba(30,41,59,0.1);transition:background .15s}.lx-row:hover{background:rgba(30,41,59,0.3)}.lx-hdr{display:grid;border-bottom:1px solid #1e293b;position:sticky;top:0;background:#131b2e;z-index:1}.lx-hdr>div{padding:10px 12px;font-size:10px;font-weight:600;color:#475569;cursor:pointer;user-select:none;text-transform:uppercase;letter-spacing:.5px;transition:color .15s}.lx-hdr>div:hover{color:#94a3b8}.lx-hdr>div.on{color:#e2e8f0}.lx-cell{padding:8px 12px;font-size:11px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.lx-ebtn{padding:7px 16px;border:1px solid #1e293b;cursor:pointer;font-size:11px;font-weight:500;transition:all .15s;background:transparent;color:#64748b;letter-spacing:.3px}.lx-ebtn:hover{background:#1e293b;color:#94a3b8}.lx-ebtn.on{background:#1e293b;border-color:#334155}.lx-link{color:#475569;text-decoration:none;transition:color .15s;display:inline-flex}.lx-link:hover{color:#e2e8f0}.dp-card{border-bottom:1px solid rgba(30,41,59,0.12)}.dp-head{display:flex;align-items:center;gap:12px;padding:12px 16px;cursor:pointer;transition:background .15s}.dp-head:hover{background:rgba(30,41,59,0.2)}';
 
       element.appendChild(s);
 
@@ -108,13 +110,17 @@
 
       var onDbtLineageDashboard=!(config.dbt_lineage_dashboard_id==null||config.dbt_lineage_dashboard_id==='')&&details&&details.dashboard_id&&String(details.dashboard_id).trim()===String(config.dbt_lineage_dashboard_id).trim();
 
+      var onDataDysonDashboard=!(config.data_dyson_dashboard_id==null||config.data_dyson_dashboard_id==='')&&details&&details.dashboard_id&&String(details.dashboard_id).trim()===String(config.data_dyson_dashboard_id).trim();
+
       var queryExplore=(queryResponse.meta&&(queryResponse.meta.explore||queryResponse.meta.model))?String(queryResponse.meta.explore||queryResponse.meta.model||'').toLowerCase():'';
 
       var looksLikeDbtUsage=queryExplore.indexOf('dbt')!==-1&&queryExplore.indexOf('usage')!==-1;
 
       var looksLikeDbtLineage=queryExplore.indexOf('dbt')!==-1&&queryExplore.indexOf('lineage')!==-1;
 
-      if(F.table_schema&&F.table_name&&F.consumer_type)mode='dbt_usage';
+      if(onDataDysonDashboard&&F.table_name&&F.consumer_type)mode='data_dyson';
+
+      else if(F.table_schema&&F.table_name&&F.consumer_type)mode='dbt_usage';
 
       else if(onUsageDashboard||(looksLikeDbtUsage&&(F.table_name||F.consumer_type)))mode='dbt_usage';
 
@@ -145,6 +151,8 @@
         usg:'<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 20V10"/><path d="M12 20V4"/><path d="M6 20v-6"/></svg>',
 
         dbtlin:'<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2L2 7l10 5 10-5-10-5z"/><path d="M2 17l10 5 10-5"/></svg>',
+
+        dyson:'<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 6h18"/><path d="M4 6v12a2 2 0 002 2h12a2 2 0 002-2V6"/><path d="M12 10v6"/><path d="M9 13h6"/></svg>',
 
         lnk:'<svg viewBox="0 0 24 24" width="11" height="11" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 13v6a2 2 0 01-2 2H5a2 2 0 01-2-2V8a2 2 0 012-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg>',
 
@@ -224,7 +232,9 @@
 
           {id:'dbt_usage',label:'DBT Usage',icon:ic.usg,did:config.usage_dashboard_id},
 
-          {id:'dbt_lineage',label:'DBT Lineage',icon:ic.dbtlin,did:config.dbt_lineage_dashboard_id}
+          {id:'dbt_lineage',label:'DBT Lineage',icon:ic.dbtlin,did:config.dbt_lineage_dashboard_id},
+
+          {id:'data_dyson',label:'Data Dyson',icon:ic.dyson,did:config.data_dyson_dashboard_id}
 
         ];
 
@@ -830,6 +840,77 @@
 
       }
 
+      // ========== DATA DYSON: tables without use or only Looker Dev ==========
+
+      if(mode==='data_dyson'){
+
+        if(!F.table_name||!F.consumer_type){
+          R.innerHTML=navBar()+'<div class="lx-body"><div class="lx-bar" style="border-bottom:1px solid #1e293b"><span style="color:#e2e8f0;font-size:12px;font-weight:700">Data Dyson</span></div><div style="padding:24px 20px;color:#94a3b8;font-size:12px;line-height:1.5">This tile is on the Data Dyson dashboard but the query does not include the required fields.<br/><br/>Use the <strong style="color:#e2e8f0">DBT Usage</strong> explore and add dimensions: <strong>Table Schema</strong>, <strong>Table Name</strong>, <strong>Consumer Type</strong>, and a measure such as <strong>Num Jobs</strong>.</div></div>';
+          done();return;
+        }
+
+        var tableConsumerJobs={};
+        data.forEach(function(row){
+          var schema=gv(row,F.table_schema),tbl=gv(row,F.table_name),consumer=gv(row,F.consumer_type),col=gv(row,F.column_name);
+          if(!tbl)return;
+          var modelKey=(schema?schema+'.':'')+tbl;
+          var rowKey=F.column_name?modelKey+'|'+(col||'—'):modelKey;
+          if(!tableConsumerJobs[rowKey])tableConsumerJobs[rowKey]={modelKey:modelKey,column:col||'',byConsumer:{}};
+          var c=tableConsumerJobs[rowKey].byConsumer;
+          if(!c[consumer])c[consumer]=0;
+          c[consumer]+=gn(row,F.num_jobs)||0;
+        });
+        var zeroOrLookerDevOnly=[];
+        var lookerDevKey=function(c){return (c||'').toString().trim().toLowerCase()==='looker dev';};
+        Object.keys(tableConsumerJobs).forEach(function(rowKey){
+          var r=tableConsumerJobs[rowKey];
+          var by=r.byConsumer;
+          var total=0;var consumersWithJobs=[];
+          Object.keys(by).forEach(function(c){total+=by[c];if(by[c]>0)consumersWithJobs.push(c);});
+          if(total===0)zeroOrLookerDevOnly.push({table:r.modelKey,column:r.column,reason:'0 jobs'});
+          else if(consumersWithJobs.length===1&&lookerDevKey(consumersWithJobs[0]))zeroOrLookerDevOnly.push({table:r.modelKey,column:r.column,reason:'Only Looker Dev'});
+        });
+        zeroOrLookerDevOnly.sort(function(a,b){return a.table.localeCompare(b.table)||(a.column||'').localeCompare(b.column||'');});
+
+        var noUseList=zeroOrLookerDevOnly.filter(function(r){return r.reason==='0 jobs';});
+        var lookerDevOnlyList=zeroOrLookerDevOnly.filter(function(r){return r.reason==='Only Looker Dev';});
+        var h=navBar()+'<div class="lx-body">';
+        h+='<div class="lx-bar" style="border-bottom:1px solid #1e293b"><span style="color:#e2e8f0;font-size:12px;font-weight:700">Data Dyson</span></div>';
+        h+='<div class="lx-bar" style="border-bottom:1px solid rgba(30,41,59,0.25);padding:10px 16px">';
+        h+='<span style="color:#e2e8f0;font-size:12px;font-weight:700">Tables without use or only Looker Dev</span>';
+        h+='<div style="display:flex;gap:0;margin-top:8px;border-bottom:1px solid #334155">';
+        h+='<button type="button" id="lx-tab-unused" class="lx-subtab lx-tab-active" style="padding:6px 12px;font-size:11px;color:#e2e8f0;background:transparent;border:none;border-bottom:2px solid #3b82f6;cursor:pointer;font-weight:600" onclick="var u=document.getElementById(\'lx-unused-content\'); var l=document.getElementById(\'lx-lookerdev-content\'); u.style.display=\'block\'; l.style.display=\'none\'; this.style.borderBottom=\'2px solid #3b82f6\'; this.style.color=\'#e2e8f0\'; document.getElementById(\'lx-tab-lookerdev\').style.borderBottom=\'2px solid transparent\'; document.getElementById(\'lx-tab-lookerdev\').style.color=\'#94a3b8\';">Unused (0 jobs) ('+noUseList.length+')</button>';
+        h+='<button type="button" id="lx-tab-lookerdev" class="lx-subtab" style="padding:6px 12px;font-size:11px;color:#94a3b8;background:transparent;border:none;border-bottom:2px solid transparent;cursor:pointer" onclick="var u=document.getElementById(\'lx-unused-content\'); var l=document.getElementById(\'lx-lookerdev-content\'); u.style.display=\'none\'; l.style.display=\'block\'; document.getElementById(\'lx-tab-unused\').style.borderBottom=\'2px solid transparent\'; document.getElementById(\'lx-tab-unused\').style.color=\'#94a3b8\'; this.style.borderBottom=\'2px solid #f59e0b\'; this.style.color=\'#f59e0b\';">Only Looker Dev ('+lookerDevOnlyList.length+')</button>';
+        h+='</div></div>';
+        h+='<div id="lx-unused-content" class="lx-zero-tab-panel" style="border-top:1px solid rgba(30,41,59,0.25)">';
+        h+='<div class="lx-scroll" style="max-height:280px;overflow:auto">';
+        h+='<div class="lx-hdr" style="grid-template-columns:1fr 1fr 120px;padding:8px 16px;font-size:10px;color:#64748b">';
+        h+='<div>Table</div><div>Column (0 jobs)</div><div>Reason</div></div>';
+        noUseList.forEach(function(r){
+          h+='<div class="lx-row" style="grid-template-columns:1fr 1fr 120px;padding:8px 16px;font-size:11px">';
+          h+='<div class="lx-cell" style="font-family:monospace">'+(r.table||'').replace(/</g,'&lt;')+'</div>';
+          h+='<div class="lx-cell">'+(r.column||'—').replace(/</g,'&lt;')+'</div>';
+          h+='<div style="color:#94a3b8;font-weight:500">'+(r.reason||'').replace(/</g,'&lt;')+'</div></div>';
+        });
+        if(noUseList.length===0) h+='<div style="padding:16px;color:#64748b;font-size:11px">None</div>';
+        h+='</div></div>';
+        h+='<div id="lx-lookerdev-content" class="lx-zero-tab-panel" style="display:none;border-top:1px solid rgba(30,41,59,0.25)">';
+        h+='<div class="lx-scroll" style="max-height:280px;overflow:auto">';
+        h+='<div class="lx-hdr" style="grid-template-columns:1fr 1fr 120px;padding:8px 16px;font-size:10px;color:#64748b">';
+        h+='<div>Table</div><div>Column (only Looker Dev)</div><div>Reason</div></div>';
+        lookerDevOnlyList.forEach(function(r){
+          h+='<div class="lx-row" style="grid-template-columns:1fr 1fr 120px;padding:8px 16px;font-size:11px">';
+          h+='<div class="lx-cell" style="font-family:monospace">'+(r.table||'').replace(/</g,'&lt;')+'</div>';
+          h+='<div class="lx-cell">'+(r.column||'—').replace(/</g,'&lt;')+'</div>';
+          h+='<div style="color:#f59e0b;font-weight:500">'+(r.reason||'').replace(/</g,'&lt;')+'</div></div>';
+        });
+        if(lookerDevOnlyList.length===0) h+='<div style="padding:16px;color:#64748b;font-size:11px">None</div>';
+        h+='</div></div></div>';
+
+        R.innerHTML=h;
+        done();return;
+      }
+
       // ========== DBT USAGE (dbt_usage view): models left, consumers right, lines ==========
 
       if(mode==='dbt_usage'){
@@ -866,29 +947,6 @@
           }
 
         });
-
-        var tableConsumerJobs={};
-        data.forEach(function(row){
-          var schema=gv(row,F.table_schema),tbl=gv(row,F.table_name),consumer=gv(row,F.consumer_type),col=gv(row,F.column_name);
-          if(!tbl)return;
-          var modelKey=(schema?schema+'.':'')+tbl;
-          var rowKey=F.column_name?modelKey+'|'+(col||'—'):modelKey;
-          if(!tableConsumerJobs[rowKey])tableConsumerJobs[rowKey]={modelKey:modelKey,column:col||'',byConsumer:{}};
-          var c=tableConsumerJobs[rowKey].byConsumer;
-          if(!c[consumer])c[consumer]=0;
-          c[consumer]+=gn(row,F.num_jobs)||0;
-        });
-        var zeroOrLookerDevOnly=[];
-        var lookerDevKey=function(c){return (c||'').toString().trim().toLowerCase()==='looker dev';};
-        Object.keys(tableConsumerJobs).forEach(function(rowKey){
-          var r=tableConsumerJobs[rowKey];
-          var by=r.byConsumer;
-          var total=0;var consumersWithJobs=[];
-          Object.keys(by).forEach(function(c){total+=by[c];if(by[c]>0)consumersWithJobs.push(c);});
-          if(total===0)zeroOrLookerDevOnly.push({table:r.modelKey,column:r.column,reason:'0 jobs'});
-          else if(consumersWithJobs.length===1&&lookerDevKey(consumersWithJobs[0]))zeroOrLookerDevOnly.push({table:r.modelKey,column:r.column,reason:'Only Looker Dev'});
-        });
-        zeroOrLookerDevOnly.sort(function(a,b){return a.table.localeCompare(b.table)||(a.column||'').localeCompare(b.column||'');});
 
         var models=Object.values(modelSet).sort(function(a,b){return a.label.localeCompare(b.label);});
 
@@ -957,39 +1015,6 @@
         h+='<text x="'+(rightX+cNw/2)+'" y="24" text-anchor="middle" fill="#f59e0b" font-size="10" font-weight="700" letter-spacing="1">CONSUMERS</text>';
 
         h+=ed+nd+'</svg></div>';
-
-        var noUseList = zeroOrLookerDevOnly.filter(function(r){ return r.reason === '0 jobs'; });
-        var lookerDevOnlyList = zeroOrLookerDevOnly.filter(function(r){ return r.reason === 'Only Looker Dev'; });
-        h+='<div class="lx-bar" style="border-top:1px solid #1e293b;padding:10px 16px">';
-        h+='<span style="color:#e2e8f0;font-size:12px;font-weight:700">Tables without use or only Looker Dev</span>';
-        h+='<div style="display:flex;gap:0;margin-top:8px;border-bottom:1px solid #334155">';
-        h+='<button type="button" id="lx-tab-unused" class="lx-subtab lx-tab-active" style="padding:6px 12px;font-size:11px;color:#e2e8f0;background:transparent;border:none;border-bottom:2px solid #3b82f6;cursor:pointer;font-weight:600" onclick="var u=document.getElementById(\'lx-unused-content\'); var l=document.getElementById(\'lx-lookerdev-content\'); u.style.display=\'block\'; l.style.display=\'none\'; this.style.borderBottom=\'2px solid #3b82f6\'; this.style.color=\'#e2e8f0\'; document.getElementById(\'lx-tab-lookerdev\').style.borderBottom=\'2px solid transparent\'; document.getElementById(\'lx-tab-lookerdev\').style.color=\'#94a3b8\';">Unused (0 jobs) ('+noUseList.length+')</button>';
-        h+='<button type="button" id="lx-tab-lookerdev" class="lx-subtab" style="padding:6px 12px;font-size:11px;color:#94a3b8;background:transparent;border:none;border-bottom:2px solid transparent;cursor:pointer" onclick="var u=document.getElementById(\'lx-unused-content\'); var l=document.getElementById(\'lx-lookerdev-content\'); u.style.display=\'none\'; l.style.display=\'block\'; document.getElementById(\'lx-tab-unused\').style.borderBottom=\'2px solid transparent\'; document.getElementById(\'lx-tab-unused\').style.color=\'#94a3b8\'; this.style.borderBottom=\'2px solid #f59e0b\'; this.style.color=\'#f59e0b\';">Only Looker Dev ('+lookerDevOnlyList.length+')</button>';
-        h+='</div></div>';
-        h+='<div id="lx-unused-content" class="lx-zero-tab-panel" style="border-top:1px solid rgba(30,41,59,0.25)">';
-        h+='<div class="lx-scroll" style="max-height:280px;overflow:auto">';
-        h+='<div class="lx-hdr" style="grid-template-columns:1fr 1fr 120px;padding:8px 16px;font-size:10px;color:#64748b">';
-        h+='<div>Table</div><div>Column (0 jobs)</div><div>Reason</div></div>';
-        noUseList.forEach(function(r){
-          h+='<div class="lx-row" style="grid-template-columns:1fr 1fr 120px;padding:8px 16px;font-size:11px">';
-          h+='<div class="lx-cell" style="font-family:monospace">'+(r.table||'').replace(/</g,'&lt;')+'</div>';
-          h+='<div class="lx-cell">'+(r.column||'—').replace(/</g,'&lt;')+'</div>';
-          h+='<div style="color:#94a3b8;font-weight:500">'+(r.reason||'').replace(/</g,'&lt;')+'</div></div>';
-        });
-        if(noUseList.length===0) h+='<div style="padding:16px;color:#64748b;font-size:11px">None</div>';
-        h+='</div></div>';
-        h+='<div id="lx-lookerdev-content" class="lx-zero-tab-panel" style="display:none;border-top:1px solid rgba(30,41,59,0.25)">';
-        h+='<div class="lx-scroll" style="max-height:280px;overflow:auto">';
-        h+='<div class="lx-hdr" style="grid-template-columns:1fr 1fr 120px;padding:8px 16px;font-size:10px;color:#64748b">';
-        h+='<div>Table</div><div>Column (only Looker Dev)</div><div>Reason</div></div>';
-        lookerDevOnlyList.forEach(function(r){
-          h+='<div class="lx-row" style="grid-template-columns:1fr 1fr 120px;padding:8px 16px;font-size:11px">';
-          h+='<div class="lx-cell" style="font-family:monospace">'+(r.table||'').replace(/</g,'&lt;')+'</div>';
-          h+='<div class="lx-cell">'+(r.column||'—').replace(/</g,'&lt;')+'</div>';
-          h+='<div style="color:#f59e0b;font-weight:500">'+(r.reason||'').replace(/</g,'&lt;')+'</div></div>';
-        });
-        if(lookerDevOnlyList.length===0) h+='<div style="padding:16px;color:#64748b;font-size:11px">None</div>';
-        h+='</div></div></div>';
 
         R.innerHTML=h;
 
