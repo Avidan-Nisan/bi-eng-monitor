@@ -917,15 +917,13 @@ looker.plugins.visualizations.add({
         var tableCols='220px 1fr 80px';
         if(tablesCleanupList.length>0){
           h+='<div style="padding:12px 20px 8px;color:#94a3b8;font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:0.05em">Tables with 0 total '+measureLabel+'</div>';
-          h+='<div class="lx-hdr" style="grid-template-columns:'+tableCols+';padding:4px 20px;font-size:10px;color:#64748b;border-bottom:1px solid #1e293b">';
-          h+='<div>Schema</div><div>Table</div><div style="text-align:right">Total</div></div>';
-          tablesCleanupList.forEach(function(r){
-            h+='<div class="lx-row" style="grid-template-columns:'+tableCols+';padding:10px 20px;font-size:12px;border-bottom:1px solid rgba(30,41,59,0.5)">';
-            h+='<div class="lx-cell" style="font-family:ui-monospace,monospace;color:#f87171">'+(r.schema||'').replace(/</g,'&lt;')+'</div><div class="lx-cell" style="font-family:ui-monospace,monospace;color:#f87171">'+(r.table||'').replace(/</g,'&lt;')+'</div><div style="text-align:right;color:#94a3b8">0</div></div>';
-          });
         }
         h+='<div class="lx-hdr" style="grid-template-columns:'+tableCols+';padding:4px 20px;font-size:10px;color:#64748b;border-bottom:1px solid #1e293b">';
         h+='<div>Schema</div><div>Table</div><div style="text-align:right">Total '+measureLabel+'</div></div>';
+        tablesCleanupList.forEach(function(r){
+          h+='<div class="lx-row" style="grid-template-columns:'+tableCols+';padding:10px 20px;font-size:12px;border-bottom:1px solid rgba(30,41,59,0.5)">';
+          h+='<div class="lx-cell" style="font-family:ui-monospace,monospace;color:#f87171">'+(r.schema||'').replace(/</g,'&lt;')+'</div><div class="lx-cell" style="font-family:ui-monospace,monospace;color:#f87171">'+(r.table||'').replace(/</g,'&lt;')+'</div><div style="text-align:right;color:#94a3b8">0</div></div>';
+        });
         tablesAllList.forEach(function(r){
           var isZero=r.total===0;
           h+='<div class="lx-row" style="grid-template-columns:'+tableCols+';padding:10px 20px;font-size:12px;border-bottom:1px solid rgba(30,41,59,0.3)">';
@@ -937,15 +935,13 @@ looker.plugins.visualizations.add({
         h+='<div class="lx-scroll" style="flex:1;min-height:200px;overflow:auto;padding:0">';
         if(columnsCleanupListWithSchema.length>0){
           h+='<div style="padding:12px 20px 8px;color:#94a3b8;font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:0.05em">Columns with 0 total '+measureLabel+'</div>';
-          h+='<div class="lx-hdr" style="grid-template-columns:100px 1fr 1fr 80px;padding:4px 20px;font-size:10px;color:#64748b;border-bottom:1px solid #1e293b">';
-          h+='<div>Schema</div><div>Table</div><div>Column</div><div style="text-align:right">Num jobs</div></div>';
-          columnsCleanupListWithSchema.forEach(function(r){
-            h+='<div class="lx-row" style="grid-template-columns:100px 1fr 1fr 80px;padding:10px 20px;font-size:12px;border-bottom:1px solid rgba(30,41,59,0.5)">';
-            h+='<div class="lx-cell" style="font-family:ui-monospace,monospace;color:#f87171">'+(r.schema||'').replace(/</g,'&lt;')+'</div><div class="lx-cell" style="font-family:ui-monospace,monospace;color:#f87171">'+(r.table||'').replace(/</g,'&lt;')+'</div><div class="lx-cell">'+(r.column||'—').replace(/</g,'&lt;')+'</div><div style="text-align:right;color:#94a3b8">0</div></div>';
-          });
         }
         h+='<div class="lx-hdr" style="grid-template-columns:100px 1fr 1fr 80px;padding:4px 20px;font-size:10px;color:#64748b;border-bottom:1px solid #1e293b">';
         h+='<div>Schema</div><div>Table</div><div>Column</div><div style="text-align:right">Num jobs</div></div>';
+        columnsCleanupListWithSchema.forEach(function(r){
+          h+='<div class="lx-row" style="grid-template-columns:100px 1fr 1fr 80px;padding:10px 20px;font-size:12px;border-bottom:1px solid rgba(30,41,59,0.5)">';
+          h+='<div class="lx-cell" style="font-family:ui-monospace,monospace;color:#f87171">'+(r.schema||'').replace(/</g,'&lt;')+'</div><div class="lx-cell" style="font-family:ui-monospace,monospace;color:#f87171">'+(r.table||'').replace(/</g,'&lt;')+'</div><div class="lx-cell">'+(r.column||'—').replace(/</g,'&lt;')+'</div><div style="text-align:right;color:#94a3b8">0</div></div>';
+        });
         columnsAllList.forEach(function(r){
           var isZero=r.total===0;
           h+='<div class="lx-row" style="grid-template-columns:100px 1fr 1fr 80px;padding:10px 20px;font-size:12px;border-bottom:1px solid rgba(30,41,59,0.3)">';
