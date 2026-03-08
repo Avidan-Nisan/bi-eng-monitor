@@ -649,7 +649,7 @@ looker.plugins.visualizations.add({
 
           var h=navBar()+'<div class="lx-body"><div class="lx-bar"><div style="color:#94a3b8">Analyzing <span style="color:#e2e8f0;font-weight:600">'+vc+'</span> views \u00B7 '+data.length+' rows</div>';
 
-          if(met){var mc=met.avg>=70?'#10b981':met.avg>=50?'#eab308':'#f97316';h+='<div style="display:flex;gap:14px"><span><span style="color:#a78bfa;font-weight:600">'+met.tv+'</span> <span style="color:#475569">views</span></span><span><span style="color:'+mc+';font-weight:600">'+met.avg+'%</span> <span style="color:#475569">avg</span></span><span><span style="color:#22d3ee;font-weight:600">'+met.tp+'</span> <span style="color:#475569">pairs</span></span></div>';}
+          if(met){var mc=met.avg>=70?'#ef4444':met.avg>=50?'#eab308':'#10b981';h+='<div style="display:flex;gap:14px"><span><span style="color:#a78bfa;font-weight:600">'+met.tv+'</span> <span style="color:#475569">views</span></span><span><span style="color:'+mc+';font-weight:600">'+met.avg+'%</span> <span style="color:#475569">avg</span></span><span><span style="color:#22d3ee;font-weight:600">'+met.tp+'</span> <span style="color:#475569">pairs</span></span></div>';}
 
           h+='</div><div class="lx-scroll">';
 
@@ -659,9 +659,9 @@ looker.plugins.visualizations.add({
 
             simR.forEach(function(p,idx){
 
-              var isE=expD[idx],sc=p.sim>=70?'#10b981':p.sim>=50?'#eab308':'#f97316';
+              var isE=expD[idx],sc=p.sim>=70?'#ef4444':p.sim>=50?'#eab308':'#10b981';
 
-              var rgb=p.sim>=70?'16,185,129':p.sim>=50?'234,179,8':'249,115,22';
+              var rgb=p.sim>=70?'239,68,68':p.sim>=50?'234,179,8':'16,185,129';
 
               h+='<div class="dp-card" data-i="'+idx+'">';
 
