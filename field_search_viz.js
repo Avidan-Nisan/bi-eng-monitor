@@ -193,8 +193,8 @@ looker.plugins.visualizations.add({
 
         Amplify:'<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2"><path d="M2 12h4l2-8 4 16 2-8h4"/></svg>',
 
-        DBT:'<svg viewBox="0 0 24 24" width="24" height="24"><path fill="#FF694B" fill-rule="evenodd" d="M12 2A10 10 0 0 1 22 12 10 10 0 0 1 12 22 10 10 0 0 1 2 12 10 10 0 0 1 12 2z M12 8l-4 4 4 4 4-4-4-4z"/></svg>',
-        dbt:'<svg viewBox="0 0 24 24" width="24" height="24"><path fill="#FF694B" fill-rule="evenodd" d="M12 2A10 10 0 0 1 22 12 10 10 0 0 1 12 22 10 10 0 0 1 2 12 10 10 0 0 1 12 2z M12 8l-4 4 4 4 4-4-4-4z"/></svg>',
+        DBT:'<svg viewBox="0 0 24 24" width="24" height="24"><path fill="#FF694B" fill-rule="evenodd" d="M12 2c5.52 0 10 4.48 10 10s-4.48 10-10 10S2 17.52 2 12 6.48 2 12 2zm0 3.2L8.8 12 12 16.8 15.2 12 12 5.2z"/></svg>',
+        dbt:'<svg viewBox="0 0 24 24" width="24" height="24"><path fill="#FF694B" fill-rule="evenodd" d="M12 2c5.52 0 10 4.48 10 10s-4.48 10-10 10S2 17.52 2 12 6.48 2 12 2zm0 3.2L8.8 12 12 16.8 15.2 12 12 5.2z"/></svg>',
 
         'Amplify Dashboard':'data:image/png;base64,'+AMPLIFY_DASHBOARD_LOGO_B64,
 
@@ -202,9 +202,9 @@ looker.plugins.visualizations.add({
 
         'Service Account':'data:image/png;base64,'+SERVICE_ACCOUNT_LOGO_B64,
 
-        Tableau:'<svg viewBox="0 0 24 24" width="24" height="24"><path fill="#E8762D" d="M10 5h1.5v4H10V5zm0 5h1.5v4H10v-4z"/><path fill="#E8762D" d="M7 8.5h4v1.5H7V8.5z"/><path fill="#5B8BD9" d="M13 6h1.5v3H13V6zm0 4.5h1.5v3H13v-3z"/><path fill="#5B8BD9" d="M11 9.5h3v1.5h-3V9.5z"/><path fill="#C02F42" d="M6 11h3v1.5H6V11zm4 0h3v1.5h-3V11z"/><path fill="#6B4E9B" d="M8 13h1.5v4H8v-4zm4 0h1.5v4h-1.5v-4z"/><path fill="#6B4E9B" d="M10.5 14.5h3v1.5h-3v-1.5z"/></svg>',
+        Tableau:'<svg viewBox="0 0 24 24" width="24" height="24"><path fill="#E8762D" d="M8.5 7h1v2h-1V7zm0 4h1v2h-1v-2zm3-4h1v2h-1V7zm0 4h1v2h-1v-2zm-3.5 2.5h2v1h-2v-1zm3 0h2v1h-2v-1zm-4 2h2v1h-2v-1zm3 0h2v1h-2v-1z"/><path fill="#5B8BD9" d="M13 8h1v2h-1V8zm0 4h1v2h-1v-2zm-1.5-2h2v1h-2v-1z"/><path fill="#C02F42" d="M9.5 12.5h2v1h-2v-1zm2 0h2v1h-2v-1z"/><path fill="#6B4E9B" d="M8 15h1v2H8v-2zm4 0h1v2h-1v-2zm-2 1h2v1h-2v-1z"/></svg>',
 
-        Workato:'<svg viewBox="0 0 24 24" width="24" height="24"><path fill="#36C5C0" d="M6 18V8.5c0-.3.1-.5.3-.7.2-.2.5-.3.8-.3.3 0 .5.1.7.3l3 3.5 3-3.5c.2-.2.4-.3.7-.3.3 0 .6.1.8.3.2.2.3.4.3.7V18h-2v-7.2l-2 2.3-2-2.3V18H6zm12-11.5c0 1.4-1.1 2.5-2.5 2.5S13 7.9 13 6.5 14.1 4 15.5 4 18 5.1 18 6.5z"/></svg>',
+        Workato:'<svg viewBox="0 0 24 24" width="24" height="24"><path fill="#36C5C0" d="M6 18V9h1.5l2.5 3 2.5-3H14v9h-2v-5.5l-1.5 1.5L9 12.5V18H6zm11-10.5a2 2 0 1 1 0 4 2 2 0 0 1 0-4z"/></svg>',
 
         User:'data:image/png;base64,'+USER_LOGO_B64
 
