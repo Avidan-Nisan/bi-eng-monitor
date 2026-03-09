@@ -1042,7 +1042,7 @@ looker.plugins.visualizations.add({
             var logo=getLogo(c.key);
             var hasLogo=logo&&(logo.indexOf('data:')===0||(typeof logo==='string'&&logo.length>0&&logo.indexOf('<')!==-1));
             var contentEl;
-            if(hasLogo){var isDataUrl=logo.indexOf('data:')===0;var scale=cLogoSize/24;var tx=(cNw-cLogoSize)/2,ty=(cNh-cLogoSize)/2;contentEl=isDataUrl?'<image xlink:href="'+logo+'" x="'+cLogoX+'" y="'+cLogoY+'" width="'+cLogoSize+'" height="'+cLogoSize+'" preserveAspectRatio="xMidYMid meet"/>':'<g transform="translate('+tx+','+ty+') scale('+scale+')" fill="#f59e0b" color="#f59e0b">'+logo+'</g>';}
+            if(hasLogo){var isDataUrl=logo.indexOf('data:')===0;var scale=cLogoSize/24;var tx=(cNw-cLogoSize)/2,ty=(cNh-cLogoSize)/2;var logoBg='<rect width="'+cLogoSize+'" height="'+cLogoSize+'" rx="12" ry="12" fill="#131b2e"/>';contentEl=isDataUrl?'<g transform="translate('+cLogoX+','+cLogoY+')" clip-path="url(#lx-logo-clip)">'+logoBg+'<image x="0" y="0" width="'+cLogoSize+'" height="'+cLogoSize+'" xlink:href="'+logo+'" preserveAspectRatio="xMidYMid meet"/></g>':'<g transform="translate('+tx+','+ty+')" clip-path="url(#lx-logo-clip)">'+logoBg+'<g transform="scale('+scale+')" fill="#f59e0b" color="#f59e0b">'+logo+'</g></g>';}
             else{var lab=(c.label||c.key||'').toString().replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');contentEl='<text x="'+cNw/2+'" y="'+(cNh/2+5)+'" text-anchor="middle" fill="#e2e8f0" font-size="14" font-weight="600">'+lab+'</text>';}
             var pct=consumerPct(c);var pctText=(pct+'% of tables').replace(/</g,'&lt;');
             var ck=(c.key||'').replace(/"/g,'&quot;');
@@ -1060,7 +1060,7 @@ looker.plugins.visualizations.add({
           var h=navBar()+'<div class="lx-body">';
           h+='<div class="lx-bar" style="border-bottom:1px solid rgba(30,41,59,0.25)"><span style="color:#e2e8f0;font-size:12px;font-weight:700">Consumer dependencies</span></div>';
           h+='<div class="lx-bar"><div style="color:#94a3b8">'+barLabel+'</div><div style="color:#475569">'+visEdges.length+' connections \u00B7 '+data.length+' rows</div></div>';
-          h+='<div class="lx-scroll" style="padding:12px" id="lx-dbt-usage-scroll"><svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" width="'+sW+'" height="'+sH+'">';
+          h+='<div class="lx-scroll" style="padding:12px" id="lx-dbt-usage-scroll"><svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" width="'+sW+'" height="'+sH+'"><defs><clipPath id="lx-logo-clip"><rect width="112" height="112" rx="12" ry="12"/></clipPath></defs>';
           h+='<text x="'+(leftX+nW/2)+'" y="24" text-anchor="middle" fill="#06b6d4" font-size="10" font-weight="700" letter-spacing="1">DBT MODELS</text>';
           h+='<text x="'+(rightX+cNw/2)+'" y="24" text-anchor="middle" fill="#f59e0b" font-size="10" font-weight="700" letter-spacing="1">CONSUMERS</text>';
           h+=ed+nd+'</svg></div></div>';
