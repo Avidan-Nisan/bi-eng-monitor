@@ -1042,7 +1042,7 @@ looker.plugins.visualizations.add({
             var logo=getLogo(c.key);
             var hasLogo=logo&&(logo.indexOf('data:')===0||(typeof logo==='string'&&logo.length>0&&logo.indexOf('<')!==-1));
             var contentEl;
-            if(hasLogo){var isDataUrl=logo.indexOf('data:')===0;contentEl=isDataUrl?'<image xlink:href="'+logo+'" x="'+cLogoX+'" y="'+cLogoY+'" width="'+cLogoSize+'" height="'+cLogoSize+'" preserveAspectRatio="xMidYMid meet"/>':'<g transform="translate('+((cNw-24)/2)+','+((cNh-24)/2)+')" fill="#f59e0b" color="#f59e0b">'+logo+'</g>';}
+            if(hasLogo){var isDataUrl=logo.indexOf('data:')===0;var scale=cLogoSize/24;var tx=(cNw-cLogoSize)/2,ty=(cNh-cLogoSize)/2;contentEl=isDataUrl?'<image xlink:href="'+logo+'" x="'+cLogoX+'" y="'+cLogoY+'" width="'+cLogoSize+'" height="'+cLogoSize+'" preserveAspectRatio="xMidYMid meet"/>':'<g transform="translate('+tx+','+ty+') scale('+scale+')" fill="#f59e0b" color="#f59e0b">'+logo+'</g>';}
             else{var lab=(c.label||c.key||'').toString().replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');contentEl='<text x="'+cNw/2+'" y="'+(cNh/2+5)+'" text-anchor="middle" fill="#e2e8f0" font-size="14" font-weight="600">'+lab+'</text>';}
             var pct=consumerPct(c);var pctText=(pct+'% of tables').replace(/</g,'&lt;');
             var ck=(c.key||'').replace(/"/g,'&quot;');
