@@ -1004,8 +1004,6 @@ looker.plugins.visualizations.add({
               var scoreR=scoreLabelForFieldName(name,r.label);
               if(scoreR>scoreBest||(scoreR===scoreBest&&(r.label||'').length>(best.label||'').length))best=r;
             }
-            var bestScore=scoreLabelForFieldName(name,best.label);
-            if(bestScore===0&&list.length===1)continue;
             var key=(name||'').toLowerCase().trim();
             if(key)out[key]={label:best.label||'',description:best.description||''};
           }
@@ -1144,10 +1142,8 @@ looker.plugins.visualizations.add({
         h+='<div style="padding:16px 20px;display:flex;flex-direction:column;gap:16px;flex:1;min-height:0;overflow:hidden">';
         h+='<p style="margin:0;padding:6px 10px;background:#1e293b;border-radius:6px;color:#94a3b8;font-size:10px;font-family:ui-monospace,monospace"><strong style="color:#e2e8f0">Viz version:</strong> '+VIZ_VERSION+' — If you don\'t see this date, refresh or re-deploy the viz.</p>';
         h+='<p style="color:#94a3b8;font-size:11px;margin:0">'+instr+'</p>';
-        if(!hasSemanticData){
-          h+='<div><label style="color:#64748b;font-size:10px;display:block;margin-bottom:4px">Semantic layer (JSON)</label>';
-          h+='<textarea id="lx-lkml-json" placeholder=\'[{"rfcm_field_name":"x","rfcm_field_label":"...","column_description":"..."}]\' style="width:100%;height:80px;background:#0f172a;border:1px solid #1e293b;border-radius:8px;color:#e2e8f0;font-family:ui-monospace,monospace;font-size:11px;padding:10px;resize:vertical;box-sizing:border-box"></textarea></div>';
-        }
+        h+='<div><label style="color:#64748b;font-size:10px;display:block;margin-bottom:4px">'+(hasSemanticData?'Supplement: paste extra rows (JSON) for NOT IN MAP fields':'Semantic layer (JSON)')+'</label>';
+        h+='<textarea id="lx-lkml-json" placeholder="'+(hasSemanticData?'Paste JSON array for missing fields (doc_id, etc.)':'Paste JSON array of semantic layer rows')+'" style="width:100%;height:80px;background:#0f172a;border:1px solid #1e293b;border-radius:8px;color:#e2e8f0;font-family:ui-monospace,monospace;font-size:11px;padding:10px;resize:vertical;box-sizing:border-box"></textarea></div>';
         h+='<div><label style="color:#64748b;font-size:10px;display:block;margin-bottom:4px">LKML view file</label>';
         h+='<textarea id="lx-lkml-view" placeholder="view: my_view { ... }" style="width:100%;height:180px;background:#0f172a;border:1px solid #1e293b;border-radius:8px;color:#e2e8f0;font-family:ui-monospace,monospace;font-size:11px;padding:10px;resize:vertical;box-sizing:border-box"></textarea></div>';
         h+='<button type="button" id="lx-lkml-generate" style="padding:8px 20px;background:#7c3aed;color:#fff;border:none;border-radius:8px;font-size:12px;font-weight:600;cursor:pointer;align-self:flex-start">Generate view with labels</button>';
@@ -1166,8 +1162,15 @@ looker.plugins.visualizations.add({
           var debugBody=document.getElementById('lx-lkml-debug-body');
           if(!btn||!outTa)return;
           btn.addEventListener('click',function(){
-            var semantic=semanticFromQuery;
-            if(!semantic&&jsonTa&&jsonTa.value.trim())semantic=parseSemanticFromJson(jsonTa.value.trim());
+            var semantic=null;
+            if(semanticFromQuery&&Object.keys(semanticFromQuery).length>0){
+              semantic={};
+              for(var sk in semanticFromQuery)if(semanticFromQuery.hasOwnProperty(sk))semantic[sk]=semanticFromQuery[sk];
+            }
+            if(jsonTa&&jsonTa.value.trim()){
+              var pasted=parseSemanticFromJson(jsonTa.value.trim());
+              if(pasted){if(!semantic)semantic={};for(var pk in pasted)if(pasted.hasOwnProperty(pk)){var lk=(pk||'').toLowerCase().trim();if(lk&&!semantic[lk])semantic[lk]=pasted[pk];}}
+            }
             if(!semantic||Object.keys(semantic).length===0){
               outTa.value='No semantic layer data. Use a tile that queries Columns Semantic Layer, or paste JSON above.';
               if(debugBody)debugBody.textContent='No semantic data.';
@@ -1198,8 +1201,12 @@ looker.plugins.visualizations.add({
                 if(dupes.length){dbg.push('');dbg.push('Fields with multiple rows: '+dupes.slice(0,20).join(', ')+(dupes.length>20?' ...':''));}
               }else dbg.push('(Using pasted JSON or no column keys)');
               dbg.push('');
+              dbg.push('=== Semantic map ===');
+              var mapKeys=Object.keys(semantic||{});
+              dbg.push('Map has '+mapKeys.length+' keys (lowercase). Sample: '+mapKeys.slice(0,25).join(', ')+(mapKeys.length>25?' ...':''));
+              dbg.push('');
               dbg.push('=== Map entries used for your LKML ===');
-              dbg.push('(If you see NOT IN MAP but the field exists in the Explore, increase this tile\'s row limit so all rows are returned.)');
+              dbg.push('(NOT IN MAP = field name not in map. Paste that row in Supplement box above or add to semantic layer.)');
               dbg.push('');
               var lines=viewSrc.split(/\r?\n/),j=0;
               while(j<lines.length){
