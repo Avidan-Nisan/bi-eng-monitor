@@ -1069,44 +1069,41 @@ looker.plugins.visualizations.add({
             var dimMatch=line.match(/^\s*(dimension|measure)\s*:\s*([a-zA-Z0-9_]+)\s*(\{)?\s*$/);
             if(dimMatch){
               var declName=dimMatch[2];
-              var blockStart=i;
               out.push(line);
               i++;
               var sqlFieldName=null;
+              var blockLines=[];
               while(i<lines.length){
                 var inner=lines[i];
                 if(/^\s*dimension\s*:|^\s*measure\s*:|^\s*set\s*:|^\s*view\s*:/.test(inner)&&!inner.match(/^\s*(label|description)\s*:/))break;
-                if(/^\s*\}\s*$/.test(inner)){out.push(inner);i++;break;}
+                if(/^\s*\}\s*$/.test(inner)){blockLines.push(inner);i++;break;}
                 var sqlM=inner.match(/^\s*sql\s*:\s*(.+)$/);
                 if(sqlM){var ex=extractSqlFieldName(sqlM[1]);if(ex)sqlFieldName=ex;}
                 else if(inner.indexOf('${TABLE}')!==-1&&!sqlFieldName)sqlFieldName=extractSqlFieldName(inner);
-                out.push(inner);
+                blockLines.push(inner);
                 i++;
               }
               var meta=null;
               if(sqlFieldName&&semanticMap[sqlFieldName])meta=semanticMap[sqlFieldName];
               else if(declName&&semanticMap[declName])meta=semanticMap[declName];
               if(meta&&(meta.label||meta.description)){
-                var endIdx=blockStart+1;
-                while(endIdx<out.length&&!out[endIdx].match(/^\s*\}\s*$/))endIdx++;
-                var blockContent=out.slice(blockStart+1,endIdx+1);
                 var filtered=[];
-                for(var j=0;j<blockContent.length;j++){
-                  var ln=blockContent[j];
+                for(var j=0;j<blockLines.length;j++){
+                  var ln=blockLines[j];
                   if(ln.match(/^\s*\}\s*$/))filtered.push(ln);
                   else if(!ln.match(/^\s*label\s*:/)&&!ln.match(/^\s*description\s*:/))filtered.push(ln);
                 }
                 var toInsert=[];
                 if(meta.label)toInsert.push('    label: "'+(meta.label||'').replace(/"/g,'\\"')+'"');
                 if(meta.description)toInsert.push('    description: "'+(meta.description||'').replace(/"/g,'\\"').replace(/\n/g,'\\n')+'"');
-                if(toInsert.length){
-                  var insertIdx=0;
-                  for(var j=0;j<filtered.length;j++){
-                    if(filtered[j].match(/^\s*(sql|type|value_format|format_string|html)\s*:/)){insertIdx=j;break;}
-                  }
-                  var newBlock=filtered.slice(0,insertIdx).concat(toInsert,filtered.slice(insertIdx));
-                  out=out.slice(0,blockStart+1).concat(newBlock,out.slice(endIdx+1));
+                var insertIdx=0;
+                for(var j=0;j<filtered.length;j++){
+                  if(filtered[j].match(/^\s*(sql|type|value_format|format_string|html)\s*:/)){insertIdx=j;break;}
                 }
+                var newBlock=filtered.slice(0,insertIdx).concat(toInsert,filtered.slice(insertIdx));
+                for(var k=0;k<newBlock.length;k++)out.push(newBlock[k]);
+              }else{
+                for(var k=0;k<blockLines.length;k++)out.push(blockLines[k]);
               }
               continue;
             }
@@ -1130,7 +1127,7 @@ looker.plugins.visualizations.add({
         var instr='Paste your LKML view file below. Semantic layer from this tile\'s query (Columns Semantic Layer: rfcm_field_name, rfcm_field_label, column_description).';
         if(hasSemanticData)instr='Semantic layer loaded. Paste LKML view and click Generate. Labels/descriptions added only when name matches exactly.';
 
-        var VIZ_VERSION='2025-03-17';
+        var VIZ_VERSION='2025-03-18';
         var h=navBar()+'<div class="lx-body"><div class="lx-bar" style="border-bottom:1px solid #1e293b"><span style="color:#e2e8f0;font-size:12px;font-weight:700">LKML Labels</span></div>';
         h+='<div style="padding:16px 20px;display:flex;flex-direction:column;gap:16px;flex:1;min-height:0;overflow:hidden">';
         h+='<p style="margin:0;padding:6px 10px;background:#1e293b;border-radius:6px;color:#94a3b8;font-size:10px;font-family:ui-monospace,monospace"><strong style="color:#e2e8f0">Viz version:</strong> '+VIZ_VERSION+' — If you don\'t see this date, refresh or re-deploy the viz.</p>';
