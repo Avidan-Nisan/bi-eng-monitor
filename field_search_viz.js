@@ -966,6 +966,15 @@ looker.plugins.visualizations.add({
 
       if(mode==='lkml_labels'){
 
+        function scoreLabelForFieldName(fieldName,label){
+          if(!fieldName||!label)return 0;
+          var parts=fieldName.toLowerCase().split(/_/).filter(function(p){return p.length>1;});
+          var lab=label.toLowerCase();
+          var score=0;
+          for(var i=0;i<parts.length;i++)if(lab.indexOf(parts[i])!==-1)score++;
+          return score;
+        }
+
         function parseSemanticFromData(rows){
           var keys=rows.length?Object.keys(rows[0]):[];
           var nk=function(k){return (k||'').toLowerCase().replace(/\s/g,'_');};
@@ -973,14 +982,27 @@ looker.plugins.visualizations.add({
           var fl=keys.find(function(k){return nk(k).indexOf('rfcm_field_label')!==-1;});
           var cd=keys.find(function(k){return nk(k).indexOf('column_description')!==-1;})||keys.find(function(k){var n=nk(k);return n.indexOf('description')!==-1&&n.indexOf('label')===-1;});
           if(!fn||!fl||!cd)return null;
-          var out={};
+          var byName={};
           rows.forEach(function(row){
             var name=String((row[fn]!=null&&typeof row[fn]==='object'&&'value' in row[fn])?row[fn].value:row[fn]||'').trim();
-            if(!name||out[name])return;
+            if(!name)return;
             var label=String((row[fl]!=null&&typeof row[fl]==='object'&&'value' in row[fl])?row[fl].value:row[fl]||'').trim();
             var description=String((row[cd]!=null&&typeof row[cd]==='object'&&'value' in row[cd])?row[cd].value:row[cd]||'').trim();
-            out[name]={label:label,description:description};
+            if(!byName[name])byName[name]=[];
+            byName[name].push({label:label,description:description});
           });
+          var out={};
+          for(var name in byName){
+            var list=byName[name];
+            var best=list[0];
+            for(var i=1;i<list.length;i++){
+              var r=list[i];
+              var scoreBest=scoreLabelForFieldName(name,best.label);
+              var scoreR=scoreLabelForFieldName(name,r.label);
+              if(scoreR>scoreBest||(scoreR===scoreBest&&(r.label||'').length>(best.label||'').length))best=r;
+            }
+            out[name]={label:best.label||'',description:best.description||''};
+          }
           return out;
         }
 
