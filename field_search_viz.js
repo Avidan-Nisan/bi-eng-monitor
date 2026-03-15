@@ -1028,6 +1028,8 @@ looker.plugins.visualizations.add({
 
         function extractSqlFieldName(sqlLine){
           if(!sqlLine||typeof sqlLine!=='string')return null;
+          var matches=sqlLine.match(/\$\{TABLE\}\s*\.\s*[\"\']?([a-zA-Z0-9_]+)[\"\']?/g);
+          if(!matches||matches.length!==1)return null;
           var m=sqlLine.match(/\$\{TABLE\}\s*\.\s*[\"\']?([a-zA-Z0-9_]+)[\"\']?/);
           return m?m[1]:null;
         }
@@ -1195,14 +1197,17 @@ looker.plugins.visualizations.add({
                 if(m){
                   var declName=m[2];
                   var sqlFieldName=null;
+                  var sqlPart=[];
                   var k=j+1;
                   while(k<lines.length){
                     if(/^\s*dimension\s*:|^\s*measure\s*:|^\s*set\s*:|^\s*view\s*:/.test(lines[k])&&!lines[k].match(/^\s*(label|description)\s*:/))break;
                     if(/^\s*\}\s*$/.test(lines[k])){k++;break;}
-                    var sm=lines[k].match(/\$\{TABLE\}\s*\.\s*[\"\']?([a-zA-Z0-9_]+)[\"\']?/);
-                    if(sm)sqlFieldName=sm[1];
+                    var sqlM=lines[k].match(/^\s*sql\s*:\s*(.+)$/);
+                    if(sqlM)sqlPart.push(sqlM[1]);
                     k++;
                   }
+                  var sqlFull=sqlPart.join(' ');
+                  sqlFieldName=extractSqlFieldName(sqlFull);
                   var used=null;
                   if(sqlFieldName&&semantic[sqlFieldName])used={key:sqlFieldName,meta:semantic[sqlFieldName]};
                   else if(declName&&semantic[declName])used={key:declName,meta:semantic[declName]};
