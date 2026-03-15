@@ -1046,31 +1046,6 @@ looker.plugins.visualizations.add({
           }catch(e){return null;}
         }
 
-        function addLkmlAliasesToSemantic(semanticMap,lkmlText){
-          if(!semanticMap||!lkmlText||typeof lkmlText!=='string')return;
-          var lines=lkmlText.split(/\r?\n/),j=0;
-          while(j<lines.length){
-            var m=lines[j].match(/^\s*(dimension|measure|dimension_group)\s*:\s*([a-zA-Z0-9_]+)\s*(\{)?\s*$/);
-            if(m){
-              var declName=m[2];
-              var sqlPart=[];
-              var k=j+1;
-              while(k<lines.length){
-                if(/^\s*dimension\s*:|^\s*measure\s*:|^\s*dimension_group\s*:|^\s*set\s*:|^\s*view\s*:/.test(lines[k])&&!lines[k].match(/^\s*(label|description)\s*:/))break;
-                if(/^\s*\}\s*$/.test(lines[k])){k++;break;}
-                var sqlM=lines[k].match(/^\s*sql\s*:\s*(.+)$/);
-                if(sqlM)sqlPart.push(sqlM[1]);
-                k++;
-              }
-              var sqlFull=sqlPart.join(' ');
-              var sqlFieldName=extractSqlFieldName(sqlFull);
-              if(sqlFieldName&&sqlFull&&!isStandaloneSqlField(sqlFull))sqlFieldName=null;
-              if(sqlFieldName&&semanticMap[sqlFieldName]&&!semanticMap[declName])semanticMap[declName]=semanticMap[sqlFieldName];
-              j=k;
-            }else j++;
-          }
-        }
-
         function extractSqlFieldName(sqlLine){
           if(!sqlLine||typeof sqlLine!=='string')return null;
           var matches=sqlLine.match(/\$\{TABLE\}\s*\.\s*[\"\']?([a-zA-Z0-9_]+)[\"\']?/g);
@@ -1082,6 +1057,15 @@ looker.plugins.visualizations.add({
           if(!sqlLine||typeof sqlLine!=='string')return false;
           var s=sqlLine.trim().replace(/\s*;\s*$/, '').trim();
           return /^\s*\$\{TABLE\}\s*\.\s*[a-zA-Z0-9_]+\s*$/.test(s);
+        }
+        /** Join LKML field to rfcm semantic map: 1) by sql field name from sql: ${TABLE}.field_name only if standalone; 2) if no match or not standalone, by dimension/dimension_group/measure name. */
+        function joinLkmlFieldToRfcm(declName,sqlFull,semanticMap){
+          if(!semanticMap)return {meta:null,joinKey:null,sqlFieldName:null,standalone:false};
+          var sqlFieldName=extractSqlFieldName(sqlFull);
+          var standalone=!!(sqlFieldName&&sqlFull&&isStandaloneSqlField(sqlFull));
+          if(standalone&&sqlFieldName&&semanticMap[sqlFieldName])return {meta:semanticMap[sqlFieldName],joinKey:sqlFieldName,sqlFieldName:sqlFieldName,standalone:true};
+          if(declName&&semanticMap[declName])return {meta:semanticMap[declName],joinKey:declName,sqlFieldName:sqlFieldName,standalone:false};
+          return {meta:null,joinKey:null,sqlFieldName:sqlFieldName,standalone:standalone};
         }
 
         function oneLabelDescPerBlock(lkmlText){
@@ -1118,28 +1102,24 @@ looker.plugins.visualizations.add({
           var i=0;
           while(i<lines.length){
             var line=lines[i];
-            var dimMatch=line.match(/^\s*(dimension|measure)\s*:\s*([a-zA-Z0-9_]+)\s*(\{)?\s*$/);
+            var dimMatch=line.match(/^\s*(dimension|measure|dimension_group)\s*:\s*([a-zA-Z0-9_]+)\s*(\{)?\s*$/);
             if(dimMatch){
               var declName=dimMatch[2];
               out.push(line);
               i++;
-              var sqlFieldName=null;
               var sqlContent=null;
               var blockLines=[];
               while(i<lines.length){
                 var inner=lines[i];
-                if(/^\s*dimension\s*:|^\s*measure\s*:|^\s*set\s*:|^\s*view\s*:/.test(inner)&&!inner.match(/^\s*(label|description)\s*:/))break;
+                if(/^\s*dimension\s*:|^\s*measure\s*:|^\s*dimension_group\s*:|^\s*set\s*:|^\s*view\s*:/.test(inner)&&!inner.match(/^\s*(label|description)\s*:/))break;
                 if(/^\s*\}\s*$/.test(inner)){blockLines.push(inner);i++;break;}
                 var sqlM=inner.match(/^\s*sql\s*:\s*(.+)$/);
-                if(sqlM){sqlContent=(sqlContent?sqlContent+' ':'')+sqlM[1];var ex=extractSqlFieldName(sqlM[1]);if(ex)sqlFieldName=ex;}
-                else if(inner.indexOf('${TABLE}')!==-1&&!sqlFieldName)sqlFieldName=extractSqlFieldName(inner);
+                if(sqlM)sqlContent=(sqlContent?sqlContent+' ':'')+sqlM[1];
                 blockLines.push(inner);
                 i++;
               }
-              if(sqlFieldName&&sqlContent&&!isStandaloneSqlField(sqlContent))sqlFieldName=null;
-              var meta=null;
-              if(sqlFieldName&&semanticMap[sqlFieldName])meta=semanticMap[sqlFieldName];
-              else if(declName&&semanticMap[declName])meta=semanticMap[declName];
+              var joined=joinLkmlFieldToRfcm(declName,sqlContent||'',semanticMap);
+              var meta=joined.meta;
               if(meta&&(meta.label||meta.description)){
                 var filtered=[];
                 for(var j=0;j<blockLines.length;j++){
@@ -1217,7 +1197,6 @@ looker.plugins.visualizations.add({
             }
             var viewSrc=(viewTa&&viewTa.value)?viewTa.value:'';
             if(!viewSrc.trim()){outTa.value='Paste an LKML view file and try again.';if(debugBody)debugBody.textContent='';return;}
-            addLkmlAliasesToSemantic(semantic,viewSrc);
             outTa.value=addLabelsToLkml(viewSrc,semantic);
             if(debugBody){
               var dbg=[];
@@ -1241,15 +1220,13 @@ looker.plugins.visualizations.add({
                 if(dupes.length){dbg.push('');dbg.push('Fields with multiple rows: '+dupes.slice(0,20).join(', ')+(dupes.length>20?' ...':''));}
               }else dbg.push('(Using pasted JSON or no column keys)');
               dbg.push('');
-              dbg.push('=== Map entries used for your LKML ===');
-              dbg.push('(If you see NOT IN MAP but the field exists in the Explore, increase this tile\'s row limit so all rows are returned.)');
+              dbg.push('=== Join: LKML field -> rfcm (1=by sql ${TABLE}.field_name if standalone, else by dimension/measure name) ===');
               dbg.push('');
               var lines=viewSrc.split(/\r?\n/),j=0;
               while(j<lines.length){
                 var m=lines[j].match(/^\s*(dimension|measure|dimension_group)\s*:\s*([a-zA-Z0-9_]+)\s*(\{)?\s*$/);
                 if(m){
                   var declName=m[2];
-                  var sqlFieldName=null;
                   var sqlPart=[];
                   var k=j+1;
                   while(k<lines.length){
@@ -1260,12 +1237,10 @@ looker.plugins.visualizations.add({
                     k++;
                   }
                   var sqlFull=sqlPart.join(' ');
-                  sqlFieldName=extractSqlFieldName(sqlFull);
-                  if(sqlFieldName&&sqlFull&&!isStandaloneSqlField(sqlFull))sqlFieldName=null;
-                  var used=null;
-                  if(sqlFieldName&&semantic[sqlFieldName])used={key:sqlFieldName,meta:semantic[sqlFieldName]};
-                  else if(declName&&semantic[declName])used={key:declName,meta:semantic[declName]};
-                  dbg.push(declName+(sqlFieldName?' sql: '+sqlFieldName:'')+' -> '+(used?'label="'+used.meta.label+'"':'NOT IN MAP'));
+                  var joined=joinLkmlFieldToRfcm(declName,sqlFull,semantic);
+                  var joinKey=joined.joinKey;
+                  var keyNote=joined.standalone&&joined.sqlFieldName?' (join by sql field: '+joined.sqlFieldName+')':(joinKey?' (join by decl name)':'');
+                  dbg.push(declName+(joined.sqlFieldName?' sql: '+joined.sqlFieldName:'')+' -> '+(joined.meta?'label="'+joined.meta.label+'"'+keyNote:'NOT IN MAP'));
                   j=k;
                 }else j++;
               }
