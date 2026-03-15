@@ -970,16 +970,17 @@ looker.plugins.visualizations.add({
           var keys=rows.length?Object.keys(rows[0]):[];
           var fn=keys.find(function(k){return (k||'').toLowerCase().replace(/\s/g,'_').indexOf('rfcm_field_name')!==-1;});
           var fl=keys.find(function(k){return (k||'').toLowerCase().replace(/\s/g,'_').indexOf('rfcm_field_label')!==-1;});
-          var cd=keys.find(function(k){var l=(k||'').toLowerCase().replace(/\s/g,'_');return l.indexOf('column_description')!==-1||l.indexOf('description')!==-1;});
+          var cd=keys.find(function(k){var l=(k||'').toLowerCase().replace(/\s/g,'_');return l.indexOf('column_description')!==-1||(l.indexOf('description')!==-1&&l.indexOf('label')===-1);});
           if(!fn)return null;
           var out={};
           rows.forEach(function(row){
             var name=String((row[fn]!=null&&typeof row[fn]==='object'&&'value' in row[fn])?row[fn].value:row[fn]||'').trim();
             if(!name)return;
-            out[name]={
-              label:String((row[fl]!=null&&typeof row[fl]==='object'&&'value' in row[fl])?row[fl].value:row[fl]||'').trim(),
-              description:String((row[cd]!=null&&typeof row[cd]==='object'&&'value' in row[cd])?row[cd].value:row[cd]||'').trim()
-            };
+            var label=String((row[fl]!=null&&typeof row[fl]==='object'&&'value' in row[fl])?row[fl].value:row[fl]||'').trim();
+            var description=String((row[cd]!=null&&typeof row[cd]==='object'&&'value' in row[cd])?row[cd].value:row[cd]||'').trim();
+            if(!out[name])out[name]={label:'',description:''};
+            if(label)out[name].label=label;
+            if(description)out[name].description=description;
           });
           return out;
         }
@@ -992,10 +993,11 @@ looker.plugins.visualizations.add({
             arr.forEach(function(row){
               var name=String(row.rfcm_field_name||'').trim();
               if(!name)return;
-              out[name]={
-                label:String(row.rfcm_field_label||row.label||'').trim(),
-                description:String(row.column_description||row.description||'').trim()
-              };
+              var label=String(row.rfcm_field_label||row.label||'').trim();
+              var description=String(row.column_description||row.description||'').trim();
+              if(!out[name])out[name]={label:'',description:''};
+              if(label)out[name].label=label;
+              if(description)out[name].description=description;
             });
             return out;
           }catch(e){return null;}
