@@ -1011,7 +1011,7 @@ looker.plugins.visualizations.add({
         function findSemanticMeta(semanticMap,sqlFieldName,declName){
           if(!semanticMap)return null;
           if(sqlFieldName&&semanticMap[sqlFieldName])return semanticMap[sqlFieldName];
-          if(declName&&semanticMap[declName])return semanticMap[declName];
+          if(!sqlFieldName&&declName&&semanticMap[declName])return semanticMap[declName];
           return null;
         }
 
