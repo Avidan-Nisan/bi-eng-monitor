@@ -1010,26 +1010,9 @@ looker.plugins.visualizations.add({
 
         function findSemanticMeta(semanticMap,sqlFieldName,declName){
           if(!semanticMap)return null;
-          var exact1=sqlFieldName&&semanticMap[sqlFieldName];
-          if(exact1)return exact1;
-          var exact2=declName&&semanticMap[declName];
-          if(exact2)return exact2;
-          var declLower=declName?(declName+'').toLowerCase():'';
-          var sqlLower=sqlFieldName?(sqlFieldName+'').toLowerCase():'';
-          var suffixDecl=declLower?'_'+declLower:'';
-          var suffixSql=sqlLower?'_'+sqlLower:'';
-          var suffixMatches=[];
-          for(var k in semanticMap){
-            if(!semanticMap.hasOwnProperty(k))continue;
-            var keyLower=(k+'').toLowerCase();
-            if(keyLower===declLower||keyLower===sqlLower)return semanticMap[k];
-            if(suffixDecl&&keyLower.slice(-suffixDecl.length)===suffixDecl)suffixMatches.push({k:k,meta:semanticMap[k]});
-            else if(suffixSql&&keyLower.slice(-suffixSql.length)===suffixSql)suffixMatches.push({k:k,meta:semanticMap[k]});
-          }
-          if(suffixMatches.length===0)return null;
-          if(suffixMatches.length===1)return suffixMatches[0].meta;
-          suffixMatches.sort(function(a,b){return b.k.length-a.k.length;});
-          return suffixMatches[0].meta;
+          if(sqlFieldName&&semanticMap[sqlFieldName])return semanticMap[sqlFieldName];
+          if(declName&&semanticMap[declName])return semanticMap[declName];
+          return null;
         }
 
         function addLabelsToLkml(lkmlText,semanticMap){
