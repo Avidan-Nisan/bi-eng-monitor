@@ -962,18 +962,9 @@ looker.plugins.visualizations.add({
         done();return;
       }
 
-      // ========== LKML LABELS: 1-to-1 join on rfcm_field_name (exact match to sql field or dimension/measure name) ==========
+      // ========== LKML LABELS: join pasted LKML to rfcm by sql field name (if 1 standalone field) or by dimension/measure name ==========
 
       if(mode==='lkml_labels'){
-
-        function scoreLabelForFieldName(fieldName,label){
-          if(!fieldName||!label)return 0;
-          var parts=fieldName.toLowerCase().split(/_/).filter(function(p){return p.length>1;});
-          var lab=label.toLowerCase();
-          var score=0;
-          for(var i=0;i<parts.length;i++)if(lab.indexOf(parts[i])!==-1)score++;
-          return score;
-        }
 
         function getCellVal(row,key){
           if(!row||!key)return undefined;
@@ -987,116 +978,52 @@ looker.plugins.visualizations.add({
           if(o!=null&&typeof o==='object'&&'value' in o)return o.value;
           return o;
         }
-        function resolveSemanticKey(row,wantKey,hint){
-          if(!row||typeof row!=='object')return wantKey;
-          var v=getCellVal(row,wantKey);
-          if(v!==undefined&&v!==null&&v!=='')return wantKey;
-          var keys=Array.isArray(row)?[]:Object.keys(row);
-          if(keys.length===0)return wantKey;
-          var hintLower=(hint||'').toLowerCase().replace(/[\s.]/g,'');
-          var found=keys.find(function(k){var kk=(k||'').toLowerCase().replace(/[\s.]/g,'');return kk.indexOf(hintLower)!==-1||hintLower.indexOf(kk)!==-1;});
-          return found||wantKey;
-        }
+
         function parseSemanticFromData(rows,fieldKeys){
-          var fn=fieldKeys&&fieldKeys.fn,fl=fieldKeys&&fieldKeys.fl,cd=fieldKeys&&fieldKeys.cd;
-          if(!fn||!fl||!cd){
-            var keys=rows.length?Object.keys(rows[0]):[];
-            var nk=function(k){return (k||'').toLowerCase().replace(/\s/g,'_');};
-            fn=fn||keys.find(function(k){var n=nk(k);return n.indexOf('rfcm_field_name')!==-1&&n.indexOf('rfcm_field_label')===-1;});
-            fl=fl||keys.find(function(k){return nk(k).indexOf('rfcm_field_label')!==-1;});
-            cd=cd||keys.find(function(k){return nk(k).indexOf('column_description')!==-1;})||keys.find(function(k){var n=nk(k);return n.indexOf('description')!==-1&&n.indexOf('label')===-1;});
-          }
-          if(!fn||!fl||!cd)return null;
-          var firstRow=rows.length?rows[0]:null;
-          var keyFn=resolveSemanticKey(firstRow,fn,'rfcm_field_name');
-          var keyFl=resolveSemanticKey(firstRow,fl,'rfcm_field_label');
-          var keyCd=resolveSemanticKey(firstRow,cd,'column_description');
-          var byName={};
+          if(!fieldKeys||!fieldKeys.fn||!fieldKeys.fl||!fieldKeys.cd||!rows||rows.length===0)return null;
+          var fn=fieldKeys.fn,fl=fieldKeys.fl,cd=fieldKeys.cd;
+          var map={};
           rows.forEach(function(row){
-            var name=String(getCellVal(row,keyFn)||'').trim();
-            if(!name&&row&&typeof row==='object'&&!Array.isArray(row)){
-              var shortFn=keyFn.indexOf('.')!==-1?keyFn.split('.').pop():keyFn;
-              name=String(getCellVal(row,shortFn)||'').trim();
-            }
-            if(!name&&row&&typeof row==='object'&&!Array.isArray(row)){
-              var keys=Object.keys(row);
-              var nameKey=keys.find(function(k){var l=(k||'').toLowerCase();return l.indexOf('rfcm_field_name')!==-1&&l.indexOf('rfcm_field_label')===-1;});
-              if(nameKey){var v=getCellVal(row,nameKey);name=String(v!=null?v:'').trim();}
-            }
-            if(!name&&row&&typeof row==='object'&&!Array.isArray(row)){
-              for(var rk in row)if(row.hasOwnProperty(rk)){
-                var sub=row[rk];
-                if(sub&&typeof sub==='object'&&!Array.isArray(sub)&&('rfcm_field_name' in sub||'rfcm_field_name' in (sub.value||{}))){
-                  var v=sub.rfcm_field_name!=null?sub.rfcm_field_name:(sub.value&&sub.value.rfcm_field_name);
-                  if(v!=null&&typeof v==='object'&&'value' in v)v=v.value;
-                  name=String(v!=null?v:'').trim();
-                  if(name)break;
-                }
-              }
-            }
+            var name=String(getCellVal(row,fn)||'').trim();
             if(!name)return;
-            var label=String(getCellVal(row,keyFl)||'').trim();
-            var description=String(getCellVal(row,keyCd)||'').trim();
-            if(!byName[name])byName[name]=[];
-            byName[name].push({label:label,description:description});
+            var label=String(getCellVal(row,fl)||'').trim();
+            var description=String(getCellVal(row,cd)||'').trim();
+            map[name]={label:label,description:description};
           });
-          var out={};
-          for(var name in byName){
-            var list=byName[name];
-            var best=list[0];
-            for(var i=1;i<list.length;i++){
-              var r=list[i];
-              var scoreBest=scoreLabelForFieldName(name,best.label);
-              var scoreR=scoreLabelForFieldName(name,r.label);
-              if(scoreR>scoreBest||(scoreR===scoreBest&&(r.label||'').length>(best.label||'').length))best=r;
-            }
-            out[name]={label:best.label||'',description:best.description||''};
-            if(name.indexOf('.')!==-1){
-              var shortName=name.split('.').pop();
-              if(shortName&&!out[shortName])out[shortName]=out[name];
-            }
-          }
-          return out;
+          return Object.keys(map).length?map:null;
         }
 
         function parseSemanticFromJson(jsonStr){
           try{
             var arr=JSON.parse(jsonStr);
             if(!Array.isArray(arr))return null;
-            var out={};
+            var map={};
             arr.forEach(function(row){
               var name=String(row.rfcm_field_name||'').trim();
               if(!name)return;
-              if(out[name])return;
-              out[name]={label:String(row.rfcm_field_label||row.label||'').trim(),description:String(row.column_description||row.description||'').trim()};
-              if(name.indexOf('.')!==-1){
-                var shortName=name.split('.').pop();
-                if(shortName&&!out[shortName])out[shortName]=out[name];
-              }
+              map[name]={label:String(row.rfcm_field_label||row.label||'').trim(),description:String(row.column_description||row.description||'').trim()};
             });
-            return out;
+            return Object.keys(map).length?map:null;
           }catch(e){return null;}
         }
 
         function extractSqlFieldName(sqlLine){
           if(!sqlLine||typeof sqlLine!=='string')return null;
-          var matches=sqlLine.match(/\$\{TABLE\}\s*\.\s*[\"\']?([a-zA-Z0-9_]+)[\"\']?/g);
-          if(!matches||matches.length!==1)return null;
-          var m=sqlLine.match(/\$\{TABLE\}\s*\.\s*[\"\']?([a-zA-Z0-9_]+)[\"\']?/);
+          var m=sqlLine.match(/\$\{TABLE\}\s*\.\s*["']?([a-zA-Z0-9_]+)["']?\s*(?:;|$)/);
           return m?m[1]:null;
         }
         function isStandaloneSqlField(sqlLine){
           if(!sqlLine||typeof sqlLine!=='string')return false;
-          var s=sqlLine.trim().replace(/\s*;\s*$/, '').trim();
+          var s=sqlLine.trim().replace(/\s*;+\s*$/,'').trim();
           return /^\s*\$\{TABLE\}\s*\.\s*[a-zA-Z0-9_]+\s*$/.test(s);
         }
-        /** Join LKML field to rfcm semantic map: 1) by sql field name from sql: ${TABLE}.field_name only if standalone; 2) if no match or not standalone, by dimension/dimension_group/measure name. */
-        function joinLkmlFieldToRfcm(declName,sqlFull,semanticMap){
-          if(!semanticMap)return {meta:null,joinKey:null,sqlFieldName:null,standalone:false};
+
+        function joinLkmlFieldToRfcm(declName,sqlFull,map){
+          if(!map)return {meta:null,joinKey:null,sqlFieldName:null,standalone:false};
           var sqlFieldName=extractSqlFieldName(sqlFull);
-          var standalone=!!(sqlFieldName&&sqlFull&&isStandaloneSqlField(sqlFull));
-          if(standalone&&sqlFieldName&&semanticMap[sqlFieldName])return {meta:semanticMap[sqlFieldName],joinKey:sqlFieldName,sqlFieldName:sqlFieldName,standalone:true};
-          if(declName&&semanticMap[declName])return {meta:semanticMap[declName],joinKey:declName,sqlFieldName:sqlFieldName,standalone:false};
+          var standalone=!!(sqlFieldName&&isStandaloneSqlField(sqlFull));
+          if(standalone&&sqlFieldName&&map[sqlFieldName])return {meta:map[sqlFieldName],joinKey:sqlFieldName,sqlFieldName:sqlFieldName,standalone:true};
+          if(declName&&map[declName])return {meta:map[declName],joinKey:declName,sqlFieldName:sqlFieldName,standalone:false};
           return {meta:null,joinKey:null,sqlFieldName:sqlFieldName,standalone:standalone};
         }
 
@@ -1190,18 +1117,13 @@ looker.plugins.visualizations.add({
         var semanticFromQuery=parseSemanticFromData(data,lkmlFieldKeys);
         var hasSemanticData=semanticFromQuery&&Object.keys(semanticFromQuery).length>0;
 
-        var instr='Paste your LKML view file below. Semantic layer from this tile\'s query (Columns Semantic Layer: rfcm_field_name, rfcm_field_label, column_description).';
-        if(hasSemanticData)instr='Semantic layer loaded. Paste LKML view and click Generate. Labels/descriptions added only when name matches exactly. If a field shows NOT IN MAP in Debug, increase this tile\'s row limit so the query returns all semantic layer rows (e.g. 1000+).';
-
-        var VIZ_VERSION='2025-03-15-lkml-labels-v4';
+        var VIZ_VERSION='2025-03-15-lkml-v5-simple';
         var h=navBar()+'<div class="lx-body"><div class="lx-bar" style="border-bottom:1px solid #1e293b"><span style="color:#e2e8f0;font-size:12px;font-weight:700">LKML Labels</span></div>';
         h+='<div style="padding:16px 20px;display:flex;flex-direction:column;gap:16px;flex:1;min-height:0;overflow:hidden">';
-        h+='<p style="margin:0;padding:6px 10px;background:#1e293b;border-radius:6px;color:#94a3b8;font-size:10px;font-family:ui-monospace,monospace"><strong style="color:#e2e8f0">Viz version:</strong> '+VIZ_VERSION+' — If you don\'t see this date, refresh or re-deploy the viz.</p>';
-        h+='<p style="color:#94a3b8;font-size:11px;margin:0">'+instr+'</p>';
-        if(!hasSemanticData){
-          h+='<div><label style="color:#64748b;font-size:10px;display:block;margin-bottom:4px">Semantic layer (JSON)</label>';
-          h+='<textarea id="lx-lkml-json" placeholder=\'[{"rfcm_field_name":"x","rfcm_field_label":"...","column_description":"..."}]\' style="width:100%;height:80px;background:#0f172a;border:1px solid #1e293b;border-radius:8px;color:#e2e8f0;font-family:ui-monospace,monospace;font-size:11px;padding:10px;resize:vertical;box-sizing:border-box"></textarea></div>';
-        }
+        h+='<p style="margin:0;padding:6px 10px;background:#1e293b;border-radius:6px;color:#94a3b8;font-size:10px;font-family:ui-monospace,monospace"><strong style="color:#e2e8f0">Viz version:</strong> '+VIZ_VERSION+'</p>';
+        h+='<p style="color:#94a3b8;font-size:11px;margin:0">Join: if <code>sql: ${TABLE}.field_name</code> is the only content (standalone), match by <strong>field_name</strong>; otherwise match by <strong>dimension/measure name</strong>.</p>';
+        h+='<div><label style="color:#64748b;font-size:10px;display:block;margin-bottom:4px">RFCM semantic layer (JSON) — paste from Columns Semantic Layer or use tile data</label>';
+        h+='<textarea id="lx-lkml-json" placeholder=\'[{"rfcm_field_name":"masd_author","rfcm_field_label":"Doc Author","column_description":"..."}]\' style="width:100%;height:80px;background:#0f172a;border:1px solid #1e293b;border-radius:8px;color:#e2e8f0;font-family:ui-monospace,monospace;font-size:11px;padding:10px;resize:vertical;box-sizing:border-box"></textarea></div>';
         h+='<div><label style="color:#64748b;font-size:10px;display:block;margin-bottom:4px">LKML view file</label>';
         h+='<textarea id="lx-lkml-view" placeholder="view: my_view { ... }" style="width:100%;height:180px;background:#0f172a;border:1px solid #1e293b;border-radius:8px;color:#e2e8f0;font-family:ui-monospace,monospace;font-size:11px;padding:10px;resize:vertical;box-sizing:border-box"></textarea></div>';
         h+='<button type="button" id="lx-lkml-generate" style="padding:8px 20px;background:#7c3aed;color:#fff;border:none;border-radius:8px;font-size:12px;font-weight:600;cursor:pointer;align-self:flex-start">Generate view with labels</button>';
@@ -1220,45 +1142,22 @@ looker.plugins.visualizations.add({
           var debugBody=document.getElementById('lx-lkml-debug-body');
           if(!btn||!outTa)return;
           btn.addEventListener('click',function(){
-            var semantic=null;
-            if(data&&data.length>0&&lkmlFieldKeys)semantic=parseSemanticFromData(data,lkmlFieldKeys);
-            if(!semantic&&jsonTa&&jsonTa.value.trim())semantic=parseSemanticFromJson(jsonTa.value.trim());
+            var jsonStr=jsonTa&&jsonTa.value?jsonTa.value.trim():'';
+            var semantic=jsonStr?parseSemanticFromJson(jsonStr):null;
+            if(!semantic&&data&&data.length>0&&lkmlFieldKeys)semantic=parseSemanticFromData(data,lkmlFieldKeys);
             if(!semantic)semantic=semanticFromQuery;
             if(!semantic||Object.keys(semantic).length===0){
-              outTa.value='No semantic layer data. Use a tile that queries Columns Semantic Layer, or paste JSON above.';
-              if(debugBody)debugBody.textContent='No semantic data.';
+              outTa.value='No semantic layer. Paste JSON above (rfcm_field_name, rfcm_field_label, column_description) or use a tile that has those columns.';
+              if(debugBody)debugBody.textContent='No semantic map.';
               return;
             }
             var viewSrc=(viewTa&&viewTa.value)?viewTa.value:'';
-            if(!viewSrc.trim()){outTa.value='Paste an LKML view file and try again.';if(debugBody)debugBody.textContent='';return;}
+            if(!viewSrc.trim()){outTa.value='Paste LKML view and try again.';if(debugBody)debugBody.textContent='';return;}
             outTa.value=addLabelsToLkml(viewSrc,semantic);
             if(debugBody){
               var dbg=[];
-              dbg.push('=== Data the viz received ===');
-              if(data&&data.length>0&&lkmlFieldKeys){
-                var fn=lkmlFieldKeys.fn,fl=lkmlFieldKeys.fl,cd=lkmlFieldKeys.cd;
-                dbg.push('Rows: '+data.length);
-                dbg.push('Column keys: fn="'+fn+'", fl="'+fl+'", cd="'+cd+'"');
-                dbg.push('');
-                dbg.push('First 10 rows (name | label | description):');
-                for(var i=0;i<Math.min(10,data.length);i++){
-                  var row=data[i];
-                  var n=getCellVal(row,fn);
-                  var l=getCellVal(row,fl);
-                  var d=getCellVal(row,cd);
-                  dbg.push('  '+String(n)+' | '+String(l)+' | '+(String(d).length>50?String(d).slice(0,50)+'...':String(d)));
-                }
-                var nameCounts={};
-                data.forEach(function(row){var n=String(getCellVal(row,fn)||'').trim();if(n)nameCounts[n]=(nameCounts[n]||0)+1;});
-                var dupes=Object.keys(nameCounts).filter(function(n){return nameCounts[n]>1;});
-                if(dupes.length){dbg.push('');dbg.push('Fields with multiple rows: '+dupes.slice(0,20).join(', ')+(dupes.length>20?' ...':''));}
-              }else dbg.push('(Using pasted JSON or no column keys)');
-              dbg.push('');
-              var mapKeys=Object.keys(semantic);
-              dbg.push('Semantic map: '+mapKeys.length+' keys. Sample: '+(mapKeys.slice(0,15).join(', '))+(mapKeys.length>15?' ...':''));
-              dbg.push('masd_author in map: '+(semantic['masd_author']?'yes':'no')+', masd_category in map: '+(semantic['masd_category']?'yes':'no'));
-              dbg.push('');
-              dbg.push('=== Join: LKML field -> rfcm (1=by sql ${TABLE}.field_name if standalone, else by dimension/measure name) ===');
+              dbg.push('Map: '+Object.keys(semantic).length+' keys');
+              dbg.push('Join: standalone sql -> by field_name; else -> by dimension/measure name');
               dbg.push('');
               var lines=viewSrc.split(/\r?\n/),j=0;
               while(j<lines.length){
@@ -1276,9 +1175,8 @@ looker.plugins.visualizations.add({
                   }
                   var sqlFull=sqlPart.join(' ');
                   var joined=joinLkmlFieldToRfcm(declName,sqlFull,semantic);
-                  var joinKey=joined.joinKey;
-                  var keyNote=joined.standalone&&joined.sqlFieldName?' (join by sql field: '+joined.sqlFieldName+')':(joinKey?' (join by decl name)':'');
-                  dbg.push(declName+(joined.sqlFieldName?' sql: '+joined.sqlFieldName:'')+' -> '+(joined.meta?'label="'+joined.meta.label+'"'+keyNote:'NOT IN MAP'));
+                  var how=joined.standalone&&joined.sqlFieldName?'by sql field '+joined.sqlFieldName:(joined.joinKey?'by decl name':'');
+                  dbg.push(declName+(joined.sqlFieldName?' sql: '+joined.sqlFieldName:'')+' -> '+(joined.meta?(joined.meta.label||'(no label)')+' '+how:'NOT IN MAP'));
                   j=k;
                 }else j++;
               }
