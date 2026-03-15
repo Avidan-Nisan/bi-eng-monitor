@@ -962,7 +962,7 @@ looker.plugins.visualizations.add({
         done();return;
       }
 
-      // ========== LKML LABELS: match rfcm_field_name exactly to sql field or dimension/measure name ==========
+      // ========== LKML LABELS: 1-to-1 join on rfcm_field_name (exact match to sql field or dimension/measure name) ==========
 
       if(mode==='lkml_labels'){
 
@@ -973,24 +973,13 @@ looker.plugins.visualizations.add({
           var cd=keys.find(function(k){var l=(k||'').toLowerCase().replace(/\s/g,'_');return l.indexOf('column_description')!==-1||(l.indexOf('description')!==-1&&l.indexOf('label')===-1);});
           if(!fn)return null;
           var out={};
-          var byName={};
           rows.forEach(function(row){
             var name=String((row[fn]!=null&&typeof row[fn]==='object'&&'value' in row[fn])?row[fn].value:row[fn]||'').trim();
-            if(!name)return;
+            if(!name||out[name])return;
             var label=String((row[fl]!=null&&typeof row[fl]==='object'&&'value' in row[fl])?row[fl].value:row[fl]||'').trim();
             var description=String((row[cd]!=null&&typeof row[cd]==='object'&&'value' in row[cd])?row[cd].value:row[cd]||'').trim();
-            if(!byName[name])byName[name]=[];
-            byName[name].push({label:label,description:description});
+            out[name]={label:label,description:description};
           });
-          for(var name in byName){
-            var list=byName[name];
-            var best=list[0];
-            for(var i=1;i<list.length;i++){
-              var r=list[i];
-              if(r.label&&r.description&&(!best.label||!best.description||(r.description.length<best.description.length)))best=r;
-            }
-            out[name]={label:best.label||'',description:best.description||''};
-          }
           return out;
         }
 
