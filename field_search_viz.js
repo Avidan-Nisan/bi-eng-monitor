@@ -976,6 +976,7 @@ looker.plugins.visualizations.add({
           rows.forEach(function(row){
             var name=String((row[fn]!=null&&typeof row[fn]==='object'&&'value' in row[fn])?row[fn].value:row[fn]||'').trim();
             if(!name)return;
+            if(out[name])return;
             var label=String((row[fl]!=null&&typeof row[fl]==='object'&&'value' in row[fl])?row[fl].value:row[fl]||'').trim();
             var description=String((row[cd]!=null&&typeof row[cd]==='object'&&'value' in row[cd])?row[cd].value:row[cd]||'').trim();
             out[name]={label:label,description:description};
@@ -991,6 +992,7 @@ looker.plugins.visualizations.add({
             arr.forEach(function(row){
               var name=String(row.rfcm_field_name||'').trim();
               if(!name)return;
+              if(out[name])return;
               out[name]={label:String(row.rfcm_field_label||row.label||'').trim(),description:String(row.column_description||row.description||'').trim()};
             });
             return out;
