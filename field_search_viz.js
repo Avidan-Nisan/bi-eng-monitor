@@ -975,6 +975,18 @@ looker.plugins.visualizations.add({
           return score;
         }
 
+        function getCellVal(row,key){
+          if(!row||!key)return undefined;
+          var v=row[key];
+          if(v!=null&&typeof v==='object'&&'value' in v)return v.value;
+          if(v!=null)return v;
+          var parts=String(key).split('.');
+          if(parts.length<=1)return undefined;
+          var o=row;
+          for(var i=0;i<parts.length&&o!=null;i++)o=o[parts[i]];
+          if(o!=null&&typeof o==='object'&&'value' in o)return o.value;
+          return o;
+        }
         function parseSemanticFromData(rows,fieldKeys){
           var fn=fieldKeys&&fieldKeys.fn,fl=fieldKeys&&fieldKeys.fl,cd=fieldKeys&&fieldKeys.cd;
           if(!fn||!fl||!cd){
@@ -987,10 +999,10 @@ looker.plugins.visualizations.add({
           if(!fn||!fl||!cd)return null;
           var byName={};
           rows.forEach(function(row){
-            var name=String((row[fn]!=null&&typeof row[fn]==='object'&&'value' in row[fn])?row[fn].value:row[fn]||'').trim();
+            var name=String(getCellVal(row,fn)||'').trim();
             if(!name)return;
-            var label=String((row[fl]!=null&&typeof row[fl]==='object'&&'value' in row[fl])?row[fl].value:row[fl]||'').trim();
-            var description=String((row[cd]!=null&&typeof row[cd]==='object'&&'value' in row[cd])?row[cd].value:row[cd]||'').trim();
+            var label=String(getCellVal(row,fl)||'').trim();
+            var description=String(getCellVal(row,cd)||'').trim();
             if(!byName[name])byName[name]=[];
             byName[name].push({label:label,description:description});
           });
@@ -1005,7 +1017,7 @@ looker.plugins.visualizations.add({
               if(scoreR>scoreBest||(scoreR===scoreBest&&(r.label||'').length>(best.label||'').length))best=r;
             }
             var bestScore=scoreLabelForFieldName(name,best.label);
-            if(bestScore===0&&list.length===1)continue;
+            if(bestScore===0&&list.length===1&&!best.label&&!best.description)continue;
             out[name]={label:best.label||'',description:best.description||''};
             if(name.indexOf('.')!==-1){
               var shortName=name.split('.').pop();
@@ -1169,7 +1181,7 @@ looker.plugins.visualizations.add({
         var instr='Paste your LKML view file below. Semantic layer from this tile\'s query (Columns Semantic Layer: rfcm_field_name, rfcm_field_label, column_description).';
         if(hasSemanticData)instr='Semantic layer loaded. Paste LKML view and click Generate. Labels/descriptions added only when name matches exactly. If a field shows NOT IN MAP in Debug, increase this tile\'s row limit so the query returns all semantic layer rows (e.g. 1000+).';
 
-        var VIZ_VERSION='2025-03-18';
+        var VIZ_VERSION='2025-03-15-lkml-labels-v2';
         var h=navBar()+'<div class="lx-body"><div class="lx-bar" style="border-bottom:1px solid #1e293b"><span style="color:#e2e8f0;font-size:12px;font-weight:700">LKML Labels</span></div>';
         h+='<div style="padding:16px 20px;display:flex;flex-direction:column;gap:16px;flex:1;min-height:0;overflow:hidden">';
         h+='<p style="margin:0;padding:6px 10px;background:#1e293b;border-radius:6px;color:#94a3b8;font-size:10px;font-family:ui-monospace,monospace"><strong style="color:#e2e8f0">Viz version:</strong> '+VIZ_VERSION+' — If you don\'t see this date, refresh or re-deploy the viz.</p>';
@@ -1218,13 +1230,13 @@ looker.plugins.visualizations.add({
                 dbg.push('First 10 rows (name | label | description):');
                 for(var i=0;i<Math.min(10,data.length);i++){
                   var row=data[i];
-                  var n=row[fn]!=null&&typeof row[fn]==='object'&&'value' in row[fn]?row[fn].value:row[fn];
-                  var l=row[fl]!=null&&typeof row[fl]==='object'&&'value' in row[fl]?row[fl].value:row[fl];
-                  var d=row[cd]!=null&&typeof row[cd]==='object'&&'value' in row[cd]?row[cd].value:row[cd];
+                  var n=getCellVal(row,fn);
+                  var l=getCellVal(row,fl);
+                  var d=getCellVal(row,cd);
                   dbg.push('  '+String(n)+' | '+String(l)+' | '+(String(d).length>50?String(d).slice(0,50)+'...':String(d)));
                 }
                 var nameCounts={};
-                data.forEach(function(row){var n=String((row[fn]!=null&&typeof row[fn]==='object'&&'value' in row[fn])?row[fn].value:row[fn]||'').trim();if(n)nameCounts[n]=(nameCounts[n]||0)+1;});
+                data.forEach(function(row){var n=String(getCellVal(row,fn)||'').trim();if(n)nameCounts[n]=(nameCounts[n]||0)+1;});
                 var dupes=Object.keys(nameCounts).filter(function(n){return nameCounts[n]>1;});
                 if(dupes.length){dbg.push('');dbg.push('Fields with multiple rows: '+dupes.slice(0,20).join(', ')+(dupes.length>20?' ...':''));}
               }else dbg.push('(Using pasted JSON or no column keys)');
