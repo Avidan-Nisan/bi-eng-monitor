@@ -978,9 +978,8 @@ looker.plugins.visualizations.add({
             if(!name)return;
             var label=String((row[fl]!=null&&typeof row[fl]==='object'&&'value' in row[fl])?row[fl].value:row[fl]||'').trim();
             var description=String((row[cd]!=null&&typeof row[cd]==='object'&&'value' in row[cd])?row[cd].value:row[cd]||'').trim();
-            if(!out[name])out[name]={label:'',description:''};
-            if(label)out[name].label=label;
-            if(description)out[name].description=description;
+            if(!out[name])out[name]={label:label,description:description};
+            else{if(label&&!out[name].label)out[name].label=label;if(description&&!out[name].description)out[name].description=description;}
           });
           return out;
         }
@@ -1019,14 +1018,18 @@ looker.plugins.visualizations.add({
           var sqlLower=sqlFieldName?(sqlFieldName+'').toLowerCase():'';
           var suffixDecl=declLower?'_'+declLower:'';
           var suffixSql=sqlLower?'_'+sqlLower:'';
+          var suffixMatches=[];
           for(var k in semanticMap){
             if(!semanticMap.hasOwnProperty(k))continue;
             var keyLower=(k+'').toLowerCase();
             if(keyLower===declLower||keyLower===sqlLower)return semanticMap[k];
-            if(suffixDecl&&keyLower.slice(-suffixDecl.length)===suffixDecl)return semanticMap[k];
-            if(suffixSql&&keyLower.slice(-suffixSql.length)===suffixSql)return semanticMap[k];
+            if(suffixDecl&&keyLower.slice(-suffixDecl.length)===suffixDecl)suffixMatches.push({k:k,meta:semanticMap[k]});
+            else if(suffixSql&&keyLower.slice(-suffixSql.length)===suffixSql)suffixMatches.push({k:k,meta:semanticMap[k]});
           }
-          return null;
+          if(suffixMatches.length===0)return null;
+          if(suffixMatches.length===1)return suffixMatches[0].meta;
+          suffixMatches.sort(function(a,b){return b.k.length-a.k.length;});
+          return suffixMatches[0].meta;
         }
 
         function addLabelsToLkml(lkmlText,semanticMap){
