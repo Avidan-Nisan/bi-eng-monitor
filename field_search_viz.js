@@ -256,7 +256,7 @@ looker.plugins.visualizations.add({
 
           {id:'data_dyson',label:'Data Dyson',icon:ic.dyson,did:config.data_dyson_dashboard_id},
 
-          {id:'lkml_labels',label:'LKML Labels',icon:ic.lkml,did:config.lkml_labels_dashboard_id}
+          {id:'lkml_labels',label:'LKML labels generator',icon:ic.lkml,did:config.lkml_labels_dashboard_id}
 
         ];
 
@@ -993,20 +993,6 @@ looker.plugins.visualizations.add({
           return Object.keys(map).length?map:null;
         }
 
-        function parseSemanticFromJson(jsonStr){
-          try{
-            var arr=JSON.parse(jsonStr);
-            if(!Array.isArray(arr))return null;
-            var map={};
-            arr.forEach(function(row){
-              var name=String(row.rfcm_field_name||'').trim();
-              if(!name)return;
-              map[name]={label:String(row.rfcm_field_label||row.label||'').trim(),description:String(row.column_description||row.description||'').trim()};
-            });
-            return Object.keys(map).length?map:null;
-          }catch(e){return null;}
-        }
-
         function extractSqlFieldName(sqlLine){
           if(!sqlLine||typeof sqlLine!=='string')return null;
           var m=sqlLine.match(/\$\{TABLE\}\s*\.\s*["']?([a-zA-Z0-9_]+)["']?\s*(?:;|$)/);
@@ -1115,50 +1101,42 @@ looker.plugins.visualizations.add({
           if(kFn&&kFl&&kCd)lkmlFieldKeys={fn:kFn,fl:kFl,cd:kCd};
         }
         var semanticFromQuery=parseSemanticFromData(data,lkmlFieldKeys);
-        var hasSemanticData=semanticFromQuery&&Object.keys(semanticFromQuery).length>0;
 
-        var VIZ_VERSION='2025-03-15-lkml-v5-simple';
-        var h=navBar()+'<div class="lx-body"><div class="lx-bar" style="border-bottom:1px solid #1e293b"><span style="color:#e2e8f0;font-size:12px;font-weight:700">LKML Labels</span></div>';
+        var h=navBar()+'<div class="lx-body"><div class="lx-bar" style="border-bottom:1px solid #1e293b"><span style="color:#e2e8f0;font-size:12px;font-weight:700">LKML labels generator</span></div>';
         h+='<div style="padding:16px 20px;display:flex;flex-direction:column;gap:16px;flex:1;min-height:0;overflow:hidden">';
-        h+='<p style="margin:0;padding:6px 10px;background:#1e293b;border-radius:6px;color:#94a3b8;font-size:10px;font-family:ui-monospace,monospace"><strong style="color:#e2e8f0">Viz version:</strong> '+VIZ_VERSION+'</p>';
-        h+='<p style="color:#94a3b8;font-size:11px;margin:0">Join: if <code>sql: ${TABLE}.field_name</code> is the only content (standalone), match by <strong>field_name</strong>; otherwise match by <strong>dimension/measure name</strong>.</p>';
-        h+='<div><label style="color:#64748b;font-size:10px;display:block;margin-bottom:4px">RFCM semantic layer (JSON) — paste from Columns Semantic Layer or use tile data</label>';
-        h+='<textarea id="lx-lkml-json" placeholder=\'[{"rfcm_field_name":"masd_author","rfcm_field_label":"Doc Author","column_description":"..."}]\' style="width:100%;height:80px;background:#0f172a;border:1px solid #1e293b;border-radius:8px;color:#e2e8f0;font-family:ui-monospace,monospace;font-size:11px;padding:10px;resize:vertical;box-sizing:border-box"></textarea></div>';
+        h+='<p style="color:#94a3b8;font-size:11px;margin:0">Paste a LookML view file below. This tool adds <strong>label</strong> and <strong>description</strong> to dimensions and measures using the tile\'s semantic layer data (Columns Semantic Layer explore).</p>';
         h+='<div><label style="color:#64748b;font-size:10px;display:block;margin-bottom:4px">LKML view file</label>';
         h+='<textarea id="lx-lkml-view" placeholder="view: my_view { ... }" style="width:100%;height:180px;background:#0f172a;border:1px solid #1e293b;border-radius:8px;color:#e2e8f0;font-family:ui-monospace,monospace;font-size:11px;padding:10px;resize:vertical;box-sizing:border-box"></textarea></div>';
         h+='<button type="button" id="lx-lkml-generate" style="padding:8px 20px;background:#7c3aed;color:#fff;border:none;border-radius:8px;font-size:12px;font-weight:600;cursor:pointer;align-self:flex-start">Generate view with labels</button>';
         h+='<div><label style="color:#64748b;font-size:10px;display:block;margin-bottom:4px">Generated LKML</label>';
-        h+='<textarea id="lx-lkml-output" readonly placeholder="Output appears here" style="width:100%;height:200px;background:#0f172a;border:1px solid #1e293b;border-radius:8px;color:#e2e8f0;font-family:ui-monospace,monospace;font-size:11px;padding:10px;resize:vertical;box-sizing:border-box"></textarea></div>';
-        h+='<details id="lx-lkml-debug" style="margin-top:8px"><summary style="color:#64748b;font-size:11px;cursor:pointer">Debug: what data the viz received</summary><pre id="lx-lkml-debug-body" style="margin:8px 0 0;padding:10px;background:#0f172a;border:1px solid #1e293b;border-radius:6px;color:#94a3b8;font-size:10px;font-family:ui-monospace,monospace;white-space:pre-wrap;max-height:200px;overflow:auto"></pre></details>';
+        h+='<div style="display:flex;gap:8px;align-items:flex-start"><textarea id="lx-lkml-output" readonly placeholder="Output appears here" style="flex:1;height:200px;background:#0f172a;border:1px solid #1e293b;border-radius:8px;color:#e2e8f0;font-family:ui-monospace,monospace;font-size:11px;padding:10px;resize:vertical;box-sizing:border-box"></textarea>';
+        h+='<button type="button" id="lx-lkml-copy" style="padding:8px 14px;background:#334155;color:#e2e8f0;border:1px solid #475569;border-radius:8px;font-size:11px;font-weight:500;cursor:pointer;white-space:nowrap">Copy</button></div>';
+        h+='<details id="lx-lkml-debug" style="margin-top:8px"><summary style="color:#64748b;font-size:11px;cursor:pointer">Debug</summary><pre id="lx-lkml-debug-body" style="margin:8px 0 0;padding:10px;background:#0f172a;border:1px solid #1e293b;border-radius:6px;color:#94a3b8;font-size:10px;font-family:ui-monospace,monospace;white-space:pre-wrap;max-height:200px;overflow:auto"></pre></details>';
         h+='</div></div>';
 
         R.innerHTML=h;
 
         (function(){
-          var jsonTa=document.getElementById('lx-lkml-json');
           var viewTa=document.getElementById('lx-lkml-view');
           var outTa=document.getElementById('lx-lkml-output');
           var btn=document.getElementById('lx-lkml-generate');
+          var copyBtn=document.getElementById('lx-lkml-copy');
           var debugBody=document.getElementById('lx-lkml-debug-body');
           if(!btn||!outTa)return;
+          if(copyBtn)copyBtn.addEventListener('click',function(){var v=outTa.value;if(!v)return;try{navigator.clipboard.writeText(v);copyBtn.textContent='Copied!';setTimeout(function(){copyBtn.textContent='Copy';},1500);}catch(e){}});
           btn.addEventListener('click',function(){
-            var jsonStr=jsonTa&&jsonTa.value?jsonTa.value.trim():'';
-            var semantic=jsonStr?parseSemanticFromJson(jsonStr):null;
-            if(!semantic&&data&&data.length>0&&lkmlFieldKeys)semantic=parseSemanticFromData(data,lkmlFieldKeys);
-            if(!semantic)semantic=semanticFromQuery;
+            var semantic=semanticFromQuery;
             if(!semantic||Object.keys(semantic).length===0){
-              outTa.value='No semantic layer. Paste JSON above (rfcm_field_name, rfcm_field_label, column_description) or use a tile that has those columns.';
+              outTa.value='No semantic data from this tile. Use a dashboard tile that queries the Columns Semantic Layer (rfcm_field_name, rfcm_field_label, column_description).';
               if(debugBody)debugBody.textContent='No semantic map.';
               return;
             }
             var viewSrc=(viewTa&&viewTa.value)?viewTa.value:'';
-            if(!viewSrc.trim()){outTa.value='Paste LKML view and try again.';if(debugBody)debugBody.textContent='';return;}
+            if(!viewSrc.trim()){outTa.value='Paste an LKML view and try again.';if(debugBody)debugBody.textContent='';return;}
             outTa.value=addLabelsToLkml(viewSrc,semantic);
             if(debugBody){
               var dbg=[];
               dbg.push('Map: '+Object.keys(semantic).length+' keys');
-              dbg.push('Join: standalone sql -> by field_name; else -> by dimension/measure name');
-              dbg.push('');
               var lines=viewSrc.split(/\r?\n/),j=0;
               while(j<lines.length){
                 var m=lines[j].match(/^\s*(dimension|measure|dimension_group)\s*:\s*([a-zA-Z0-9_]+)\s*(\{)?\s*$/);
@@ -1175,8 +1153,7 @@ looker.plugins.visualizations.add({
                   }
                   var sqlFull=sqlPart.join(' ');
                   var joined=joinLkmlFieldToRfcm(declName,sqlFull,semantic);
-                  var how=joined.standalone&&joined.sqlFieldName?'by sql field '+joined.sqlFieldName:(joined.joinKey?'by decl name':'');
-                  dbg.push(declName+(joined.sqlFieldName?' sql: '+joined.sqlFieldName:'')+' -> '+(joined.meta?(joined.meta.label||'(no label)')+' '+how:'NOT IN MAP'));
+                  dbg.push(declName+(joined.sqlFieldName?' sql: '+joined.sqlFieldName:'')+' -> '+(joined.meta?(joined.meta.label||'(no label)'):'NOT IN MAP'));
                   j=k;
                 }else j++;
               }
