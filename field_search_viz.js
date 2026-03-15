@@ -1044,14 +1044,14 @@ looker.plugins.visualizations.add({
           var out=[],i=0;
           while(i<lines.length){
             var line=lines[i];
-            var dimMatch=line.match(/^\s*(dimension|measure|dimension_group)\s*:\s*([a-zA-Z0-9_]+)\s*(\{)?\s*$/);
+            var dimMatch=line.match(/^\s*(dimension_group|dimension|measure)\s*:\s*([a-zA-Z0-9_]+)\s*(\{)?\s*$/);
             if(dimMatch){
               out.push(line);
               i++;
               var seenLabel=false,seenDesc=false;
               while(i<lines.length){
                 var inner=lines[i];
-                if(/^\s*(dimension|measure|dimension_group|set|view)\s*:/.test(inner)&&!inner.match(/^\s*(label|description)\s*:/))break;
+                if(/^\s*(dimension_group|dimension|measure|set|view)\s*:/.test(inner)&&!inner.match(/^\s*(label|description)\s*:/))break;
                 if(/^\s*\}\s*$/.test(inner)){out.push(inner);i++;break;}
                 if(inner.match(/^\s*label\s*:/)){if(!seenLabel){out.push(inner);seenLabel=true;}i++;continue;}
                 if(inner.match(/^\s*description\s*:/)){if(!seenDesc){out.push(inner);seenDesc=true;}i++;continue;}
@@ -1073,7 +1073,7 @@ looker.plugins.visualizations.add({
           var i=0;
           while(i<lines.length){
             var line=lines[i];
-            var dimMatch=line.match(/^\s*(dimension|measure|dimension_group)\s*:\s*([a-zA-Z0-9_]+)\s*(\{)?\s*$/);
+            var dimMatch=line.match(/^\s*(dimension_group|dimension|measure)\s*:\s*([a-zA-Z0-9_]+)\s*(\{)?\s*$/);
             if(dimMatch){
               var declName=dimMatch[2];
               out.push(line);
@@ -1083,7 +1083,7 @@ looker.plugins.visualizations.add({
               var blockLines=[];
               while(i<lines.length){
                 var inner=lines[i];
-                if(/^\s*(dimension|measure|dimension_group|set|view)\s*:/.test(inner)&&!inner.match(/^\s*(label|description)\s*:/))break;
+                if(/^\s*(dimension_group|dimension|measure|set|view)\s*:/.test(inner)&&!inner.match(/^\s*(label|description)\s*:/))break;
                 if(/^\s*\}\s*$/.test(inner)){blockLines.push(inner);i++;break;}
                 var sqlM=inner.match(/^\s*sql\s*:\s*(.+)$/);
                 if(sqlM){sqlContent=(sqlContent?sqlContent+' ':'')+sqlM[1];var ex=extractSqlFieldName(sqlM[1]);if(ex)sqlFieldName=ex;}
@@ -1200,14 +1200,14 @@ looker.plugins.visualizations.add({
               dbg.push('');
               var lines=viewSrc.split(/\r?\n/),j=0;
               while(j<lines.length){
-                var m=lines[j].match(/^\s*(dimension|measure|dimension_group)\s*:\s*([a-zA-Z0-9_]+)\s*(\{)?\s*$/);
+                var m=lines[j].match(/^\s*(dimension_group|dimension|measure)\s*:\s*([a-zA-Z0-9_]+)\s*(\{)?\s*$/);
                 if(m){
                   var declName=m[2];
                   var sqlFieldName=null;
                   var sqlPart=[];
                   var k=j+1;
                   while(k<lines.length){
-                    if(/^\s*(dimension|measure|dimension_group|set|view)\s*:/.test(lines[k])&&!lines[k].match(/^\s*(label|description)\s*:/))break;
+                    if(/^\s*(dimension_group|dimension|measure|set|view)\s*:/.test(lines[k])&&!lines[k].match(/^\s*(label|description)\s*:/))break;
                     if(/^\s*\}\s*$/.test(lines[k])){k++;break;}
                     var sqlM=lines[k].match(/^\s*sql\s*:\s*(.+)$/);
                     if(sqlM)sqlPart.push(sqlM[1]);
