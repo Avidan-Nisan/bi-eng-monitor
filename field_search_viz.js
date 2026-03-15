@@ -1007,6 +1007,10 @@ looker.plugins.visualizations.add({
             var bestScore=scoreLabelForFieldName(name,best.label);
             if(bestScore===0&&list.length===1)continue;
             out[name]={label:best.label||'',description:best.description||''};
+            if(name.indexOf('.')!==-1){
+              var shortName=name.split('.').pop();
+              if(shortName&&!out[shortName])out[shortName]=out[name];
+            }
           }
           return out;
         }
@@ -1021,9 +1025,38 @@ looker.plugins.visualizations.add({
               if(!name)return;
               if(out[name])return;
               out[name]={label:String(row.rfcm_field_label||row.label||'').trim(),description:String(row.column_description||row.description||'').trim()};
+              if(name.indexOf('.')!==-1){
+                var shortName=name.split('.').pop();
+                if(shortName&&!out[shortName])out[shortName]=out[name];
+              }
             });
             return out;
           }catch(e){return null;}
+        }
+
+        function addLkmlAliasesToSemantic(semanticMap,lkmlText){
+          if(!semanticMap||!lkmlText||typeof lkmlText!=='string')return;
+          var lines=lkmlText.split(/\r?\n/),j=0;
+          while(j<lines.length){
+            var m=lines[j].match(/^\s*(dimension|measure|dimension_group)\s*:\s*([a-zA-Z0-9_]+)\s*(\{)?\s*$/);
+            if(m){
+              var declName=m[2];
+              var sqlPart=[];
+              var k=j+1;
+              while(k<lines.length){
+                if(/^\s*dimension\s*:|^\s*measure\s*:|^\s*dimension_group\s*:|^\s*set\s*:|^\s*view\s*:/.test(lines[k])&&!lines[k].match(/^\s*(label|description)\s*:/))break;
+                if(/^\s*\}\s*$/.test(lines[k])){k++;break;}
+                var sqlM=lines[k].match(/^\s*sql\s*:\s*(.+)$/);
+                if(sqlM)sqlPart.push(sqlM[1]);
+                k++;
+              }
+              var sqlFull=sqlPart.join(' ');
+              var sqlFieldName=extractSqlFieldName(sqlFull);
+              if(sqlFieldName&&sqlFull&&!isStandaloneSqlField(sqlFull))sqlFieldName=null;
+              if(sqlFieldName&&semanticMap[sqlFieldName]&&!semanticMap[declName])semanticMap[declName]=semanticMap[sqlFieldName];
+              j=k;
+            }else j++;
+          }
         }
 
         function extractSqlFieldName(sqlLine){
@@ -1172,6 +1205,7 @@ looker.plugins.visualizations.add({
             }
             var viewSrc=(viewTa&&viewTa.value)?viewTa.value:'';
             if(!viewSrc.trim()){outTa.value='Paste an LKML view file and try again.';if(debugBody)debugBody.textContent='';return;}
+            addLkmlAliasesToSemantic(semantic,viewSrc);
             outTa.value=addLabelsToLkml(viewSrc,semantic);
             if(debugBody){
               var dbg=[];
@@ -1200,14 +1234,14 @@ looker.plugins.visualizations.add({
               dbg.push('');
               var lines=viewSrc.split(/\r?\n/),j=0;
               while(j<lines.length){
-                var m=lines[j].match(/^\s*(dimension|measure)\s*:\s*([a-zA-Z0-9_]+)\s*(\{)?\s*$/);
+                var m=lines[j].match(/^\s*(dimension|measure|dimension_group)\s*:\s*([a-zA-Z0-9_]+)\s*(\{)?\s*$/);
                 if(m){
                   var declName=m[2];
                   var sqlFieldName=null;
                   var sqlPart=[];
                   var k=j+1;
                   while(k<lines.length){
-                    if(/^\s*dimension\s*:|^\s*measure\s*:|^\s*set\s*:|^\s*view\s*:/.test(lines[k])&&!lines[k].match(/^\s*(label|description)\s*:/))break;
+                    if(/^\s*dimension\s*:|^\s*measure\s*:|^\s*dimension_group\s*:|^\s*set\s*:|^\s*view\s*:/.test(lines[k])&&!lines[k].match(/^\s*(label|description)\s*:/))break;
                     if(/^\s*\}\s*$/.test(lines[k])){k++;break;}
                     var sqlM=lines[k].match(/^\s*sql\s*:\s*(.+)$/);
                     if(sqlM)sqlPart.push(sqlM[1]);
