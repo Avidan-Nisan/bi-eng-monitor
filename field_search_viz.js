@@ -1006,7 +1006,8 @@ looker.plugins.visualizations.add({
             }
             var bestScore=scoreLabelForFieldName(name,best.label);
             if(bestScore===0&&list.length===1)continue;
-            out[name]={label:best.label||'',description:best.description||''};
+            var key=(name||'').toLowerCase().trim();
+            if(key)out[key]={label:best.label||'',description:best.description||''};
           }
           return out;
         }
@@ -1019,8 +1020,9 @@ looker.plugins.visualizations.add({
             arr.forEach(function(row){
               var name=String(row.rfcm_field_name||'').trim();
               if(!name)return;
-              if(out[name])return;
-              out[name]={label:String(row.rfcm_field_label||row.label||'').trim(),description:String(row.column_description||row.description||'').trim()};
+              var key=name.toLowerCase();
+              if(out[key])return;
+              out[key]={label:String(row.rfcm_field_label||row.label||'').trim(),description:String(row.column_description||row.description||'').trim()};
             });
             return out;
           }catch(e){return null;}
@@ -1093,8 +1095,9 @@ looker.plugins.visualizations.add({
               }
               if(sqlFieldName&&sqlContent&&!isStandaloneSqlField(sqlContent))sqlFieldName=null;
               var meta=null;
-              if(sqlFieldName&&semanticMap[sqlFieldName])meta=semanticMap[sqlFieldName];
-              else if(declName&&semanticMap[declName])meta=semanticMap[declName];
+              var sk=(sqlFieldName||'').toLowerCase().trim(),dk=(declName||'').toLowerCase().trim();
+              if(sk&&semanticMap[sk])meta=semanticMap[sk];
+              else if(dk&&semanticMap[dk])meta=semanticMap[dk];
               if(meta&&(meta.label||meta.description)){
                 var filtered=[];
                 for(var j=0;j<blockLines.length;j++){
@@ -1217,8 +1220,9 @@ looker.plugins.visualizations.add({
                   sqlFieldName=extractSqlFieldName(sqlFull);
                   if(sqlFieldName&&sqlFull&&!isStandaloneSqlField(sqlFull))sqlFieldName=null;
                   var used=null;
-                  if(sqlFieldName&&semantic[sqlFieldName])used={key:sqlFieldName,meta:semantic[sqlFieldName]};
-                  else if(declName&&semantic[declName])used={key:declName,meta:semantic[declName]};
+                  var sk=(sqlFieldName||'').toLowerCase().trim(),dk=(declName||'').toLowerCase().trim();
+                  if(sk&&semantic[sk])used={key:sqlFieldName||sk,meta:semantic[sk]};
+                  else if(dk&&semantic[dk])used={key:declName||dk,meta:semantic[dk]};
                   dbg.push(declName+(sqlFieldName?' sql: '+sqlFieldName:'')+' -> '+(used?'label="'+used.meta.label+'"':'NOT IN MAP'));
                   j=k;
                 }else j++;
