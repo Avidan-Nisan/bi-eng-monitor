@@ -987,6 +987,16 @@ looker.plugins.visualizations.add({
           if(o!=null&&typeof o==='object'&&'value' in o)return o.value;
           return o;
         }
+        function resolveSemanticKey(row,wantKey,hint){
+          if(!row||typeof row!=='object')return wantKey;
+          var v=getCellVal(row,wantKey);
+          if(v!==undefined&&v!==null&&v!=='')return wantKey;
+          var keys=Array.isArray(row)?[]:Object.keys(row);
+          if(keys.length===0)return wantKey;
+          var hintLower=(hint||'').toLowerCase().replace(/[\s.]/g,'');
+          var found=keys.find(function(k){var kk=(k||'').toLowerCase().replace(/[\s.]/g,'');return kk.indexOf(hintLower)!==-1||hintLower.indexOf(kk)!==-1;});
+          return found||wantKey;
+        }
         function parseSemanticFromData(rows,fieldKeys){
           var fn=fieldKeys&&fieldKeys.fn,fl=fieldKeys&&fieldKeys.fl,cd=fieldKeys&&fieldKeys.cd;
           if(!fn||!fl||!cd){
@@ -997,12 +1007,16 @@ looker.plugins.visualizations.add({
             cd=cd||keys.find(function(k){return nk(k).indexOf('column_description')!==-1;})||keys.find(function(k){var n=nk(k);return n.indexOf('description')!==-1&&n.indexOf('label')===-1;});
           }
           if(!fn||!fl||!cd)return null;
+          var firstRow=rows.length?rows[0]:null;
+          var keyFn=resolveSemanticKey(firstRow,fn,'rfcm_field_name');
+          var keyFl=resolveSemanticKey(firstRow,fl,'rfcm_field_label');
+          var keyCd=resolveSemanticKey(firstRow,cd,'column_description');
           var byName={};
           rows.forEach(function(row){
-            var name=String(getCellVal(row,fn)||'').trim();
+            var name=String(getCellVal(row,keyFn)||'').trim();
             if(!name)return;
-            var label=String(getCellVal(row,fl)||'').trim();
-            var description=String(getCellVal(row,cd)||'').trim();
+            var label=String(getCellVal(row,keyFl)||'').trim();
+            var description=String(getCellVal(row,keyCd)||'').trim();
             if(!byName[name])byName[name]=[];
             byName[name].push({label:label,description:description});
           });
@@ -1016,8 +1030,6 @@ looker.plugins.visualizations.add({
               var scoreR=scoreLabelForFieldName(name,r.label);
               if(scoreR>scoreBest||(scoreR===scoreBest&&(r.label||'').length>(best.label||'').length))best=r;
             }
-            var bestScore=scoreLabelForFieldName(name,best.label);
-            if(bestScore===0&&list.length===1&&!best.label&&!best.description)continue;
             out[name]={label:best.label||'',description:best.description||''};
             if(name.indexOf('.')!==-1){
               var shortName=name.split('.').pop();
@@ -1161,7 +1173,7 @@ looker.plugins.visualizations.add({
         var instr='Paste your LKML view file below. Semantic layer from this tile\'s query (Columns Semantic Layer: rfcm_field_name, rfcm_field_label, column_description).';
         if(hasSemanticData)instr='Semantic layer loaded. Paste LKML view and click Generate. Labels/descriptions added only when name matches exactly. If a field shows NOT IN MAP in Debug, increase this tile\'s row limit so the query returns all semantic layer rows (e.g. 1000+).';
 
-        var VIZ_VERSION='2025-03-15-lkml-labels-v2';
+        var VIZ_VERSION='2025-03-15-lkml-labels-v3';
         var h=navBar()+'<div class="lx-body"><div class="lx-bar" style="border-bottom:1px solid #1e293b"><span style="color:#e2e8f0;font-size:12px;font-weight:700">LKML Labels</span></div>';
         h+='<div style="padding:16px 20px;display:flex;flex-direction:column;gap:16px;flex:1;min-height:0;overflow:hidden">';
         h+='<p style="margin:0;padding:6px 10px;background:#1e293b;border-radius:6px;color:#94a3b8;font-size:10px;font-family:ui-monospace,monospace"><strong style="color:#e2e8f0">Viz version:</strong> '+VIZ_VERSION+' — If you don\'t see this date, refresh or re-deploy the viz.</p>';
