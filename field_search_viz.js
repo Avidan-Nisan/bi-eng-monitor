@@ -1083,14 +1083,11 @@ looker.plugins.visualizations.add({
         var hasSemanticData=semanticFromQuery&&Object.keys(semanticFromQuery).length>0;
 
         var instr='Paste your LKML view file below. Optionally paste semantic layer data as JSON (array of objects with rfcm_field_name, rfcm_field_label, column_description). ';
-        if(hasSemanticData)instr='Using semantic layer data from this dashboard query. Paste your LKML view below and click Generate.';
-
-        var bqQuery="SELECT\n  rfcm_field_name,\n  rfcm_field_label,\n  COALESCE(research_description,bie_description,'') AS column_description\nFROM `bg-outbrain-bi.bie_monitoring.rfcm_column_mapping`\nLEFT JOIN (SELECT DISTINCT column_name AS research_column_name, description AS research_description FROM `bq-outbrain-research.prod.INFORMATION_SCHEMA.COLUMN_FIELD_PATHS` WHERE description IS NOT NULL) research ON rfcm_parent_field_name = research_column_name\nLEFT JOIN (SELECT DISTINCT column_name AS bie_column_name, description AS bie_description FROM `bg-outbrain-bi.mart.INFORMATION_SCHEMA.COLUMN_FIELD_PATHS` WHERE description IS NOT NULL) bie ON rfcm_parent_field_name = bie_column_name";
+        if(hasSemanticData)instr='Generating LKML with semantic layer for label and description.';
 
         var h=navBar()+'<div class="lx-body"><div class="lx-bar" style="border-bottom:1px solid #1e293b"><span style="color:#e2e8f0;font-size:12px;font-weight:700">LKML Labels</span></div>';
         h+='<div style="padding:16px 20px;display:flex;flex-direction:column;gap:16px;flex:1;min-height:0;overflow:hidden">';
         h+='<p style="color:#94a3b8;font-size:11px;margin:0">'+instr+'</p>';
-        h+='<details style="margin:0"><summary style="color:#64748b;font-size:10px;cursor:pointer">BigQuery: get semantic layer (rfcm_field_name, rfcm_field_label, column_description)</summary><textarea readonly id="lx-lkml-bq" style="width:100%;height:100px;margin-top:6px;background:#0f172a;border:1px solid #1e293b;border-radius:6px;color:#94a3b8;font-family:ui-monospace,monospace;font-size:10px;padding:8px;resize:vertical;box-sizing:border-box"></textarea></details>';
         if(!hasSemanticData){
           h+='<div><label style="color:#64748b;font-size:10px;display:block;margin-bottom:4px">Semantic layer data (JSON array)</label>';
           h+='<textarea id="lx-lkml-json" placeholder=\'[{"rfcm_field_name":"field_a","rfcm_field_label":"Label A","column_description":"Desc A"}]\' style="width:100%;height:80px;background:#0f172a;border:1px solid #1e293b;border-radius:8px;color:#e2e8f0;font-family:ui-monospace,monospace;font-size:11px;padding:10px;resize:vertical;box-sizing:border-box"></textarea></div>';
@@ -1105,8 +1102,6 @@ looker.plugins.visualizations.add({
         R.innerHTML=h;
 
         (function(){
-          var bqTa=document.getElementById('lx-lkml-bq');
-          if(bqTa)bqTa.value=bqQuery;
           var jsonTa=document.getElementById('lx-lkml-json');
           var viewTa=document.getElementById('lx-lkml-view');
           var outTa=document.getElementById('lx-lkml-output');
