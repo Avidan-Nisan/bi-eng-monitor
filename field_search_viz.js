@@ -16,7 +16,9 @@ looker.plugins.visualizations.add({
 
       dbt_lineage_dashboard_id: {type:"string",label:"DBT Lineage Dashboard ID",default:"",section:"Navigation",order:5},
 
-      data_dyson_dashboard_id: {type:"string",label:"Data Dyson Dashboard ID",default:"",section:"Navigation",order:6}
+      data_dyson_dashboard_id: {type:"string",label:"Data Dyson Dashboard ID",default:"",section:"Navigation",order:6},
+
+      lkml_labels_dashboard_id: {type:"string",label:"LKML Labels Dashboard ID",default:"",section:"Navigation",order:7}
 
     },
 
@@ -28,7 +30,7 @@ looker.plugins.visualizations.add({
 
       var s=document.createElement('style');
 
-      s.textContent='#lex *{box-sizing:border-box}.lx-nav{display:flex;align-items:center;gap:2px;padding:14px 20px 0;background:linear-gradient(180deg,#0f1629,#0a0e1a);border-bottom:1px solid #334155}.lx-nav-btn{padding:10px 22px;font-size:12px;font-weight:600;cursor:pointer;border:none;background:transparent;color:#94a3b8;border-radius:10px 10px 0 0;transition:all .2s;display:flex;align-items:center;gap:8px;letter-spacing:.3px;text-decoration:none;position:relative}.lx-nav-btn:hover{color:#cbd5e1;background:rgba(30,41,59,0.25)}.lx-nav-btn.active{color:#e2e8f0;background:#1e293b;cursor:default;border-bottom:2px solid transparent;font-weight:700}.lx-nav-btn.active::after{content:"";position:absolute;bottom:0;left:4px;right:4px;height:4px;border-radius:4px 4px 0 0;z-index:1}.lx-nav-btn.t-lineage.active{color:#10b981!important}.lx-nav-btn.t-lineage.active::after{background:#10b981;box-shadow:0 0 10px #10b981}.lx-nav-btn.t-overlap.active{color:#8b5cf6!important}.lx-nav-btn.t-overlap.active::after{background:#8b5cf6;box-shadow:0 0 10px #8b5cf6}.lx-nav-btn.t-usage.active{color:#f59e0b!important}.lx-nav-btn.t-usage.active::after{background:#f59e0b;box-shadow:0 0 10px #f59e0b}.lx-nav-btn.t-dbt_lineage.active{color:#0ea5e9!important}.lx-nav-btn.t-dbt_lineage.active::after{background:#0ea5e9;box-shadow:0 0 10px #0ea5e9}.lx-nav-btn.t-data_dyson.active{color:#14b8a6!important}.lx-nav-btn.t-data_dyson.active::after{background:#14b8a6;box-shadow:0 0 10px #14b8a6}.lx-body{flex:1;background:#131b2e;border-radius:12px 12px 0 0;overflow:hidden;display:flex;flex-direction:column;border:1px solid #1e293b;border-bottom:none;margin:0 12px}.lx-bar{padding:10px 16px;border-bottom:1px solid rgba(30,41,59,0.25);display:flex;align-items:center;justify-content:space-between;font-size:11px;min-height:42px}.lx-scroll{flex:1;overflow:auto}.lx-pill{display:inline-flex;align-items:center;gap:4px;padding:3px 10px;border-radius:6px;font-size:10px;font-weight:500}.lx-node{cursor:pointer;transition:opacity .15s}.lx-node:hover{opacity:.85}.lx-row{display:grid;border-bottom:1px solid rgba(30,41,59,0.1);transition:background .15s}.lx-row:hover{background:rgba(30,41,59,0.3)}.lx-hdr{display:grid;border-bottom:1px solid #1e293b;position:sticky;top:0;background:#131b2e;z-index:1}.lx-hdr>div{padding:10px 12px;font-size:10px;font-weight:600;color:#475569;cursor:pointer;user-select:none;text-transform:uppercase;letter-spacing:.5px;transition:color .15s}.lx-hdr>div:hover{color:#94a3b8}.lx-hdr>div.on{color:#e2e8f0}.lx-cell{padding:8px 12px;font-size:11px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.lx-ebtn{padding:7px 16px;border:1px solid #1e293b;cursor:pointer;font-size:11px;font-weight:500;transition:all .15s;background:transparent;color:#64748b;letter-spacing:.3px}.lx-ebtn:hover{background:#1e293b;color:#94a3b8}.lx-ebtn.on{background:#1e293b;border-color:#334155}.lx-link{color:#475569;text-decoration:none;transition:color .15s;display:inline-flex}.lx-link:hover{color:#e2e8f0}.dp-card{border-bottom:1px solid rgba(30,41,59,0.12)}.dp-head{display:flex;align-items:center;gap:12px;padding:12px 16px;cursor:pointer;transition:background .15s}.dp-head:hover{background:rgba(30,41,59,0.2)}';
+      s.textContent='#lex *{box-sizing:border-box}.lx-nav{display:flex;align-items:center;gap:2px;padding:14px 20px 0;background:linear-gradient(180deg,#0f1629,#0a0e1a);border-bottom:1px solid #334155}.lx-nav-btn{padding:10px 22px;font-size:12px;font-weight:600;cursor:pointer;border:none;background:transparent;color:#94a3b8;border-radius:10px 10px 0 0;transition:all .2s;display:flex;align-items:center;gap:8px;letter-spacing:.3px;text-decoration:none;position:relative}.lx-nav-btn:hover{color:#cbd5e1;background:rgba(30,41,59,0.25)}.lx-nav-btn.active{color:#e2e8f0;background:#1e293b;cursor:default;border-bottom:2px solid transparent;font-weight:700}.lx-nav-btn.active::after{content:"";position:absolute;bottom:0;left:4px;right:4px;height:4px;border-radius:4px 4px 0 0;z-index:1}.lx-nav-btn.t-lineage.active{color:#10b981!important}.lx-nav-btn.t-lineage.active::after{background:#10b981;box-shadow:0 0 10px #10b981}.lx-nav-btn.t-overlap.active{color:#8b5cf6!important}.lx-nav-btn.t-overlap.active::after{background:#8b5cf6;box-shadow:0 0 10px #8b5cf6}.lx-nav-btn.t-usage.active{color:#f59e0b!important}.lx-nav-btn.t-usage.active::after{background:#f59e0b;box-shadow:0 0 10px #f59e0b}.lx-nav-btn.t-dbt_lineage.active{color:#0ea5e9!important}.lx-nav-btn.t-dbt_lineage.active::after{background:#0ea5e9;box-shadow:0 0 10px #0ea5e9}.lx-nav-btn.t-data_dyson.active{color:#14b8a6!important}.lx-nav-btn.t-data_dyson.active::after{background:#14b8a6;box-shadow:0 0 10px #14b8a6}.lx-nav-btn.t-lkml_labels.active{color:#a78bfa!important}.lx-nav-btn.t-lkml_labels.active::after{background:#a78bfa;box-shadow:0 0 10px #a78bfa}.lx-body{flex:1;background:#131b2e;border-radius:12px 12px 0 0;overflow:hidden;display:flex;flex-direction:column;border:1px solid #1e293b;border-bottom:none;margin:0 12px}.lx-bar{padding:10px 16px;border-bottom:1px solid rgba(30,41,59,0.25);display:flex;align-items:center;justify-content:space-between;font-size:11px;min-height:42px}.lx-scroll{flex:1;overflow:auto}.lx-pill{display:inline-flex;align-items:center;gap:4px;padding:3px 10px;border-radius:6px;font-size:10px;font-weight:500}.lx-node{cursor:pointer;transition:opacity .15s}.lx-node:hover{opacity:.85}.lx-row{display:grid;border-bottom:1px solid rgba(30,41,59,0.1);transition:background .15s}.lx-row:hover{background:rgba(30,41,59,0.3)}.lx-hdr{display:grid;border-bottom:1px solid #1e293b;position:sticky;top:0;background:#131b2e;z-index:1}.lx-hdr>div{padding:10px 12px;font-size:10px;font-weight:600;color:#475569;cursor:pointer;user-select:none;text-transform:uppercase;letter-spacing:.5px;transition:color .15s}.lx-hdr>div:hover{color:#94a3b8}.lx-hdr>div.on{color:#e2e8f0}.lx-cell{padding:8px 12px;font-size:11px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.lx-ebtn{padding:7px 16px;border:1px solid #1e293b;cursor:pointer;font-size:11px;font-weight:500;transition:all .15s;background:transparent;color:#64748b;letter-spacing:.3px}.lx-ebtn:hover{background:#1e293b;color:#94a3b8}.lx-ebtn.on{background:#1e293b;border-color:#334155}.lx-link{color:#475569;text-decoration:none;transition:color .15s;display:inline-flex}.lx-link:hover{color:#e2e8f0}.dp-card{border-bottom:1px solid rgba(30,41,59,0.12)}.dp-head{display:flex;align-items:center;gap:12px;padding:12px 16px;cursor:pointer;transition:background .15s}.dp-head:hover{background:rgba(30,41,59,0.2)}';
 
       element.appendChild(s);
 
@@ -112,6 +114,8 @@ looker.plugins.visualizations.add({
 
       var onDataDysonDashboard=!(config.data_dyson_dashboard_id==null||config.data_dyson_dashboard_id==='')&&details&&details.dashboard_id&&String(details.dashboard_id).trim()===String(config.data_dyson_dashboard_id).trim();
 
+      var onLkmlLabelsDashboard=!(config.lkml_labels_dashboard_id==null||config.lkml_labels_dashboard_id==='')&&details&&details.dashboard_id&&String(details.dashboard_id).trim()===String(config.lkml_labels_dashboard_id).trim();
+
       var queryExplore=(queryResponse.meta&&(queryResponse.meta.explore||queryResponse.meta.model))?String(queryResponse.meta.explore||queryResponse.meta.model||'').toLowerCase():'';
 
       var looksLikeDbtUsage=queryExplore.indexOf('dbt')!==-1&&queryExplore.indexOf('usage')!==-1;
@@ -120,7 +124,9 @@ looker.plugins.visualizations.add({
 
       var hasNumJobsInQuery=!!(F.num_jobs&&fields&&fields.measure_like&&fields.measure_like.some(function(m){return m.name===F.num_jobs;}));
 
-      if(F.table_name&&F.consumer_type&&hasNumJobsInQuery)mode='data_dyson';
+      if(onLkmlLabelsDashboard)mode='lkml_labels';
+
+      else if(F.table_name&&F.consumer_type&&hasNumJobsInQuery)mode='data_dyson';
 
       else if(F.table_schema&&F.table_name&&F.consumer_type)mode='dbt_usage';
 
@@ -155,6 +161,8 @@ looker.plugins.visualizations.add({
         dbtlin:'<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2L2 7l10 5 10-5-10-5z"/><path d="M2 17l10 5 10-5"/></svg>',
 
         dyson:'<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 6h18"/><path d="M4 6v12a2 2 0 002 2h12a2 2 0 002-2V6"/><path d="M12 10v6"/><path d="M9 13h6"/></svg>',
+
+        lkml:'<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><polyline points="10 9 9 9 8 9"/></svg>',
 
         lnk:'<svg viewBox="0 0 24 24" width="11" height="11" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 13v6a2 2 0 01-2 2H5a2 2 0 01-2-2V8a2 2 0 012-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg>',
 
@@ -241,7 +249,9 @@ looker.plugins.visualizations.add({
 
           {id:'dbt_usage',label:'DBT Usage',icon:ic.usg,did:config.usage_dashboard_id},
 
-          {id:'data_dyson',label:'Data Dyson',icon:ic.dyson,did:config.data_dyson_dashboard_id}
+          {id:'data_dyson',label:'Data Dyson',icon:ic.dyson,did:config.data_dyson_dashboard_id},
+
+          {id:'lkml_labels',label:'LKML Labels',icon:ic.lkml,did:config.lkml_labels_dashboard_id}
 
         ];
 
@@ -944,6 +954,157 @@ looker.plugins.visualizations.add({
           bt.addEventListener('click',showTables);
           bc.addEventListener('click',showColumns);
         })();
+        done();return;
+      }
+
+      // ========== LKML LABELS: paste view + semantic data, generate view with labels/descriptions ==========
+
+      if(mode==='lkml_labels'){
+
+        function parseSemanticFromData(rows){
+          var keys=rows.length?Object.keys(rows[0]):[];
+          var fn=keys.find(function(k){return (k||'').toLowerCase().replace(/\s/g,'_').indexOf('rfcm_field_name')!==-1;});
+          var fl=keys.find(function(k){return (k||'').toLowerCase().replace(/\s/g,'_').indexOf('rfcm_field_label')!==-1;});
+          var cd=keys.find(function(k){var l=(k||'').toLowerCase().replace(/\s/g,'_');return l.indexOf('column_description')!==-1||l.indexOf('description')!==-1;});
+          if(!fn)return null;
+          var out={};
+          rows.forEach(function(row){
+            var name=String((row[fn]!=null&&typeof row[fn]==='object'&&'value' in row[fn])?row[fn].value:row[fn]||'').trim();
+            if(!name)return;
+            out[name]={
+              label:String((row[fl]!=null&&typeof row[fl]==='object'&&'value' in row[fl])?row[fl].value:row[fl]||'').trim(),
+              description:String((row[cd]!=null&&typeof row[cd]==='object'&&'value' in row[cd])?row[cd].value:row[cd]||'').trim()
+            };
+          });
+          return out;
+        }
+
+        function parseSemanticFromJson(jsonStr){
+          try{
+            var arr=JSON.parse(jsonStr);
+            if(!Array.isArray(arr))return null;
+            var out={};
+            arr.forEach(function(row){
+              var name=String(row.rfcm_field_name||'').trim();
+              if(!name)return;
+              out[name]={
+                label:String(row.rfcm_field_label||row.label||'').trim(),
+                description:String(row.column_description||row.description||'').trim()
+              };
+            });
+            return out;
+          }catch(e){return null;}
+        }
+
+        function extractSqlFieldName(sqlLine){
+          if(!sqlLine||typeof sqlLine!=='string')return null;
+          var m=sqlLine.match(/\$\{TABLE\}\s*\.\s*[\"\']?([a-zA-Z0-9_]+)[\"\']?/);
+          return m?m[1]:null;
+        }
+
+        function addLabelsToLkml(lkmlText,semanticMap){
+          if(!semanticMap||Object.keys(semanticMap).length===0)return lkmlText;
+          var lines=lkmlText.split(/\r?\n/);
+          var out=[];
+          var i=0;
+          while(i<lines.length){
+            var line=lines[i];
+            var dimMatch=line.match(/^\s*(dimension|measure)\s*:\s*([a-zA-Z0-9_]+)\s*(\{)?\s*$/);
+            if(dimMatch){
+              var kind=dimMatch[1],declName=dimMatch[2];
+              var blockStart=i;
+              out.push(line);
+              i++;
+              var sqlFieldName=null;
+              while(i<lines.length){
+                var inner=lines[i];
+                if(/^\s*dimension\s*:|^\s*measure\s*:|^\s*set\s*:|^\s*view\s*:/.test(inner)&&!inner.match(/^\s*(label|description)\s*:/))break;
+                if(/^\s*\}\s*$/.test(inner)){out.push(inner);i++;break;}
+                var sqlM=inner.match(/^\s*sql\s*:\s*(.+)$/);
+                if(sqlM)sqlFieldName=extractSqlFieldName(sqlM[1]);
+                out.push(inner);
+                i++;
+              }
+              var lookupName=sqlFieldName||declName;
+              var meta=semanticMap[lookupName]||semanticMap[declName];
+              if(meta&&(meta.label||meta.description)){
+                var blockHasLabel=false,blockHasDesc=false;
+                for(var j=blockStart+1;j<out.length;j++){
+                  if(out[j].match(/^\s*label\s*:/))blockHasLabel=true;
+                  if(out[j].match(/^\s*description\s*:/))blockHasDesc=true;
+                }
+                var toInsert=[];
+                if(meta.label&&!blockHasLabel)toInsert.push('    label: "'+(meta.label||'').replace(/"/g,'\\"')+'"');
+                if(meta.description&&!blockHasDesc)toInsert.push('    description: "'+(meta.description||'').replace(/"/g,'\\"').replace(/\n/g,'\\n')+'"');
+                if(toInsert.length){
+                  var insertIdx=blockStart+1;
+                  for(var j=blockStart+1;j<out.length;j++){
+                    if(out[j].match(/^\s*(sql|type|value_format|format_string|html)\s*:/)){insertIdx=j;break;}
+                  }
+                  var before=out.slice(0,insertIdx);
+                  var after=out.slice(insertIdx);
+                  out=before.concat(toInsert,after);
+                }
+              }
+              continue;
+            }
+            out.push(line);
+            i++;
+          }
+          return out.join('\n');
+        }
+
+        var semanticFromQuery=parseSemanticFromData(data);
+        var hasSemanticData=semanticFromQuery&&Object.keys(semanticFromQuery).length>0;
+
+        var instr='Paste your LKML view file below. Optionally paste semantic layer data as JSON (array of objects with rfcm_field_name, rfcm_field_label, column_description). ';
+        if(hasSemanticData)instr='Using semantic layer data from this dashboard query. Paste your LKML view below and click Generate.';
+
+        var bqQuery="SELECT\n  rfcm_field_name,\n  rfcm_field_label,\n  COALESCE(research_description,bie_description,'') AS column_description\nFROM `bg-outbrain-bi.bie_monitoring.rfcm_column_mapping`\nLEFT JOIN (SELECT DISTINCT column_name AS research_column_name, description AS research_description FROM `bq-outbrain-research.prod.INFORMATION_SCHEMA.COLUMN_FIELD_PATHS` WHERE description IS NOT NULL) research ON rfcm_parent_field_name = research_column_name\nLEFT JOIN (SELECT DISTINCT column_name AS bie_column_name, description AS bie_description FROM `bg-outbrain-bi.mart.INFORMATION_SCHEMA.COLUMN_FIELD_PATHS` WHERE description IS NOT NULL) bie ON rfcm_parent_field_name = bie_column_name";
+
+        var h=navBar()+'<div class="lx-body"><div class="lx-bar" style="border-bottom:1px solid #1e293b"><span style="color:#e2e8f0;font-size:12px;font-weight:700">LKML Labels</span></div>';
+        h+='<div style="padding:16px 20px;display:flex;flex-direction:column;gap:16px;flex:1;min-height:0;overflow:hidden">';
+        h+='<p style="color:#94a3b8;font-size:11px;margin:0">'+instr+'</p>';
+        h+='<details style="margin:0"><summary style="color:#64748b;font-size:10px;cursor:pointer">BigQuery: get semantic layer (rfcm_field_name, rfcm_field_label, column_description)</summary><textarea readonly id="lx-lkml-bq" style="width:100%;height:100px;margin-top:6px;background:#0f172a;border:1px solid #1e293b;border-radius:6px;color:#94a3b8;font-family:ui-monospace,monospace;font-size:10px;padding:8px;resize:vertical;box-sizing:border-box"></textarea></details>';
+        if(!hasSemanticData){
+          h+='<div><label style="color:#64748b;font-size:10px;display:block;margin-bottom:4px">Semantic layer data (JSON array)</label>';
+          h+='<textarea id="lx-lkml-json" placeholder=\'[{"rfcm_field_name":"field_a","rfcm_field_label":"Label A","column_description":"Desc A"}]\' style="width:100%;height:80px;background:#0f172a;border:1px solid #1e293b;border-radius:8px;color:#e2e8f0;font-family:ui-monospace,monospace;font-size:11px;padding:10px;resize:vertical;box-sizing:border-box"></textarea></div>';
+        }
+        h+='<div><label style="color:#64748b;font-size:10px;display:block;margin-bottom:4px">LKML view file</label>';
+        h+='<textarea id="lx-lkml-view" placeholder="view: my_view { ... }" style="width:100%;height:180px;background:#0f172a;border:1px solid #1e293b;border-radius:8px;color:#e2e8f0;font-family:ui-monospace,monospace;font-size:11px;padding:10px;resize:vertical;box-sizing:border-box"></textarea></div>';
+        h+='<button type="button" id="lx-lkml-generate" style="padding:8px 20px;background:#7c3aed;color:#fff;border:none;border-radius:8px;font-size:12px;font-weight:600;cursor:pointer;align-self:flex-start">Generate view with labels</button>';
+        h+='<div><label style="color:#64748b;font-size:10px;display:block;margin-bottom:4px">Generated LKML</label>';
+        h+='<textarea id="lx-lkml-output" readonly placeholder="Output appears here" style="width:100%;height:200px;background:#0f172a;border:1px solid #1e293b;border-radius:8px;color:#e2e8f0;font-family:ui-monospace,monospace;font-size:11px;padding:10px;resize:vertical;box-sizing:border-box"></textarea></div>';
+        h+='</div></div>';
+
+        R.innerHTML=h;
+
+        (function(){
+          var bqTa=document.getElementById('lx-lkml-bq');
+          if(bqTa)bqTa.value=bqQuery;
+          var jsonTa=document.getElementById('lx-lkml-json');
+          var viewTa=document.getElementById('lx-lkml-view');
+          var outTa=document.getElementById('lx-lkml-output');
+          var btn=document.getElementById('lx-lkml-generate');
+          if(!btn||!outTa)return;
+          btn.addEventListener('click',function(){
+            var semantic=semanticFromQuery;
+            if(!semantic&&jsonTa&&jsonTa.value.trim()){
+              semantic=parseSemanticFromJson(jsonTa.value.trim());
+            }
+            if(!semantic||Object.keys(semantic).length===0){
+              outTa.value='Paste semantic layer JSON (or use a dashboard query with rfcm_field_name, rfcm_field_label, column_description) and try again.';
+              return;
+            }
+            var viewSrc=(viewTa&&viewTa.value)?viewTa.value:'';
+            if(!viewSrc.trim()){
+              outTa.value='Paste an LKML view file and try again.';
+              return;
+            }
+            outTa.value=addLabelsToLkml(viewSrc,semantic);
+          });
+        })();
+
         done();return;
       }
 
