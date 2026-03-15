@@ -968,10 +968,11 @@ looker.plugins.visualizations.add({
 
         function parseSemanticFromData(rows){
           var keys=rows.length?Object.keys(rows[0]):[];
-          var fn=keys.find(function(k){return (k||'').toLowerCase().replace(/\s/g,'_').indexOf('rfcm_field_name')!==-1;});
-          var fl=keys.find(function(k){return (k||'').toLowerCase().replace(/\s/g,'_').indexOf('rfcm_field_label')!==-1;});
-          var cd=keys.find(function(k){var l=(k||'').toLowerCase().replace(/\s/g,'_');return l.indexOf('column_description')!==-1||(l.indexOf('description')!==-1&&l.indexOf('label')===-1);});
-          if(!fn)return null;
+          var nk=function(k){return (k||'').toLowerCase().replace(/\s/g,'_');};
+          var fn=keys.find(function(k){var n=nk(k);return n.indexOf('rfcm_field_name')!==-1&&n.indexOf('rfcm_field_label')===-1;});
+          var fl=keys.find(function(k){return nk(k).indexOf('rfcm_field_label')!==-1;});
+          var cd=keys.find(function(k){return nk(k).indexOf('column_description')!==-1;})||keys.find(function(k){var n=nk(k);return n.indexOf('description')!==-1&&n.indexOf('label')===-1;});
+          if(!fn||!fl||!cd)return null;
           var out={};
           rows.forEach(function(row){
             var name=String((row[fn]!=null&&typeof row[fn]==='object'&&'value' in row[fn])?row[fn].value:row[fn]||'').trim();
