@@ -1130,7 +1130,7 @@ looker.plugins.visualizations.add({
         var instr='Paste your LKML view file below. Semantic layer from this tile\'s query (Columns Semantic Layer: rfcm_field_name, rfcm_field_label, column_description).';
         if(hasSemanticData)instr='Semantic layer loaded. Paste LKML view and click Generate. Labels/descriptions added only when name matches exactly.';
 
-        var VIZ_VERSION='2025-03-16';
+        var VIZ_VERSION='2025-03-17';
         var h=navBar()+'<div class="lx-body"><div class="lx-bar" style="border-bottom:1px solid #1e293b"><span style="color:#e2e8f0;font-size:12px;font-weight:700">LKML Labels</span></div>';
         h+='<div style="padding:16px 20px;display:flex;flex-direction:column;gap:16px;flex:1;min-height:0;overflow:hidden">';
         h+='<p style="margin:0;padding:6px 10px;background:#1e293b;border-radius:6px;color:#94a3b8;font-size:10px;font-family:ui-monospace,monospace"><strong style="color:#e2e8f0">Viz version:</strong> '+VIZ_VERSION+' — If you don\'t see this date, refresh or re-deploy the viz.</p>';
@@ -1144,6 +1144,7 @@ looker.plugins.visualizations.add({
         h+='<button type="button" id="lx-lkml-generate" style="padding:8px 20px;background:#7c3aed;color:#fff;border:none;border-radius:8px;font-size:12px;font-weight:600;cursor:pointer;align-self:flex-start">Generate view with labels</button>';
         h+='<div><label style="color:#64748b;font-size:10px;display:block;margin-bottom:4px">Generated LKML</label>';
         h+='<textarea id="lx-lkml-output" readonly placeholder="Output appears here" style="width:100%;height:200px;background:#0f172a;border:1px solid #1e293b;border-radius:8px;color:#e2e8f0;font-family:ui-monospace,monospace;font-size:11px;padding:10px;resize:vertical;box-sizing:border-box"></textarea></div>';
+        h+='<details id="lx-lkml-debug" style="margin-top:8px"><summary style="color:#64748b;font-size:11px;cursor:pointer">Debug: what data the viz received</summary><pre id="lx-lkml-debug-body" style="margin:8px 0 0;padding:10px;background:#0f172a;border:1px solid #1e293b;border-radius:6px;color:#94a3b8;font-size:10px;font-family:ui-monospace,monospace;white-space:pre-wrap;max-height:200px;overflow:auto"></pre></details>';
         h+='</div></div>';
 
         R.innerHTML=h;
@@ -1153,17 +1154,65 @@ looker.plugins.visualizations.add({
           var viewTa=document.getElementById('lx-lkml-view');
           var outTa=document.getElementById('lx-lkml-output');
           var btn=document.getElementById('lx-lkml-generate');
+          var debugBody=document.getElementById('lx-lkml-debug-body');
           if(!btn||!outTa)return;
           btn.addEventListener('click',function(){
             var semantic=semanticFromQuery;
             if(!semantic&&jsonTa&&jsonTa.value.trim())semantic=parseSemanticFromJson(jsonTa.value.trim());
             if(!semantic||Object.keys(semantic).length===0){
               outTa.value='No semantic layer data. Use a tile that queries Columns Semantic Layer, or paste JSON above.';
+              if(debugBody)debugBody.textContent='No semantic data.';
               return;
             }
             var viewSrc=(viewTa&&viewTa.value)?viewTa.value:'';
-            if(!viewSrc.trim()){outTa.value='Paste an LKML view file and try again.';return;}
+            if(!viewSrc.trim()){outTa.value='Paste an LKML view file and try again.';if(debugBody)debugBody.textContent='';return;}
             outTa.value=addLabelsToLkml(viewSrc,semantic);
+            if(debugBody){
+              var dbg=[];
+              dbg.push('=== Data the viz received ===');
+              if(data&&data.length>0&&lkmlFieldKeys){
+                var fn=lkmlFieldKeys.fn,fl=lkmlFieldKeys.fl,cd=lkmlFieldKeys.cd;
+                dbg.push('Rows: '+data.length);
+                dbg.push('Column keys: fn="'+fn+'", fl="'+fl+'", cd="'+cd+'"');
+                dbg.push('');
+                dbg.push('First 10 rows (name | label | description):');
+                for(var i=0;i<Math.min(10,data.length);i++){
+                  var row=data[i];
+                  var n=row[fn]!=null&&typeof row[fn]==='object'&&'value' in row[fn]?row[fn].value:row[fn];
+                  var l=row[fl]!=null&&typeof row[fl]==='object'&&'value' in row[fl]?row[fl].value:row[fl];
+                  var d=row[cd]!=null&&typeof row[cd]==='object'&&'value' in row[cd]?row[cd].value:row[cd];
+                  dbg.push('  '+String(n)+' | '+String(l)+' | '+(String(d).length>50?String(d).slice(0,50)+'...':String(d)));
+                }
+                var nameCounts={};
+                data.forEach(function(row){var n=String((row[fn]!=null&&typeof row[fn]==='object'&&'value' in row[fn])?row[fn].value:row[fn]||'').trim();if(n)nameCounts[n]=(nameCounts[n]||0)+1;});
+                var dupes=Object.keys(nameCounts).filter(function(n){return nameCounts[n]>1;});
+                if(dupes.length){dbg.push('');dbg.push('Fields with multiple rows: '+dupes.slice(0,20).join(', ')+(dupes.length>20?' ...':''));}
+              }else dbg.push('(Using pasted JSON or no column keys)');
+              dbg.push('');
+              dbg.push('=== Map entries used for your LKML ===');
+              var lines=viewSrc.split(/\r?\n/),j=0;
+              while(j<lines.length){
+                var m=lines[j].match(/^\s*(dimension|measure)\s*:\s*([a-zA-Z0-9_]+)\s*(\{)?\s*$/);
+                if(m){
+                  var declName=m[2];
+                  var sqlFieldName=null;
+                  var k=j+1;
+                  while(k<lines.length){
+                    if(/^\s*dimension\s*:|^\s*measure\s*:|^\s*set\s*:|^\s*view\s*:/.test(lines[k])&&!lines[k].match(/^\s*(label|description)\s*:/))break;
+                    if(/^\s*\}\s*$/.test(lines[k])){k++;break;}
+                    var sm=lines[k].match(/\$\{TABLE\}\s*\.\s*[\"\']?([a-zA-Z0-9_]+)[\"\']?/);
+                    if(sm)sqlFieldName=sm[1];
+                    k++;
+                  }
+                  var used=null;
+                  if(sqlFieldName&&semantic[sqlFieldName])used={key:sqlFieldName,meta:semantic[sqlFieldName]};
+                  else if(declName&&semantic[declName])used={key:declName,meta:semantic[declName]};
+                  dbg.push(declName+(sqlFieldName?' sql: '+sqlFieldName:'')+' -> '+(used?'label="'+used.meta.label+'"':'NOT IN MAP'));
+                  j=k;
+                }else j++;
+              }
+              debugBody.textContent=dbg.join('\n');
+            }
           });
         })();
 
