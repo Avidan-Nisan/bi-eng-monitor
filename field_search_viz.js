@@ -1014,6 +1014,26 @@ looker.plugins.visualizations.add({
           var byName={};
           rows.forEach(function(row){
             var name=String(getCellVal(row,keyFn)||'').trim();
+            if(!name&&row&&typeof row==='object'&&!Array.isArray(row)){
+              var shortFn=keyFn.indexOf('.')!==-1?keyFn.split('.').pop():keyFn;
+              name=String(getCellVal(row,shortFn)||'').trim();
+            }
+            if(!name&&row&&typeof row==='object'&&!Array.isArray(row)){
+              var keys=Object.keys(row);
+              var nameKey=keys.find(function(k){var l=(k||'').toLowerCase();return l.indexOf('rfcm_field_name')!==-1&&l.indexOf('rfcm_field_label')===-1;});
+              if(nameKey){var v=getCellVal(row,nameKey);name=String(v!=null?v:'').trim();}
+            }
+            if(!name&&row&&typeof row==='object'&&!Array.isArray(row)){
+              for(var rk in row)if(row.hasOwnProperty(rk)){
+                var sub=row[rk];
+                if(sub&&typeof sub==='object'&&!Array.isArray(sub)&&('rfcm_field_name' in sub||'rfcm_field_name' in (sub.value||{}))){
+                  var v=sub.rfcm_field_name!=null?sub.rfcm_field_name:(sub.value&&sub.value.rfcm_field_name);
+                  if(v!=null&&typeof v==='object'&&'value' in v)v=v.value;
+                  name=String(v!=null?v:'').trim();
+                  if(name)break;
+                }
+              }
+            }
             if(!name)return;
             var label=String(getCellVal(row,keyFl)||'').trim();
             var description=String(getCellVal(row,keyCd)||'').trim();
@@ -1173,7 +1193,7 @@ looker.plugins.visualizations.add({
         var instr='Paste your LKML view file below. Semantic layer from this tile\'s query (Columns Semantic Layer: rfcm_field_name, rfcm_field_label, column_description).';
         if(hasSemanticData)instr='Semantic layer loaded. Paste LKML view and click Generate. Labels/descriptions added only when name matches exactly. If a field shows NOT IN MAP in Debug, increase this tile\'s row limit so the query returns all semantic layer rows (e.g. 1000+).';
 
-        var VIZ_VERSION='2025-03-15-lkml-labels-v3';
+        var VIZ_VERSION='2025-03-15-lkml-labels-v4';
         var h=navBar()+'<div class="lx-body"><div class="lx-bar" style="border-bottom:1px solid #1e293b"><span style="color:#e2e8f0;font-size:12px;font-weight:700">LKML Labels</span></div>';
         h+='<div style="padding:16px 20px;display:flex;flex-direction:column;gap:16px;flex:1;min-height:0;overflow:hidden">';
         h+='<p style="margin:0;padding:6px 10px;background:#1e293b;border-radius:6px;color:#94a3b8;font-size:10px;font-family:ui-monospace,monospace"><strong style="color:#e2e8f0">Viz version:</strong> '+VIZ_VERSION+' — If you don\'t see this date, refresh or re-deploy the viz.</p>';
@@ -1200,8 +1220,10 @@ looker.plugins.visualizations.add({
           var debugBody=document.getElementById('lx-lkml-debug-body');
           if(!btn||!outTa)return;
           btn.addEventListener('click',function(){
-            var semantic=semanticFromQuery;
+            var semantic=null;
+            if(data&&data.length>0&&lkmlFieldKeys)semantic=parseSemanticFromData(data,lkmlFieldKeys);
             if(!semantic&&jsonTa&&jsonTa.value.trim())semantic=parseSemanticFromJson(jsonTa.value.trim());
+            if(!semantic)semantic=semanticFromQuery;
             if(!semantic||Object.keys(semantic).length===0){
               outTa.value='No semantic layer data. Use a tile that queries Columns Semantic Layer, or paste JSON above.';
               if(debugBody)debugBody.textContent='No semantic data.';
@@ -1231,6 +1253,10 @@ looker.plugins.visualizations.add({
                 var dupes=Object.keys(nameCounts).filter(function(n){return nameCounts[n]>1;});
                 if(dupes.length){dbg.push('');dbg.push('Fields with multiple rows: '+dupes.slice(0,20).join(', ')+(dupes.length>20?' ...':''));}
               }else dbg.push('(Using pasted JSON or no column keys)');
+              dbg.push('');
+              var mapKeys=Object.keys(semantic);
+              dbg.push('Semantic map: '+mapKeys.length+' keys. Sample: '+(mapKeys.slice(0,15).join(', '))+(mapKeys.length>15?' ...':''));
+              dbg.push('masd_author in map: '+(semantic['masd_author']?'yes':'no')+', masd_category in map: '+(semantic['masd_category']?'yes':'no'));
               dbg.push('');
               dbg.push('=== Join: LKML field -> rfcm (1=by sql ${TABLE}.field_name if standalone, else by dimension/measure name) ===');
               dbg.push('');
