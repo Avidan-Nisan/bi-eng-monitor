@@ -1002,6 +1002,30 @@ looker.plugins.visualizations.add({
           }catch(e){return null;}
         }
 
+        function parseSemanticFromCsv(csvStr){
+          if(!csvStr||typeof csvStr!=='string')return null;
+          var lines=csvStr.trim().split(/\r?\n/);
+          if(lines.length<2)return null;
+          var header=lines[0].split(',').map(function(c){return (c||'').trim().replace(/^["']|["']$/g,'');});
+          var fnIdx=header.findIndex(function(h){return (h||'').toLowerCase().replace(/\s/g,'_').indexOf('rfcm_field_name')!==-1;});
+          var flIdx=header.findIndex(function(h){return (h||'').toLowerCase().replace(/\s/g,'_').indexOf('rfcm_field_label')!==-1;});
+          var cdIdx=header.findIndex(function(h){var l=(h||'').toLowerCase().replace(/\s/g,'_');return l.indexOf('column_description')!==-1||(l.indexOf('description')!==-1&&l.indexOf('label')===-1);});
+          if(fnIdx===-1)return null;
+          var out={};
+          for(var r=1;r<lines.length;r++){
+            var row=lines[r];
+            var parts=row.split(',');
+            if(parts.length<=fnIdx)continue;
+            var name=String(parts[fnIdx]!=null?parts[fnIdx].trim().replace(/^["']|["']$/g,''):'').trim();
+            if(!name)continue;
+            var label=(flIdx>=0&&parts[flIdx]!=null?String(parts[flIdx].trim().replace(/^["']|["']$/g,'')):'').trim();
+            var description=cdIdx>=0?(parts.length>cdIdx?parts.slice(cdIdx).join(',').trim().replace(/^["']|["']$/g,''):''):'';
+            if(!out[name])out[name]={label:label,description:description};
+            else{if(label&&!out[name].label)out[name].label=label;if(description&&!out[name].description)out[name].description=description;}
+          }
+          return Object.keys(out).length?out:null;
+        }
+
         function extractSqlFieldName(sqlLine){
           if(!sqlLine||typeof sqlLine!=='string')return null;
           var m=sqlLine.match(/\$\{TABLE\}\s*\.\s*[\"\']?([a-zA-Z0-9_]+)[\"\']?/);
@@ -1013,6 +1037,34 @@ looker.plugins.visualizations.add({
           if(sqlFieldName&&semanticMap[sqlFieldName])return semanticMap[sqlFieldName];
           if(!sqlFieldName&&declName&&semanticMap[declName])return semanticMap[declName];
           return null;
+        }
+
+        function deduplicateBlockLabels(lkmlText){
+          var lines=lkmlText.split(/\r?\n/);
+          var out=[];
+          var i=0;
+          while(i<lines.length){
+            var line=lines[i];
+            var dimMatch=line.match(/^\s*(dimension|measure)\s*:\s*([a-zA-Z0-9_]+)\s*(\{)?\s*$/);
+            if(dimMatch){
+              out.push(line);
+              i++;
+              var seenLabel=false,seenDesc=false;
+              while(i<lines.length){
+                var inner=lines[i];
+                if(/^\s*dimension\s*:|^\s*measure\s*:|^\s*set\s*:|^\s*view\s*:/.test(inner)&&!inner.match(/^\s*(label|description)\s*:/))break;
+                if(/^\s*\}\s*$/.test(inner)){out.push(inner);i++;break;}
+                if(inner.match(/^\s*label\s*:/)){if(!seenLabel){out.push(inner);seenLabel=true;}i++;continue;}
+                if(inner.match(/^\s*description\s*:/)){if(!seenDesc){out.push(inner);seenDesc=true;}i++;continue;}
+                out.push(inner);
+                i++;
+              }
+              continue;
+            }
+            out.push(line);
+            i++;
+          }
+          return out.join('\n');
         }
 
         function addLabelsToLkml(lkmlText,semanticMap){
@@ -1074,15 +1126,15 @@ looker.plugins.visualizations.add({
         var semanticFromQuery=parseSemanticFromData(data);
         var hasSemanticData=semanticFromQuery&&Object.keys(semanticFromQuery).length>0;
 
-        var instr='Paste your LKML view file below. Optionally paste semantic layer data as JSON (array of objects with rfcm_field_name, rfcm_field_label, column_description). ';
-        if(hasSemanticData)instr='Generating LKML with semantic layer for label and description.';
+        var instr='Paste your LKML view file below. Semantic layer data comes from this tile\'s query: use the <strong>Columns Semantic Layer</strong> explore (rfcm_field_name, rfcm_field_label, column_description).';
+        if(hasSemanticData)instr='Semantic layer loaded from query. Paste your LKML view file and click Generate to add labels and descriptions.';
 
         var h=navBar()+'<div class="lx-body"><div class="lx-bar" style="border-bottom:1px solid #1e293b"><span style="color:#e2e8f0;font-size:12px;font-weight:700">LKML Labels</span></div>';
         h+='<div style="padding:16px 20px;display:flex;flex-direction:column;gap:16px;flex:1;min-height:0;overflow:hidden">';
         h+='<p style="color:#94a3b8;font-size:11px;margin:0">'+instr+'</p>';
         if(!hasSemanticData){
           h+='<div><label style="color:#64748b;font-size:10px;display:block;margin-bottom:4px">Semantic layer data (JSON array)</label>';
-          h+='<textarea id="lx-lkml-json" placeholder=\'[{"rfcm_field_name":"field_a","rfcm_field_label":"Label A","column_description":"Desc A"}]\' style="width:100%;height:80px;background:#0f172a;border:1px solid #1e293b;border-radius:8px;color:#e2e8f0;font-family:ui-monospace,monospace;font-size:11px;padding:10px;resize:vertical;box-sizing:border-box"></textarea></div>';
+          h+='<textarea id="lx-lkml-json" placeholder=\'If this tile doesn\'t use Columns Semantic Layer, paste JSON or CSV here (rfcm_field_name, rfcm_field_label, column_description)\' style="width:100%;height:80px;background:#0f172a;border:1px solid #1e293b;border-radius:8px;color:#e2e8f0;font-family:ui-monospace,monospace;font-size:11px;padding:10px;resize:vertical;box-sizing:border-box"></textarea></div>';
         }
         h+='<div><label style="color:#64748b;font-size:10px;display:block;margin-bottom:4px">LKML view file</label>';
         h+='<textarea id="lx-lkml-view" placeholder="view: my_view { ... }" style="width:100%;height:180px;background:#0f172a;border:1px solid #1e293b;border-radius:8px;color:#e2e8f0;font-family:ui-monospace,monospace;font-size:11px;padding:10px;resize:vertical;box-sizing:border-box"></textarea></div>';
@@ -1102,10 +1154,12 @@ looker.plugins.visualizations.add({
           btn.addEventListener('click',function(){
             var semantic=semanticFromQuery;
             if(!semantic&&jsonTa&&jsonTa.value.trim()){
-              semantic=parseSemanticFromJson(jsonTa.value.trim());
+              var pasted=jsonTa.value.trim();
+              semantic=parseSemanticFromJson(pasted);
+              if(!semantic)semantic=parseSemanticFromCsv(pasted);
             }
             if(!semantic||Object.keys(semantic).length===0){
-              outTa.value='Paste semantic layer JSON (or use a dashboard query with rfcm_field_name, rfcm_field_label, column_description) and try again.';
+              outTa.value='No semantic layer data. Use a dashboard tile that queries the Columns Semantic Layer explore (dimensions: Rfcm Field Name, Rfcm Field Label, Column Description), or paste JSON/CSV in the box above.';
               return;
             }
             var viewSrc=(viewTa&&viewTa.value)?viewTa.value:'';
@@ -1113,7 +1167,8 @@ looker.plugins.visualizations.add({
               outTa.value='Paste an LKML view file and try again.';
               return;
             }
-            outTa.value=addLabelsToLkml(viewSrc,semantic);
+            var generated=addLabelsToLkml(viewSrc,semantic);
+            outTa.value=deduplicateBlockLabels(generated);
           });
         })();
 
