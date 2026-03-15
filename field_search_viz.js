@@ -1125,7 +1125,7 @@ looker.plugins.visualizations.add({
         var hasSemanticData=semanticFromQuery&&Object.keys(semanticFromQuery).length>0;
 
         var instr='Paste your LKML view file below. Semantic layer from this tile\'s query (Columns Semantic Layer: rfcm_field_name, rfcm_field_label, column_description).';
-        if(hasSemanticData)instr='Semantic layer loaded. Paste LKML view and click Generate. Labels/descriptions added only when name matches exactly.';
+        if(hasSemanticData)instr='Semantic layer loaded. Paste LKML view and click Generate. Labels/descriptions added only when name matches exactly. If a field shows NOT IN MAP in Debug, increase this tile\'s row limit so the query returns all semantic layer rows (e.g. 1000+).';
 
         var VIZ_VERSION='2025-03-18';
         var h=navBar()+'<div class="lx-body"><div class="lx-bar" style="border-bottom:1px solid #1e293b"><span style="color:#e2e8f0;font-size:12px;font-weight:700">LKML Labels</span></div>';
@@ -1187,6 +1187,8 @@ looker.plugins.visualizations.add({
               }else dbg.push('(Using pasted JSON or no column keys)');
               dbg.push('');
               dbg.push('=== Map entries used for your LKML ===');
+              dbg.push('(If you see NOT IN MAP but the field exists in the Explore, increase this tile\'s row limit so all rows are returned.)');
+              dbg.push('');
               var lines=viewSrc.split(/\r?\n/),j=0;
               while(j<lines.length){
                 var m=lines[j].match(/^\s*(dimension|measure)\s*:\s*([a-zA-Z0-9_]+)\s*(\{)?\s*$/);
