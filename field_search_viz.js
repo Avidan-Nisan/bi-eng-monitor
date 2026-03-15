@@ -1037,6 +1037,7 @@ looker.plugins.visualizations.add({
           var lines=lkmlText.split(/\r?\n/);
           var out=[];
           var i=0;
+          var insertedKey={};
           while(i<lines.length){
             var line=lines[i];
             var dimMatch=line.match(/^\s*(dimension|measure)\s*:\s*([a-zA-Z0-9_]+)\s*(\{)?\s*$/);
@@ -1056,6 +1057,8 @@ looker.plugins.visualizations.add({
                 out.push(inner);
                 i++;
               }
+              var uniqKey=(declName||'')+'|'+(sqlFieldName||'');
+              if(insertedKey[uniqKey]){continue;}
               var meta=findSemanticMeta(semanticMap,sqlFieldName,declName);
               if(meta&&(meta.label||meta.description)){
                 var blockHasLabel=false,blockHasDesc=false;
@@ -1067,6 +1070,7 @@ looker.plugins.visualizations.add({
                 if(meta.label&&!blockHasLabel)toInsert.push('    label: "'+(meta.label||'').replace(/"/g,'\\"')+'"');
                 if(meta.description&&!blockHasDesc)toInsert.push('    description: "'+(meta.description||'').replace(/"/g,'\\"').replace(/\n/g,'\\n')+'"');
                 if(toInsert.length){
+                  insertedKey[uniqKey]=true;
                   var insertIdx=blockStart+1;
                   for(var j=blockStart+1;j<out.length;j++){
                     if(out[j].match(/^\s*(sql|type|value_format|format_string|html)\s*:/)){insertIdx=j;break;}
