@@ -1003,6 +1003,33 @@ looker.plugins.visualizations.add({
           return m?m[1]:null;
         }
 
+        function oneLabelDescPerBlock(lkmlText){
+          var lines=lkmlText.split(/\r?\n/);
+          var out=[],i=0;
+          while(i<lines.length){
+            var line=lines[i];
+            var dimMatch=line.match(/^\s*(dimension|measure)\s*:\s*([a-zA-Z0-9_]+)\s*(\{)?\s*$/);
+            if(dimMatch){
+              out.push(line);
+              i++;
+              var seenLabel=false,seenDesc=false;
+              while(i<lines.length){
+                var inner=lines[i];
+                if(/^\s*dimension\s*:|^\s*measure\s*:|^\s*set\s*:|^\s*view\s*:/.test(inner)&&!inner.match(/^\s*(label|description)\s*:/))break;
+                if(/^\s*\}\s*$/.test(inner)){out.push(inner);i++;break;}
+                if(inner.match(/^\s*label\s*:/)){if(!seenLabel){out.push(inner);seenLabel=true;}i++;continue;}
+                if(inner.match(/^\s*description\s*:/)){if(!seenDesc){out.push(inner);seenDesc=true;}i++;continue;}
+                out.push(inner);
+                i++;
+              }
+              continue;
+            }
+            out.push(line);
+            i++;
+          }
+          return out.join('\n');
+        }
+
         function addLabelsToLkml(lkmlText,semanticMap){
           if(!semanticMap||Object.keys(semanticMap).length===0)return lkmlText;
           var lines=lkmlText.split(/\r?\n/);
@@ -1057,7 +1084,7 @@ looker.plugins.visualizations.add({
             out.push(line);
             i++;
           }
-          return out.join('\n');
+          return oneLabelDescPerBlock(out.join('\n'));
         }
 
         var semanticFromQuery=parseSemanticFromData(data);
