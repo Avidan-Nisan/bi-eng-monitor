@@ -106,6 +106,11 @@ looker.plugins.visualizations.add({
       F.parent_8=dims.find(function(f){return matchDbtLineageDim(f,'parent_8');});
       F.parent_9=dims.find(function(f){return matchDbtLineageDim(f,'parent_9');});
 
+      var hasRfcmFieldName=dims.some(function(f){var l=(f||'').toLowerCase().replace(/\s/g,'_');return l.indexOf('rfcm_field_name')!==-1;});
+      var hasRfcmFieldLabel=dims.some(function(f){var l=(f||'').toLowerCase().replace(/\s/g,'_');return l.indexOf('rfcm_field_label')!==-1;});
+      var hasColumnDesc=dims.some(function(f){var l=(f||'').toLowerCase().replace(/\s/g,'_');return l.indexOf('column_description')!==-1;});
+      var looksLikeLkmlLabelsExplore=hasRfcmFieldName&&hasRfcmFieldLabel&&hasColumnDesc;
+
       var mode;
 
       var onUsageDashboard=!(config.usage_dashboard_id==null||config.usage_dashboard_id==='')&&details&&details.dashboard_id&&String(details.dashboard_id).trim()===String(config.usage_dashboard_id).trim();
@@ -124,7 +129,7 @@ looker.plugins.visualizations.add({
 
       var hasNumJobsInQuery=!!(F.num_jobs&&fields&&fields.measure_like&&fields.measure_like.some(function(m){return m.name===F.num_jobs;}));
 
-      if(onLkmlLabelsDashboard)mode='lkml_labels';
+      if(onLkmlLabelsDashboard||looksLikeLkmlLabelsExplore)mode='lkml_labels';
 
       else if(F.table_name&&F.consumer_type&&hasNumJobsInQuery)mode='data_dyson';
 
