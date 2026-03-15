@@ -1007,6 +1007,26 @@ looker.plugins.visualizations.add({
           return m?m[1]:null;
         }
 
+        function findSemanticMeta(semanticMap,sqlFieldName,declName){
+          if(!semanticMap)return null;
+          var exact1=sqlFieldName&&semanticMap[sqlFieldName];
+          if(exact1)return exact1;
+          var exact2=declName&&semanticMap[declName];
+          if(exact2)return exact2;
+          var declLower=declName?(declName+'').toLowerCase():'';
+          var sqlLower=sqlFieldName?(sqlFieldName+'').toLowerCase():'';
+          var suffixDecl=declLower?'_'+declLower:'';
+          var suffixSql=sqlLower?'_'+sqlLower:'';
+          for(var k in semanticMap){
+            if(!semanticMap.hasOwnProperty(k))continue;
+            var keyLower=(k+'').toLowerCase();
+            if(keyLower===declLower||keyLower===sqlLower)return semanticMap[k];
+            if(suffixDecl&&keyLower.slice(-suffixDecl.length)===suffixDecl)return semanticMap[k];
+            if(suffixSql&&keyLower.slice(-suffixSql.length)===suffixSql)return semanticMap[k];
+          }
+          return null;
+        }
+
         function addLabelsToLkml(lkmlText,semanticMap){
           if(!semanticMap||Object.keys(semanticMap).length===0)return lkmlText;
           var lines=lkmlText.split(/\r?\n/);
@@ -1026,12 +1046,12 @@ looker.plugins.visualizations.add({
                 if(/^\s*dimension\s*:|^\s*measure\s*:|^\s*set\s*:|^\s*view\s*:/.test(inner)&&!inner.match(/^\s*(label|description)\s*:/))break;
                 if(/^\s*\}\s*$/.test(inner)){out.push(inner);i++;break;}
                 var sqlM=inner.match(/^\s*sql\s*:\s*(.+)$/);
-                if(sqlM)sqlFieldName=extractSqlFieldName(sqlM[1]);
+                if(sqlM){var ex=extractSqlFieldName(sqlM[1]);if(ex)sqlFieldName=ex;}
+                else if(inner.indexOf('${TABLE}')!==-1&&!sqlFieldName)sqlFieldName=extractSqlFieldName(inner);
                 out.push(inner);
                 i++;
               }
-              var lookupName=sqlFieldName||declName;
-              var meta=semanticMap[lookupName]||semanticMap[declName];
+              var meta=findSemanticMeta(semanticMap,sqlFieldName,declName);
               if(meta&&(meta.label||meta.description)){
                 var blockHasLabel=false,blockHasDesc=false;
                 for(var j=blockStart+1;j<out.length;j++){
