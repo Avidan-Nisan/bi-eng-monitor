@@ -12,13 +12,15 @@ looker.plugins.visualizations.add({
 
       overlap_dashboard_id: {type:"string",label:"Overlap Dashboard ID",default:"",section:"Navigation",order:3},
 
-      usage_dashboard_id: {type:"string",label:"DBT Usage Dashboard ID",default:"",section:"Navigation",order:4},
+      bq_jobs_dashboard_id: {type:"string",label:"BQ Jobs Dashboard ID",default:"",section:"Navigation",order:4},
 
-      dbt_lineage_dashboard_id: {type:"string",label:"DBT Lineage Dashboard ID",default:"",section:"Navigation",order:5},
+      usage_dashboard_id: {type:"string",label:"DBT Usage Dashboard ID",default:"",section:"Navigation",order:5},
 
-      data_dyson_dashboard_id: {type:"string",label:"Data Dyson Dashboard ID",default:"",section:"Navigation",order:6},
+      dbt_lineage_dashboard_id: {type:"string",label:"DBT Lineage Dashboard ID",default:"",section:"Navigation",order:6},
 
-      lkml_labels_dashboard_id: {type:"string",label:"LKML Labels Dashboard ID",default:"",section:"Navigation",order:7}
+      data_dyson_dashboard_id: {type:"string",label:"Data Dyson Dashboard ID",default:"",section:"Navigation",order:7},
+
+      lkml_labels_dashboard_id: {type:"string",label:"LKML Labels Dashboard ID",default:"",section:"Navigation",order:8}
 
     },
 
@@ -30,7 +32,7 @@ looker.plugins.visualizations.add({
 
       var s=document.createElement('style');
 
-      s.textContent='#lex *{box-sizing:border-box}.lx-nav{display:flex;align-items:center;gap:2px;padding:14px 20px 0;background:linear-gradient(180deg,#0f1629,#0a0e1a);border-bottom:1px solid #334155}.lx-nav-btn{padding:10px 22px;font-size:12px;font-weight:600;cursor:pointer;border:none;background:transparent;color:#94a3b8;border-radius:10px 10px 0 0;transition:all .2s;display:flex;align-items:center;gap:8px;letter-spacing:.3px;text-decoration:none;position:relative}.lx-nav-btn:hover{color:#cbd5e1;background:rgba(30,41,59,0.25)}.lx-nav-btn.active{color:#e2e8f0;background:#1e293b;cursor:default;border-bottom:2px solid transparent;font-weight:700}.lx-nav-btn.active::after{content:"";position:absolute;bottom:0;left:4px;right:4px;height:4px;border-radius:4px 4px 0 0;z-index:1}.lx-nav-btn.t-lineage.active{color:#10b981!important}.lx-nav-btn.t-lineage.active::after{background:#10b981;box-shadow:0 0 10px #10b981}.lx-nav-btn.t-overlap.active{color:#8b5cf6!important}.lx-nav-btn.t-overlap.active::after{background:#8b5cf6;box-shadow:0 0 10px #8b5cf6}.lx-nav-btn.t-usage.active{color:#f59e0b!important}.lx-nav-btn.t-usage.active::after{background:#f59e0b;box-shadow:0 0 10px #f59e0b}.lx-nav-btn.t-dbt_lineage.active{color:#0ea5e9!important}.lx-nav-btn.t-dbt_lineage.active::after{background:#0ea5e9;box-shadow:0 0 10px #0ea5e9}.lx-nav-btn.t-data_dyson.active{color:#14b8a6!important}.lx-nav-btn.t-data_dyson.active::after{background:#14b8a6;box-shadow:0 0 10px #14b8a6}.lx-nav-btn.t-lkml_labels.active{color:#a78bfa!important}.lx-nav-btn.t-lkml_labels.active::after{background:#a78bfa;box-shadow:0 0 10px #a78bfa}.lx-body{flex:1;background:#131b2e;border-radius:12px 12px 0 0;overflow:hidden;display:flex;flex-direction:column;border:1px solid #1e293b;border-bottom:none;margin:0 12px}.lx-bar{padding:10px 16px;border-bottom:1px solid rgba(30,41,59,0.25);display:flex;align-items:center;justify-content:space-between;font-size:11px;min-height:42px}.lx-scroll{flex:1;overflow:auto}.lx-pill{display:inline-flex;align-items:center;gap:4px;padding:3px 10px;border-radius:6px;font-size:10px;font-weight:500}.lx-node{cursor:pointer;transition:opacity .15s}.lx-node:hover{opacity:.85}.lx-row{display:grid;border-bottom:1px solid rgba(30,41,59,0.1);transition:background .15s}.lx-row:hover{background:rgba(30,41,59,0.3)}.lx-hdr{display:grid;border-bottom:1px solid #1e293b;position:sticky;top:0;background:#131b2e;z-index:1}.lx-hdr>div{padding:10px 12px;font-size:10px;font-weight:600;color:#475569;cursor:pointer;user-select:none;text-transform:uppercase;letter-spacing:.5px;transition:color .15s}.lx-hdr>div:hover{color:#94a3b8}.lx-hdr>div.on{color:#e2e8f0}.lx-cell{padding:8px 12px;font-size:11px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.lx-ebtn{padding:7px 16px;border:1px solid #1e293b;cursor:pointer;font-size:11px;font-weight:500;transition:all .15s;background:transparent;color:#64748b;letter-spacing:.3px}.lx-ebtn:hover{background:#1e293b;color:#94a3b8}.lx-ebtn.on{background:#1e293b;border-color:#334155}.lx-link{color:#475569;text-decoration:none;transition:color .15s;display:inline-flex}.lx-link:hover{color:#e2e8f0}.dp-card{border-bottom:1px solid rgba(30,41,59,0.12)}.dp-head{display:flex;align-items:center;gap:12px;padding:12px 16px;cursor:pointer;transition:background .15s}.dp-head:hover{background:rgba(30,41,59,0.2)}';
+      s.textContent='#lex *{box-sizing:border-box}.lx-nav{display:flex;align-items:center;gap:2px;padding:14px 20px 0;background:linear-gradient(180deg,#0f1629,#0a0e1a);border-bottom:1px solid #334155}.lx-nav-btn{padding:10px 22px;font-size:12px;font-weight:600;cursor:pointer;border:none;background:transparent;color:#94a3b8;border-radius:10px 10px 0 0;transition:all .2s;display:flex;align-items:center;gap:8px;letter-spacing:.3px;text-decoration:none;position:relative}.lx-nav-btn:hover{color:#cbd5e1;background:rgba(30,41,59,0.25)}.lx-nav-btn.active{color:#e2e8f0;background:#1e293b;cursor:default;border-bottom:2px solid transparent;font-weight:700}.lx-nav-btn.active::after{content:"";position:absolute;bottom:0;left:4px;right:4px;height:4px;border-radius:4px 4px 0 0;z-index:1}.lx-nav-btn.t-lineage.active{color:#10b981!important}.lx-nav-btn.t-lineage.active::after{background:#10b981;box-shadow:0 0 10px #10b981}.lx-nav-btn.t-overlap.active{color:#8b5cf6!important}.lx-nav-btn.t-overlap.active::after{background:#8b5cf6;box-shadow:0 0 10px #8b5cf6}.lx-nav-btn.t-bq_jobs.active{color:#06b6d4!important}.lx-nav-btn.t-bq_jobs.active::after{background:#06b6d4;box-shadow:0 0 10px #06b6d4}.lx-nav-btn.t-usage.active{color:#f59e0b!important}.lx-nav-btn.t-usage.active::after{background:#f59e0b;box-shadow:0 0 10px #f59e0b}.lx-nav-btn.t-dbt_lineage.active{color:#0ea5e9!important}.lx-nav-btn.t-dbt_lineage.active::after{background:#0ea5e9;box-shadow:0 0 10px #0ea5e9}.lx-nav-btn.t-data_dyson.active{color:#14b8a6!important}.lx-nav-btn.t-data_dyson.active::after{background:#14b8a6;box-shadow:0 0 10px #14b8a6}.lx-nav-btn.t-lkml_labels.active{color:#a78bfa!important}.lx-nav-btn.t-lkml_labels.active::after{background:#a78bfa;box-shadow:0 0 10px #a78bfa}.lx-body{flex:1;background:#131b2e;border-radius:12px 12px 0 0;overflow:hidden;display:flex;flex-direction:column;border:1px solid #1e293b;border-bottom:none;margin:0 12px}.lx-bar{padding:10px 16px;border-bottom:1px solid rgba(30,41,59,0.25);display:flex;align-items:center;justify-content:space-between;font-size:11px;min-height:42px}.lx-scroll{flex:1;overflow:auto}.lx-pill{display:inline-flex;align-items:center;gap:4px;padding:3px 10px;border-radius:6px;font-size:10px;font-weight:500}.lx-node{cursor:pointer;transition:opacity .15s}.lx-node:hover{opacity:.85}.lx-row{display:grid;border-bottom:1px solid rgba(30,41,59,0.1);transition:background .15s}.lx-row:hover{background:rgba(30,41,59,0.3)}.lx-hdr{display:grid;border-bottom:1px solid #1e293b;position:sticky;top:0;background:#131b2e;z-index:1}.lx-hdr>div{padding:10px 12px;font-size:10px;font-weight:600;color:#475569;cursor:pointer;user-select:none;text-transform:uppercase;letter-spacing:.5px;transition:color .15s}.lx-hdr>div:hover{color:#94a3b8}.lx-hdr>div.on{color:#e2e8f0}.lx-cell{padding:8px 12px;font-size:11px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.lx-ebtn{padding:7px 16px;border:1px solid #1e293b;cursor:pointer;font-size:11px;font-weight:500;transition:all .15s;background:transparent;color:#64748b;letter-spacing:.3px}.lx-ebtn:hover{background:#1e293b;color:#94a3b8}.lx-ebtn.on{background:#1e293b;border-color:#334155}.lx-link{color:#475569;text-decoration:none;transition:color .15s;display:inline-flex}.lx-link:hover{color:#e2e8f0}.dp-card{border-bottom:1px solid rgba(30,41,59,0.12)}.dp-head{display:flex;align-items:center;gap:12px;padding:12px 16px;cursor:pointer;transition:background .15s}.dp-head:hover{background:rgba(30,41,59,0.2)}';
 
       element.appendChild(s);
 
@@ -106,6 +108,16 @@ looker.plugins.visualizations.add({
       F.parent_8=dims.find(function(f){return matchDbtLineageDim(f,'parent_8');});
       F.parent_9=dims.find(function(f){return matchDbtLineageDim(f,'parent_9');});
 
+      F.bq_job_id=dims.find(function(f){var l=(f||'').toLowerCase().replace(/\s/g,'_');return l.indexOf('job_id')!==-1;});
+      F.bq_creation_date=dims.find(function(f){var l=(f||'').toLowerCase().replace(/\s/g,'_');return l.indexOf('creation_time_date')!==-1||(l.indexOf('creation_time')!==-1&&l.indexOf('date')!==-1);});
+      F.bq_creation_hour=dims.find(function(f){var l=(f||'').toLowerCase().replace(/\s/g,'_');return l.indexOf('creation_time_hour')!==-1;});
+      F.bq_slot_hours=meas.find(function(f){var l=(f||'').toLowerCase().replace(/\s/g,'_');return l.indexOf('slot_hours')!==-1;});
+      F.bq_total_slot_ms=dims.find(function(f){var l=(f||'').toLowerCase().replace(/\s/g,'_');return l.indexOf('total_slot_ms')!==-1;});
+      F.bq_dbt_node=dims.find(function(f){var l=(f||'').toLowerCase().replace(/\s/g,'_');return l.indexOf('dbt_query_node_id')!==-1;});
+      F.bq_runtime_sec=dims.find(function(f){var l=(f||'').toLowerCase().replace(/\s/g,'_');return l.indexOf('runtime_sec')!==-1;});
+      F.bq_user_email=dims.find(function(f){var l=(f||'').toLowerCase().replace(/\s/g,'_');return l.indexOf('user_email')!==-1;});
+      F.bq_state=dims.find(function(f){var l=(f||'').toLowerCase().replace(/\s/g,'_');return l.indexOf('state')!==-1&&l.indexOf('statement')===-1;});
+
       var hasRfcmFieldName=dims.some(function(f){var l=(f||'').toLowerCase().replace(/\s/g,'_');return l.indexOf('rfcm_field_name')!==-1;});
       var hasRfcmFieldLabel=dims.some(function(f){var l=(f||'').toLowerCase().replace(/\s/g,'_');return l.indexOf('rfcm_field_label')!==-1;});
       var hasColumnDesc=dims.some(function(f){var l=(f||'').toLowerCase().replace(/\s/g,'_');return l.indexOf('column_description')!==-1;});
@@ -121,6 +133,8 @@ looker.plugins.visualizations.add({
 
       var onLkmlLabelsDashboard=!(config.lkml_labels_dashboard_id==null||config.lkml_labels_dashboard_id==='')&&details&&details.dashboard_id&&String(details.dashboard_id).trim()===String(config.lkml_labels_dashboard_id).trim();
 
+      var onBqJobsDashboard=!(config.bq_jobs_dashboard_id==null||config.bq_jobs_dashboard_id==='')&&details&&details.dashboard_id&&String(details.dashboard_id).trim()===String(config.bq_jobs_dashboard_id).trim();
+
       var queryExplore=(queryResponse.meta&&(queryResponse.meta.explore||queryResponse.meta.model))?String(queryResponse.meta.explore||queryResponse.meta.model||'').toLowerCase():'';
 
       var looksLikeDbtUsage=queryExplore.indexOf('dbt')!==-1&&queryExplore.indexOf('usage')!==-1;
@@ -132,6 +146,10 @@ looker.plugins.visualizations.add({
       if(onLkmlLabelsDashboard||looksLikeLkmlLabelsExplore)mode='lkml_labels';
 
       else if(F.table_name&&F.consumer_type&&hasNumJobsInQuery)mode='data_dyson';
+
+      else if(onBqJobsDashboard)mode='bq_jobs';
+
+      else if(queryExplore.indexOf('bq_jobs')!==-1&&F.bq_job_id&&(F.bq_creation_date||F.bq_creation_hour)&&(F.bq_slot_hours||F.bq_total_slot_ms))mode='bq_jobs';
 
       else if(F.table_schema&&F.table_name&&F.consumer_type)mode='dbt_usage';
 
@@ -168,6 +186,7 @@ looker.plugins.visualizations.add({
         dyson:'<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 6h18"/><path d="M4 6v12a2 2 0 002 2h12a2 2 0 002-2V6"/><path d="M12 10v6"/><path d="M9 13h6"/></svg>',
 
         lkml:'<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><polyline points="10 9 9 9 8 9"/></svg>',
+        bqjobs:'<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 3v18h18"/><path d="M18 17V9"/><path d="M13 17V5"/><path d="M8 17v-3"/></svg>',
 
         lnk:'<svg viewBox="0 0 24 24" width="11" height="11" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 13v6a2 2 0 01-2 2H5a2 2 0 01-2-2V8a2 2 0 012-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg>',
 
@@ -250,13 +269,15 @@ looker.plugins.visualizations.add({
 
           {id:'overlap',label:'Looker Overlap',icon:ic.ovl,did:config.overlap_dashboard_id},
 
+          {id:'bq_jobs',label:'BQ Jobs',icon:ic.bqjobs,did:config.bq_jobs_dashboard_id},
+
           {id:'dbt_lineage',label:'DBT Lineage',icon:ic.dbtlin,did:config.dbt_lineage_dashboard_id},
 
           {id:'dbt_usage',label:'DBT Usage',icon:ic.usg,did:config.usage_dashboard_id},
 
           {id:'data_dyson',label:'Data Dyson',icon:ic.dyson,did:config.data_dyson_dashboard_id},
 
-          {id:'lkml_labels',label:'LKML labels generator',icon:ic.lkml,did:config.lkml_labels_dashboard_id}
+          {id:'lkml_labels',label:'LKML Labels Generator',icon:ic.lkml,did:config.lkml_labels_dashboard_id}
 
         ];
 
@@ -830,6 +851,98 @@ looker.plugins.visualizations.add({
 
       }
 
+      // ========== BQ JOBS: slots by datetime, model performance, job details ==========
+
+      if(mode==='bq_jobs'){
+
+        var timeDim=F.bq_creation_date||F.bq_creation_hour;
+        var slotMeasure=F.bq_slot_hours;
+        var slotDim=F.bq_total_slot_ms;
+        if(!F.bq_job_id||(!timeDim&&!F.bq_creation_date&&!F.bq_creation_hour)||(!slotMeasure&&!slotDim)){
+          R.innerHTML=navBar()+'<div class="lx-body"><div class="lx-bar" style="border-bottom:1px solid #1e293b"><span style="color:#e2e8f0;font-size:12px;font-weight:700">BQ Jobs</span></div><div style="padding:24px 20px;color:#94a3b8;font-size:12px;line-height:1.5">Use the <strong style="color:#e2e8f0">bq_jobs</strong> explore. Add dimensions: <strong>Job Id</strong>, <strong>Creation Time</strong> (date or hour), and a slot measure (<strong>Slot Usage (Hours)</strong>) or dimension <strong>Total Slot Ms</strong>. Optionally add <strong>DBT Query Node Id</strong>, <strong>Runtime Sec</strong>, <strong>User Email</strong>, <strong>State</strong>.</div></div>';
+          done();return;
+        }
+        function resolveBqKey(keys,row){
+          if(!row)return null;
+          for(var i=0;i<keys.length;i++)if(keys[i]&&row[keys[i]]!=null)return keys[i];
+          var rowKeys=Object.keys(row);
+          for(var i=0;i<keys.length;i++){
+            var want=(keys[i]||'').toLowerCase().replace(/[\s.]/g,'');
+            var found=rowKeys.find(function(k){return (k||'').toLowerCase().replace(/[\s.]/g,'').indexOf(want)!==-1||want.indexOf((k||'').toLowerCase().replace(/[\s.]/g,''))!==-1;});
+            if(found)return found;
+          }
+          return keys[0]||null;
+        }
+        var firstRow=data[0];
+        var kJob=resolveBqKey([F.bq_job_id],firstRow);
+        var kTime=resolveBqKey([F.bq_creation_date,F.bq_creation_hour],firstRow);
+        var kSlotM=slotMeasure?resolveBqKey([F.bq_slot_hours],firstRow):null;
+        var kSlotD=slotDim?resolveBqKey([F.bq_total_slot_ms],firstRow):null;
+        var kNode=resolveBqKey([F.bq_dbt_node],firstRow);
+        var kRuntime=resolveBqKey([F.bq_runtime_sec],firstRow);
+        var kUser=resolveBqKey([F.bq_user_email],firstRow);
+        var kState=resolveBqKey([F.bq_state],firstRow);
+        function getSlot(row){if(kSlotM!=null){var v=cellVal(row,kSlotM);if(v!=null)return parseFloat(v)||0;}if(kSlotD!=null){var v=cellVal(row,kSlotD);if(v!=null)return (parseFloat(v)||0)/3600000;}return 0;}
+        function getTime(row){if(!kTime)return '';var v=cellVal(row,kTime);return v!=null?String(v).substring(0,16):'';}
+        function getNode(row){if(!kNode)return '—';var v=cellVal(row,kNode);return v!=null?String(v):'—';}
+        function getRuntime(row){if(!kRuntime)return null;var v=cellVal(row,kRuntime);return v!=null?parseFloat(v)||0:0;}
+        var byTime={};
+        var byModel={};
+        var jobs=[];
+        data.forEach(function(row){
+          var t=getTime(row),slot=getSlot(row),node=getNode(row),runtime=getRuntime(row),jobId=kJob?String(cellVal(row,kJob)||''):'';
+          if(t){byTime[t]=(byTime[t]||0)+slot;}
+          if(node){if(!byModel[node])byModel[node]={slot_hours:0,runtime_sec:0,count:0};byModel[node].slot_hours+=slot;byModel[node].runtime_sec+=runtime;byModel[node].count+=1;}
+          jobs.push({job_id:jobId,time:t,slot_hours:slot,node:node,runtime_sec:runtime,user_email:kUser?String(cellVal(row,kUser)||''):'',state:kState?String(cellVal(row,kState)||''):''});
+        });
+        var timeLabels=Object.keys(byTime).sort();
+        var slotValues=timeLabels.map(function(t){return byTime[t];});
+        var maxSlot=timeLabels.length?Math.max.apply(null,slotValues)||1:1;
+        var chartW=Math.max(400,Math.min(W-80,700)),chartH=180,pad=40;
+        var linePoints=timeLabels.map(function(t,i){var x=pad+(i/(Math.max(1,timeLabels.length-1)))*(chartW-pad*2),y=chartH+pad-10-(slotValues[i]/maxSlot)*(chartH-20);return x+','+y;});
+        var linePath=linePoints.length?'M'+linePoints.join(' L'):'';
+        var modelRows=Object.keys(byModel).map(function(n){var m=byModel[n];return {node:n,slot_hours:m.slot_hours,runtime_sec:m.runtime_sec,count:m.count};});
+        modelRows.sort(function(a,b){return b.slot_hours-a.slot_hours;});
+        jobs.sort(function(a,b){return b.slot_hours-a.slot_hours;});
+        var topJobs=jobs.slice(0,100);
+        var h=navBar()+'<div class="lx-body">';
+        h+='<div class="lx-bar" style="border-bottom:1px solid #1e293b"><span style="color:#e2e8f0;font-size:12px;font-weight:700">BQ Jobs</span><span style="color:#64748b;font-size:11px;margin-left:12px">'+data.length+' jobs</span></div>';
+        h+='<div class="lx-scroll" style="padding:16px 20px;display:flex;flex-direction:column;gap:24px">';
+        h+='<div><div style="color:#94a3b8;font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:.5px;margin-bottom:10px">Slot usage by datetime</div>';
+        h+='<svg width="'+chartW+'" height="'+(chartH+pad*2)+'" style="display:block;background:#0f172a;border-radius:10px;border:1px solid #1e293b">';
+        if(linePath)h+='<path d="'+linePath+'" fill="none" stroke="#06b6d4" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>';
+        timeLabels.forEach(function(t,i){var x=pad+(i/(Math.max(1,timeLabels.length-1)))*(chartW-pad*2);h+='<text x="'+x+'" y="'+(chartH+pad+4)+'" text-anchor="middle" fill="#64748b" font-size="9">'+String(t).replace(/</g,'&lt;').substring(0,14)+'</text>';});
+        if(!timeLabels.length)h+='<text x="'+(chartW/2)+'" y="'+(chartH/2+pad)+'" text-anchor="middle" fill="#64748b" font-size="11">Add Creation Time (date or hour) for slot usage over time</text>';
+        h+='</svg></div>';
+        h+='<div><div style="color:#94a3b8;font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:.5px;margin-bottom:10px">Model performance</div>';
+        h+='<div class="lx-hdr" style="grid-template-columns:1fr 100px 100px 80px;padding:8px 12px;font-size:10px;color:#64748b;border-bottom:1px solid #1e293b">';
+        h+='<div>Model / DBT node</div><div style="text-align:right">Slot hours</div><div style="text-align:right">Runtime (s)</div><div style="text-align:right">Jobs</div></div>';
+        modelRows.forEach(function(r){
+          h+='<div class="lx-row" style="grid-template-columns:1fr 100px 100px 80px;padding:8px 12px;font-size:11px;border-bottom:1px solid rgba(30,41,59,0.3)">';
+          h+='<div class="lx-cell" style="font-family:ui-monospace,monospace;color:#e2e8f0" title="'+String(r.node).replace(/"/g,'&quot;')+'">'+(r.node.length>48?r.node.substring(0,46)+'\u2026':r.node).replace(/</g,'&lt;')+'</div>';
+          h+='<div style="text-align:right;color:#06b6d4;font-variant-numeric:tabular-nums">'+(r.slot_hours.toFixed(2))+'</div>';
+          h+='<div style="text-align:right;color:#94a3b8;font-variant-numeric:tabular-nums">'+(Math.round(r.runtime_sec)|0)+'</div>';
+          h+='<div style="text-align:right;color:#94a3b8;font-variant-numeric:tabular-nums">'+(r.count|0)+'</div></div>';
+        });
+        h+='</div>';
+        h+='<div><div style="color:#94a3b8;font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:.5px;margin-bottom:10px">Job details (top consuming)</div>';
+        h+='<div class="lx-hdr" style="grid-template-columns:120px 1fr 80px 90px 100px 70px;padding:8px 12px;font-size:10px;color:#64748b;border-bottom:1px solid #1e293b">';
+        h+='<div>Job Id</div><div>Model / node</div><div style="text-align:right">Slots (h)</div><div style="text-align:right">Runtime (s)</div><div>User</div><div>State</div></div>';
+        topJobs.forEach(function(j){
+          h+='<div class="lx-row" style="grid-template-columns:120px 1fr 80px 90px 100px 70px;padding:8px 12px;font-size:11px;border-bottom:1px solid rgba(30,41,59,0.3)">';
+          h+='<div class="lx-cell" style="font-family:ui-monospace,monospace;color:#94a3b8;overflow:hidden;text-overflow:ellipsis" title="'+String(j.job_id).replace(/"/g,'&quot;')+'">'+(j.job_id.length>14?j.job_id.substring(0,12)+'\u2026':j.job_id).replace(/</g,'&lt;')+'</div>';
+          h+='<div class="lx-cell" style="font-family:ui-monospace,monospace;color:#e2e8f0;overflow:hidden;text-overflow:ellipsis" title="'+String(j.node).replace(/"/g,'&quot;')+'">'+(j.node.length>32?j.node.substring(0,30)+'\u2026':j.node).replace(/</g,'&lt;')+'</div>';
+          h+='<div style="text-align:right;color:#06b6d4;font-variant-numeric:tabular-nums">'+(j.slot_hours.toFixed(2))+'</div>';
+          h+='<div style="text-align:right;color:#94a3b8;font-variant-numeric:tabular-nums">'+(Math.round(j.runtime_sec)|0)+'</div>';
+          h+='<div class="lx-cell" style="overflow:hidden;text-overflow:ellipsis;color:#94a3b8" title="'+String(j.user_email).replace(/"/g,'&quot;')+'">'+(j.user_email.length>18?j.user_email.substring(0,16)+'\u2026':j.user_email).replace(/</g,'&lt;')+'</div>';
+          h+='<div class="lx-cell" style="color:#64748b">'+(j.state||'—').replace(/</g,'&lt;')+'</div></div>';
+        });
+        if(jobs.length>100)h+='<div style="padding:8px 12px;font-size:10px;color:#64748b">Showing top 100 of '+jobs.length+' jobs by slot hours.</div>';
+        h+='</div></div></div>';
+        R.innerHTML=h;
+        done();return;
+      }
+
       // ========== DATA DYSON: tables cleanup (0 jobs) / columns cleanup (0 jobs) ==========
 
       if(mode==='data_dyson'){
@@ -1102,7 +1215,7 @@ looker.plugins.visualizations.add({
         }
         var semanticFromQuery=parseSemanticFromData(data,lkmlFieldKeys);
 
-        var h=navBar()+'<div class="lx-body"><div class="lx-bar" style="border-bottom:1px solid #1e293b"><span style="color:#e2e8f0;font-size:12px;font-weight:700">LKML labels generator</span></div>';
+        var h=navBar()+'<div class="lx-body"><div class="lx-bar" style="border-bottom:1px solid #1e293b"><span style="color:#e2e8f0;font-size:12px;font-weight:700">LKML Labels Generator</span></div>';
         h+='<div style="padding:16px 20px;display:flex;flex-direction:column;gap:16px;flex:1;min-height:0;overflow:hidden">';
         h+='<p style="color:#94a3b8;font-size:11px;margin:0">Paste a LookML view file below. This tool adds <strong>label</strong> and <strong>description</strong> to dimensions and measures using the tile\'s semantic layer data (Columns Semantic Layer explore).</p>';
         h+='<div><label style="color:#64748b;font-size:10px;display:block;margin-bottom:4px">LKML view file</label>';
