@@ -149,7 +149,7 @@ looker.plugins.visualizations.add({
 
       else if(onBqJobsDashboard)mode='bq_jobs';
 
-      else if(queryExplore.indexOf('bq_jobs')!==-1&&F.bq_job_id&&(F.bq_creation_date||F.bq_creation_hour)&&(F.bq_slot_hours||F.bq_total_slot_ms))mode='bq_jobs';
+      else if((queryExplore.indexOf('bq_jobs')!==-1||queryExplore.indexOf('bq jobs')!==-1)&&F.bq_job_id&&(F.bq_creation_date||F.bq_creation_hour)&&(F.bq_slot_hours||F.bq_total_slot_ms))mode='bq_jobs';
 
       else if(F.table_schema&&F.table_name&&F.consumer_type)mode='dbt_usage';
 
