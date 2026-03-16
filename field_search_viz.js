@@ -109,11 +109,11 @@ looker.plugins.visualizations.add({
       F.parent_9=dims.find(function(f){return matchDbtLineageDim(f,'parent_9');});
 
       F.bq_job_id=dims.find(function(f){var l=(f||'').toLowerCase().replace(/\s/g,'_');return l.indexOf('job_id')!==-1;});
-      F.bq_creation_date=dims.find(function(f){var l=(f||'').toLowerCase().replace(/\s/g,'_');return l.indexOf('creation_time_date')!==-1||(l.indexOf('creation_time')!==-1&&l.indexOf('date')!==-1);});
-      F.bq_creation_hour=dims.find(function(f){var l=(f||'').toLowerCase().replace(/\s/g,'_');return l.indexOf('creation_time_hour')!==-1;});
-      F.bq_slot_hours=meas.find(function(f){var l=(f||'').toLowerCase().replace(/\s/g,'_');return l.indexOf('slot_hours')!==-1;});
+      F.bq_creation_date=dims.find(function(f){var l=(f||'').toLowerCase().replace(/\s/g,'_');return l.indexOf('creation_time_date')!==-1||l.indexOf('start_time_date')!==-1||(l.indexOf('creation_time')!==-1&&l.indexOf('date')!==-1)||(l.indexOf('start_time')!==-1&&l.indexOf('date')!==-1);});
+      F.bq_creation_hour=dims.find(function(f){var l=(f||'').toLowerCase().replace(/\s/g,'_');return l.indexOf('creation_time_hour')!==-1||l.indexOf('start_time_hour')!==-1;});
+      F.bq_slot_hours=meas.find(function(f){var l=(f||'').toLowerCase().replace(/\s/g,'_');return l.indexOf('slot_hours')!==-1||(l.indexOf('slot')!==-1&&l.indexOf('hour')!==-1);});
       F.bq_total_slot_ms=dims.find(function(f){var l=(f||'').toLowerCase().replace(/\s/g,'_');return l.indexOf('total_slot_ms')!==-1;});
-      F.bq_dbt_node=dims.find(function(f){var l=(f||'').toLowerCase().replace(/\s/g,'_');return l.indexOf('dbt_query_node_id')!==-1;});
+      F.bq_dbt_node=dims.find(function(f){var l=(f||'').toLowerCase().replace(/\s/g,'_');return l.indexOf('dbt_query_node_id')!==-1||(l.indexOf('dbt')!==-1&&l.indexOf('node')!==-1);});
       F.bq_runtime_sec=dims.find(function(f){var l=(f||'').toLowerCase().replace(/\s/g,'_');return l.indexOf('runtime_sec')!==-1;});
       F.bq_user_email=dims.find(function(f){var l=(f||'').toLowerCase().replace(/\s/g,'_');return l.indexOf('user_email')!==-1;});
       F.bq_state=dims.find(function(f){var l=(f||'').toLowerCase().replace(/\s/g,'_');return l.indexOf('state')!==-1&&l.indexOf('statement')===-1;});
@@ -143,13 +143,13 @@ looker.plugins.visualizations.add({
 
       var hasNumJobsInQuery=!!(F.num_jobs&&fields&&fields.measure_like&&fields.measure_like.some(function(m){return m.name===F.num_jobs;}));
 
+      var looksLikeBqJobs=F.bq_job_id&&(F.bq_slot_hours||F.bq_total_slot_ms);
+
       if(onLkmlLabelsDashboard||looksLikeLkmlLabelsExplore)mode='lkml_labels';
 
       else if(F.table_name&&F.consumer_type&&hasNumJobsInQuery)mode='data_dyson';
 
-      else if(onBqJobsDashboard)mode='bq_jobs';
-
-      else if((queryExplore.indexOf('bq_jobs')!==-1||queryExplore.indexOf('bq jobs')!==-1)&&F.bq_job_id&&(F.bq_creation_date||F.bq_creation_hour)&&(F.bq_slot_hours||F.bq_total_slot_ms))mode='bq_jobs';
+      else if(onBqJobsDashboard||looksLikeBqJobs)mode='bq_jobs';
 
       else if(F.table_schema&&F.table_name&&F.consumer_type)mode='dbt_usage';
 
@@ -858,8 +858,8 @@ looker.plugins.visualizations.add({
         var timeDim=F.bq_creation_date||F.bq_creation_hour;
         var slotMeasure=F.bq_slot_hours;
         var slotDim=F.bq_total_slot_ms;
-        if(!F.bq_job_id||(!timeDim&&!F.bq_creation_date&&!F.bq_creation_hour)||(!slotMeasure&&!slotDim)){
-          R.innerHTML=navBar()+'<div class="lx-body"><div class="lx-bar" style="border-bottom:1px solid #1e293b"><span style="color:#e2e8f0;font-size:12px;font-weight:700">BQ Jobs</span></div><div style="padding:24px 20px;color:#94a3b8;font-size:12px;line-height:1.5">Use the <strong style="color:#e2e8f0">bq_jobs</strong> explore. Add dimensions: <strong>Job Id</strong>, <strong>Creation Time</strong> (date or hour), and a slot measure (<strong>Slot Usage (Hours)</strong>) or dimension <strong>Total Slot Ms</strong>. Optionally add <strong>DBT Query Node Id</strong>, <strong>Runtime Sec</strong>, <strong>User Email</strong>, <strong>State</strong>.</div></div>';
+        if(!F.bq_job_id||(!slotMeasure&&!slotDim)){
+          R.innerHTML=navBar()+'<div class="lx-body"><div class="lx-bar" style="border-bottom:1px solid #1e293b"><span style="color:#e2e8f0;font-size:12px;font-weight:700">BQ Jobs</span></div><div style="padding:24px 20px;color:#94a3b8;font-size:12px;line-height:1.5">Use the <strong style="color:#e2e8f0">bq_jobs</strong> explore. Add <strong>Job Id</strong> and a measure (<strong>Slot Usage (Hours)</strong>) or dimension <strong>Total Slot Ms</strong>. For the line chart add <strong>Creation Time</strong> (date or hour). Optionally add <strong>DBT Query Node Id</strong>, <strong>Runtime Sec</strong>, <strong>User Email</strong>, <strong>State</strong>.</div></div>';
           done();return;
         }
         function resolveBqKey(keys,row){
