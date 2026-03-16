@@ -899,19 +899,21 @@ looker.plugins.visualizations.add({
         var slotValues=timeLabels.map(function(t){return byTime[t];});
         var maxSlot=timeLabels.length?Math.max.apply(null,slotValues)||1:1;
         var chartW=Math.max(400,Math.min(W-80,700)),chartH=180,pad=40;
-        var linePoints=timeLabels.map(function(t,i){var x=pad+(i/(Math.max(1,timeLabels.length-1)))*(chartW-pad*2),y=chartH+pad-10-(slotValues[i]/maxSlot)*(chartH-20);return x+','+y;});
-        var linePath=linePoints.length?'M'+linePoints.join(' L'):'';
+        var linePoints=timeLabels.map(function(t,i){var x=pad+(i/(Math.max(1,timeLabels.length-1)))*(chartW-pad*2),y=chartH+pad-10-(slotValues[i]/maxSlot)*(chartH-20);return {x:x,y:y};});
+        var linePath='';
+        if(linePoints.length===1){var p=linePoints[0],yBottom=chartH+pad-10;linePath='M '+p.x+' '+yBottom+' L '+p.x+' '+p.y;}
+        else if(linePoints.length>=2){linePath='M'+linePoints.map(function(p){return p.x+','+p.y;}).join(' L');}
         var modelRows=Object.keys(byModel).map(function(n){var m=byModel[n];return {node:n,slot_hours:m.slot_hours,runtime_sec:m.runtime_sec,count:m.count};});
         modelRows.sort(function(a,b){return b.slot_hours-a.slot_hours;});
         jobs.sort(function(a,b){return b.slot_hours-a.slot_hours;});
         var topJobs=jobs.slice(0,100);
         var h=navBar()+'<div class="lx-body">';
         h+='<div class="lx-bar" style="border-bottom:1px solid #1e293b"><span style="color:#e2e8f0;font-size:12px;font-weight:700">BQ Jobs</span><span style="color:#64748b;font-size:11px;margin-left:12px">'+data.length+' jobs</span></div>';
-        h+='<div class="lx-scroll" style="padding:16px 20px;display:flex;flex-direction:column;gap:24px">';
+        h+='<div class="lx-scroll" style="padding:16px 20px;display:flex;flex-direction:column;gap:24px;flex:1;min-height:0;overflow:auto">';
         h+='<div><div style="color:#94a3b8;font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:.5px;margin-bottom:10px">Slot usage by datetime</div>';
         h+='<svg width="'+chartW+'" height="'+(chartH+pad*2)+'" style="display:block;background:#0f172a;border-radius:10px;border:1px solid #1e293b">';
         if(linePath)h+='<path d="'+linePath+'" fill="none" stroke="#06b6d4" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>';
-        timeLabels.forEach(function(t,i){var x=pad+(i/(Math.max(1,timeLabels.length-1)))*(chartW-pad*2);h+='<text x="'+x+'" y="'+(chartH+pad+4)+'" text-anchor="middle" fill="#64748b" font-size="9">'+String(t).replace(/</g,'&lt;').substring(0,14)+'</text>';});
+        timeLabels.forEach(function(t,i){var x=linePoints[i]?linePoints[i].x:pad+(i/(Math.max(1,timeLabels.length-1)))*(chartW-pad*2);h+='<text x="'+x+'" y="'+(chartH+pad+4)+'" text-anchor="middle" fill="#64748b" font-size="9">'+String(t).replace(/</g,'&lt;').substring(0,14)+'</text>';});
         if(!timeLabels.length)h+='<text x="'+(chartW/2)+'" y="'+(chartH/2+pad)+'" text-anchor="middle" fill="#64748b" font-size="11">Add Creation Time (date or hour) for slot usage over time</text>';
         h+='</svg></div>';
         h+='<div><div style="color:#94a3b8;font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:.5px;margin-bottom:10px">Model performance</div>';
