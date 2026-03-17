@@ -118,6 +118,14 @@ looker.plugins.visualizations.add({
       F.bq_user_email=dims.find(function(f){var l=(f||'').toLowerCase().replace(/\s/g,'_');return l.indexOf('user_email')!==-1;});
       F.bq_state=dims.find(function(f){var l=(f||'').toLowerCase().replace(/\s/g,'_');return l.indexOf('state')!==-1&&l.indexOf('statement')===-1;});
 
+      F.bq_avg_slots_dim=dims.find(function(f){var l=(f||'').toLowerCase().replace(/\s/g,'_');return l.indexOf('avg_slots')!==-1&&l.indexOf('average')===-1;});
+
+      F.bq_job_category=dims.find(function(f){var l=(f||'').toLowerCase().replace(/\s/g,'_');return l.indexOf('job_category')!==-1;});
+
+      F.bq_statement_dim=dims.find(function(f){var l=(f||'').toLowerCase().replace(/\s/g,'_');return l==='statement_type'||l.indexOf('statement_type')!==-1;});
+
+      F.bq_bytes=dims.find(function(f){var l=(f||'').toLowerCase().replace(/\s/g,'_');return l.indexOf('bytes_processed')!==-1||l.indexOf('total_bytes')!==-1;});
+
       var hasRfcmFieldName=dims.some(function(f){var l=(f||'').toLowerCase().replace(/\s/g,'_');return l.indexOf('rfcm_field_name')!==-1;});
       var hasRfcmFieldLabel=dims.some(function(f){var l=(f||'').toLowerCase().replace(/\s/g,'_');return l.indexOf('rfcm_field_label')!==-1;});
       var hasColumnDesc=dims.some(function(f){var l=(f||'').toLowerCase().replace(/\s/g,'_');return l.indexOf('column_description')!==-1;});
@@ -855,11 +863,10 @@ looker.plugins.visualizations.add({
 
       if(mode==='bq_jobs'){
 
-        var timeDim=F.bq_creation_date||F.bq_creation_hour;
         var slotMeasure=F.bq_slot_hours;
         var slotDim=F.bq_total_slot_ms;
         if(!F.bq_job_id||(!slotMeasure&&!slotDim)){
-          R.innerHTML=navBar()+'<div class="lx-body"><div class="lx-bar" style="border-bottom:1px solid #1e293b"><span style="color:#e2e8f0;font-size:12px;font-weight:700">BQ Jobs</span></div><div style="padding:24px 20px;color:#94a3b8;font-size:12px;line-height:1.5">Use the <strong style="color:#e2e8f0">bq_jobs</strong> explore. Add <strong>Job Id</strong> and a measure (<strong>Slot Usage (Hours)</strong>) or dimension <strong>Total Slot Ms</strong>. For the line chart add <strong>Creation Time</strong> (date or hour). Optionally add <strong>DBT Query Node Id</strong>, <strong>Runtime Sec</strong>, <strong>User Email</strong>, <strong>State</strong>.</div></div>';
+          R.innerHTML=navBar()+'<div class="lx-body"><div class="lx-bar" style="border-bottom:1px solid #1e293b"><span style="color:#e2e8f0;font-size:12px;font-weight:700">BQ Jobs</span></div><div style="padding:24px 20px;color:#94a3b8;font-size:12px;line-height:1.5">Use the <strong style="color:#e2e8f0">bq_jobs</strong> explore. Add <strong>Job Id</strong> and measure <strong>Total Slot Hours</strong> (or dimension <strong>Total Slot Ms</strong>). Add <strong>Dbt Node Id</strong>, <strong>Runtime Sec</strong> for slot-intensity buckets. Optional: <strong>Job Category</strong>, <strong>Statement Type</strong>, <strong>User Email</strong>, <strong>State</strong>, bytes. Enable <strong>cross-filtering</strong> on the dashboard; click a job or DBT node to filter all tiles.</div></div>';
           done();return;
         }
         function resolveBqKey(keys,row){
@@ -873,75 +880,128 @@ looker.plugins.visualizations.add({
           }
           return keys[0]||null;
         }
+        function escAttr(s){return String(s==null?'':s).replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/</g,'&lt;');}
         var firstRow=data[0];
         var kJob=resolveBqKey([F.bq_job_id],firstRow);
-        var kTime=resolveBqKey([F.bq_creation_date,F.bq_creation_hour],firstRow);
         var kSlotM=slotMeasure?resolveBqKey([F.bq_slot_hours],firstRow):null;
         var kSlotD=slotDim?resolveBqKey([F.bq_total_slot_ms],firstRow):null;
         var kNode=resolveBqKey([F.bq_dbt_node],firstRow);
         var kRuntime=resolveBqKey([F.bq_runtime_sec],firstRow);
         var kUser=resolveBqKey([F.bq_user_email],firstRow);
         var kState=resolveBqKey([F.bq_state],firstRow);
+        var kAvgDim=F.bq_avg_slots_dim?resolveBqKey([F.bq_avg_slots_dim],firstRow):null;
+        var kCat=F.bq_job_category?resolveBqKey([F.bq_job_category],firstRow):null;
+        var kStmt=F.bq_statement_dim?resolveBqKey([F.bq_statement_dim],firstRow):null;
+        var kBytes=F.bq_bytes?resolveBqKey([F.bq_bytes],firstRow):null;
         function getSlot(row){if(kSlotM!=null){var v=cellVal(row,kSlotM);if(v!=null)return parseFloat(v)||0;}if(kSlotD!=null){var v=cellVal(row,kSlotD);if(v!=null)return (parseFloat(v)||0)/3600000;}return 0;}
-        function getTime(row){if(!kTime)return '';var v=cellVal(row,kTime);return v!=null?String(v).substring(0,16):'';}
         function getNode(row){if(!kNode)return '—';var v=cellVal(row,kNode);return v!=null?String(v):'—';}
-        function getRuntime(row){if(!kRuntime)return null;var v=cellVal(row,kRuntime);return v!=null?parseFloat(v)||0:0;}
-        var byTime={};
+        function getRuntime(row){if(!kRuntime)return 0;var v=cellVal(row,kRuntime);return v!=null?parseFloat(v)||0:0;}
+        function getAvgSlots(row){
+          if(kAvgDim){var v=cellVal(row,kAvgDim);if(v!=null)return parseFloat(v)||0;}
+          var sh=getSlot(row),rt=getRuntime(row);
+          if(rt>0)return (sh*3600)/rt;
+          return 0;
+        }
+        var buckets=[{label:'0–1',min:0,max:1},{label:'1–10',min:1,max:10},{label:'10–50',min:10,max:50},{label:'50–200',min:50,max:200},{label:'200+',min:200,max:1e15},{label:'n/a',min:-1,max:-1}];
+        function bucketIdx(av,rt){
+          if(kAvgDim&&av>=0){if(av<1)return 0;if(av<10)return 1;if(av<50)return 2;if(av<200)return 3;return 4;}
+          if(rt<=0||!(av>=0))return 5;
+          if(av<1)return 0;if(av<10)return 1;if(av<50)return 2;if(av<200)return 3;return 4;
+        }
         var byModel={};
+        var bucketCounts=[0,0,0,0,0,0];
         var jobs=[];
-        data.forEach(function(row){
-          var t=getTime(row),slot=getSlot(row),node=getNode(row),runtime=getRuntime(row),jobId=kJob?String(cellVal(row,kJob)||''):'';
-          if(t){byTime[t]=(byTime[t]||0)+slot;}
-          if(node){if(!byModel[node])byModel[node]={slot_hours:0,runtime_sec:0,count:0};byModel[node].slot_hours+=slot;byModel[node].runtime_sec+=runtime;byModel[node].count+=1;}
-          jobs.push({job_id:jobId,time:t,slot_hours:slot,node:node,runtime_sec:runtime,user_email:kUser?String(cellVal(row,kUser)||''):'',state:kState?String(cellVal(row,kState)||''):''});
+        data.forEach(function(row,rowIdx){
+          var slot=getSlot(row),node=getNode(row),runtime=getRuntime(row),jobId=kJob?String(cellVal(row,kJob)||''):'';
+          var av=getAvgSlots(row);
+          var bi=bucketIdx(av,runtime);
+          bucketCounts[bi]=(bucketCounts[bi]||0)+1;
+          if(node&&node!=='—'){if(!byModel[node])byModel[node]={slot_hours:0,runtime_sec:0,count:0,avg_slots_sum:0};byModel[node].slot_hours+=slot;byModel[node].runtime_sec+=runtime;byModel[node].count+=1;byModel[node].avg_slots_sum+=av;}
+          jobs.push({rowIndex:rowIdx,job_id:jobId,slot_hours:slot,node:node,runtime_sec:runtime,avg_slots:av,user_email:kUser?String(cellVal(row,kUser)||''):'',state:kState?String(cellVal(row,kState)||''):'',job_category:kCat?String(cellVal(row,kCat)||''):'',statement_type:kStmt?String(cellVal(row,kStmt)||''):'',bytes_tb:kBytes?(parseFloat(cellVal(row,kBytes))||0)/Math.pow(1024,4):null});
         });
-        var timeLabels=Object.keys(byTime).sort();
-        var slotValues=timeLabels.map(function(t){return byTime[t];});
-        var maxSlot=timeLabels.length?Math.max.apply(null,slotValues)||1:1;
-        var chartW=Math.max(400,Math.min(W-80,700)),chartH=180,pad=40;
-        var linePoints=timeLabels.map(function(t,i){var x=pad+(i/(Math.max(1,timeLabels.length-1)))*(chartW-pad*2),y=chartH+pad-10-(slotValues[i]/maxSlot)*(chartH-20);return {x:x,y:y};});
-        var linePath='';
-        if(linePoints.length===1){var p=linePoints[0],yBottom=chartH+pad-10;linePath='M '+p.x+' '+yBottom+' L '+p.x+' '+p.y;}
-        else if(linePoints.length>=2){linePath='M'+linePoints.map(function(p){return p.x+','+p.y;}).join(' L');}
-        var modelRows=Object.keys(byModel).map(function(n){var m=byModel[n];return {node:n,slot_hours:m.slot_hours,runtime_sec:m.runtime_sec,count:m.count};});
+        var modelRows=Object.keys(byModel).map(function(n){var m=byModel[n];var wAvg=m.count?m.avg_slots_sum/m.count:0;return {node:n,slot_hours:m.slot_hours,runtime_sec:m.runtime_sec,count:m.count,avg_slots:wAvg};});
         modelRows.sort(function(a,b){return b.slot_hours-a.slot_hours;});
         jobs.sort(function(a,b){return b.slot_hours-a.slot_hours;});
-        var topJobs=jobs.slice(0,100);
+        var chartW=Math.max(360,Math.min(W-64,720)),chartH=200,padL=120,padB=36;
+        var maxCnt=Math.max.apply(null,bucketCounts.concat([1]));
+        var barGap=8,barW=(chartW-padL-40)/Math.max(1,buckets.length-1)-barGap;
         var h=navBar()+'<div class="lx-body">';
-        h+='<div class="lx-bar" style="border-bottom:1px solid #1e293b"><span style="color:#e2e8f0;font-size:12px;font-weight:700">BQ Jobs</span><span style="color:#64748b;font-size:11px;margin-left:12px">'+data.length+' jobs</span></div>';
-        h+='<div class="lx-scroll" style="padding:16px 20px;display:flex;flex-direction:column;gap:24px;flex:1;min-height:0;overflow:auto">';
-        h+='<div><div style="color:#94a3b8;font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:.5px;margin-bottom:10px">Slot usage by datetime</div>';
-        h+='<svg width="'+chartW+'" height="'+(chartH+pad*2)+'" style="display:block;background:#0f172a;border-radius:10px;border:1px solid #1e293b">';
-        if(linePath)h+='<path d="'+linePath+'" fill="none" stroke="#06b6d4" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>';
-        timeLabels.forEach(function(t,i){var x=linePoints[i]?linePoints[i].x:pad+(i/(Math.max(1,timeLabels.length-1)))*(chartW-pad*2);h+='<text x="'+x+'" y="'+(chartH+pad+4)+'" text-anchor="middle" fill="#64748b" font-size="9">'+String(t).replace(/</g,'&lt;').substring(0,14)+'</text>';});
-        if(!timeLabels.length)h+='<text x="'+(chartW/2)+'" y="'+(chartH/2+pad)+'" text-anchor="middle" fill="#64748b" font-size="11">Add Creation Time (date or hour) for slot usage over time</text>';
+        h+='<div class="lx-bar" style="border-bottom:1px solid #1e293b;flex-wrap:wrap;gap:8px"><span style="color:#e2e8f0;font-size:12px;font-weight:700">BQ Jobs</span><span style="color:#64748b;font-size:11px">'+data.length+' jobs</span>';
+        if(details&&details.crossfilterEnabled)h+='<span class="lx-pill" style="background:rgba(6,182,212,0.12);color:#06b6d4;border:1px solid rgba(6,182,212,0.25)">Cross-filter: click job or node</span>';
+        else h+='<span class="lx-pill" style="background:rgba(245,158,11,0.1);color:#f59e0b">Enable dashboard cross-filtering to filter tiles on click</span>';
+        h+='</div>';
+        h+='<div class="lx-scroll" style="padding:16px 20px;display:flex;flex-direction:column;gap:22px;flex:1;min-height:0;overflow:auto">';
+        h+='<div><div style="color:#94a3b8;font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:.5px;margin-bottom:8px">Job count by avg concurrent slots (bucket)</div>';
+        h+='<div style="font-size:10px;color:#64748b;margin-bottom:8px">Avg slots = total_slot_ms / runtime (or add an <strong style="color:#94a3b8">avg_slots</strong> dimension). Buckets are concurrent slot intensity per job.</div>';
+        h+='<svg width="'+chartW+'" height="'+chartH+'" style="display:block;background:#0f172a;border-radius:10px;border:1px solid #1e293b">';
+        h+='<text x="'+padL+'" y="18" fill="#64748b" font-size="10">Jobs per bucket</text>';
+        for(var bi=0;bi<5;bi++){
+          var cnt=bucketCounts[bi]||0,x0=padL+bi*(barW+barGap),bh=cnt/maxCnt*(chartH-padB-40),y0=chartH-padB-bh;
+          h+='<rect x="'+x0+'" y="'+y0+'" width="'+barW+'" height="'+Math.max(bh,2)+'" rx="4" fill="#06b6d4" opacity="'+(0.35+cnt/maxCnt*0.55)+'"/>';
+          h+='<text x="'+(x0+barW/2)+'" y="'+(chartH-padB+14)+'" text-anchor="middle" fill="#94a3b8" font-size="9">'+buckets[bi].label.replace(/</g,'&lt;')+'</text>';
+          h+='<text x="'+(x0+barW/2)+'" y="'+(y0-4)+'" text-anchor="middle" fill="#e2e8f0" font-size="11" font-weight="600">'+cnt+'</text>';
+        }
+        if(bucketCounts[5]>0)h+='<text x="'+(chartW/2)+'" y="'+(chartH-8)+'" text-anchor="middle" fill="#64748b" font-size="10">+'+bucketCounts[5]+' jobs without runtime (bucket n/a)</text>';
         h+='</svg></div>';
-        h+='<div><div style="color:#94a3b8;font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:.5px;margin-bottom:10px">Model performance</div>';
-        h+='<div class="lx-hdr" style="grid-template-columns:1fr 100px 100px 80px;padding:8px 12px;font-size:10px;color:#64748b;border-bottom:1px solid #1e293b">';
-        h+='<div>Model / DBT node</div><div style="text-align:right">Slot hours</div><div style="text-align:right">Runtime (s)</div><div style="text-align:right">Jobs</div></div>';
-        modelRows.forEach(function(r){
-          h+='<div class="lx-row" style="grid-template-columns:1fr 100px 100px 80px;padding:8px 12px;font-size:11px;border-bottom:1px solid rgba(30,41,59,0.3)">';
-          h+='<div class="lx-cell" style="font-family:ui-monospace,monospace;color:#e2e8f0" title="'+String(r.node).replace(/"/g,'&quot;')+'">'+(r.node.length>48?r.node.substring(0,46)+'\u2026':r.node).replace(/</g,'&lt;')+'</div>';
+        h+='<div><div style="color:#94a3b8;font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:.5px;margin-bottom:8px">DBT node performance (worst \u2192 best by slot hours)</div>';
+        h+='<div style="font-size:10px;color:#64748b;margin-bottom:8px">Click a row to cross-filter the dashboard by <strong style="color:#94a3b8">dbt node</strong>.</div>';
+        h+='<div style="max-height:240px;overflow:auto;border:1px solid #1e293b;border-radius:8px;background:#0f172a">';
+        h+='<div class="lx-hdr" style="grid-template-columns:1fr 88px 88px 72px 72px;padding:8px 12px;font-size:10px;color:#64748b;border-bottom:1px solid #1e293b">';
+        h+='<div>DBT node id</div><div style="text-align:right">\u03A3 slot h</div><div style="text-align:right">\u03A3 runtime s</div><div style="text-align:right">Jobs</div><div style="text-align:right">Avg slots</div></div>';
+        modelRows.forEach(function(r,mi){
+          h+='<div class="lx-row lx-bq-node" data-node-idx="'+mi+'" style="grid-template-columns:1fr 88px 88px 72px 72px;padding:8px 12px;font-size:11px;border-bottom:1px solid rgba(30,41,59,0.3);cursor:'+(details&&details.crossfilterEnabled&&kNode?'pointer':'default')+'">';
+          h+='<div class="lx-cell" style="font-family:ui-monospace,monospace;color:#22d3ee;text-decoration:'+(details&&details.crossfilterEnabled?'underline dotted':'none')+'" title="'+escAttr(r.node)+'">'+(r.node.length>42?r.node.substring(0,40)+'\u2026':r.node).replace(/</g,'&lt;')+'</div>';
           h+='<div style="text-align:right;color:#06b6d4;font-variant-numeric:tabular-nums">'+(r.slot_hours.toFixed(2))+'</div>';
           h+='<div style="text-align:right;color:#94a3b8;font-variant-numeric:tabular-nums">'+(Math.round(r.runtime_sec)|0)+'</div>';
-          h+='<div style="text-align:right;color:#94a3b8;font-variant-numeric:tabular-nums">'+(r.count|0)+'</div></div>';
+          h+='<div style="text-align:right;color:#94a3b8;font-variant-numeric:tabular-nums">'+(r.count|0)+'</div>';
+          h+='<div style="text-align:right;color:#a78bfa;font-variant-numeric:tabular-nums">'+(r.avg_slots>=100?r.avg_slots.toFixed(0):r.avg_slots.toFixed(1))+'</div></div>';
         });
-        h+='</div>';
-        h+='<div><div style="color:#94a3b8;font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:.5px;margin-bottom:10px">Job details (top consuming)</div>';
-        h+='<div class="lx-hdr" style="grid-template-columns:120px 1fr 80px 90px 100px 70px;padding:8px 12px;font-size:10px;color:#64748b;border-bottom:1px solid #1e293b">';
-        h+='<div>Job Id</div><div>Model / node</div><div style="text-align:right">Slots (h)</div><div style="text-align:right">Runtime (s)</div><div>User</div><div>State</div></div>';
-        topJobs.forEach(function(j){
-          h+='<div class="lx-row" style="grid-template-columns:120px 1fr 80px 90px 100px 70px;padding:8px 12px;font-size:11px;border-bottom:1px solid rgba(30,41,59,0.3)">';
-          h+='<div class="lx-cell" style="font-family:ui-monospace,monospace;color:#94a3b8;overflow:hidden;text-overflow:ellipsis" title="'+String(j.job_id).replace(/"/g,'&quot;')+'">'+(j.job_id.length>14?j.job_id.substring(0,12)+'\u2026':j.job_id).replace(/</g,'&lt;')+'</div>';
-          h+='<div class="lx-cell" style="font-family:ui-monospace,monospace;color:#e2e8f0;overflow:hidden;text-overflow:ellipsis" title="'+String(j.node).replace(/"/g,'&quot;')+'">'+(j.node.length>32?j.node.substring(0,30)+'\u2026':j.node).replace(/</g,'&lt;')+'</div>';
+        if(modelRows.length===0)h+='<div style="padding:16px;color:#64748b;font-size:11px">No DBT node id in results. Add dimension <strong>Dbt Node Id</strong>.</div>';
+        h+='</div></div>';
+        h+='<div><div style="color:#94a3b8;font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:.5px;margin-bottom:8px">Jobs (worst \u2192 best by slot hours)</div>';
+        h+='<div style="font-size:10px;color:#64748b;margin-bottom:8px">Click <strong style="color:#94a3b8">job id</strong> or row to cross-filter by that job.</div>';
+        h+='<div style="max-height:380px;overflow:auto;border:1px solid #1e293b;border-radius:8px;background:#0f172a">';
+        h+='<div class="lx-hdr" style="grid-template-columns:100px 1fr 56px 52px 44px 72px 72px 56px;padding:6px 8px;font-size:9px;color:#64748b;border-bottom:1px solid #1e293b;align-items:start">';
+        h+='<div>Job id</div><div>DBT node</div><div style="text-align:right">Slot h</div><div style="text-align:right">Run s</div><div style="text-align:right">Avg \u2299</div><div>Category</div><div>Stmt</div><div>State</div></div>';
+        jobs.forEach(function(j){
+          h+='<div class="lx-row lx-bq-job" data-row-idx="'+j.rowIndex+'" style="grid-template-columns:100px 1fr 56px 52px 44px 72px 72px 56px;padding:6px 8px;font-size:10px;border-bottom:1px solid rgba(30,41,59,0.25);cursor:'+(details&&details.crossfilterEnabled?'pointer':'default')+'">';
+          h+='<div class="lx-cell lx-bq-jobid" style="font-family:ui-monospace,monospace;color:#22d3ee;text-decoration:'+(details&&details.crossfilterEnabled?'underline dotted':'none')" title="'+escAttr(j.job_id)+'">'+(j.job_id.length>13?j.job_id.substring(0,11)+'\u2026':j.job_id).replace(/</g,'&lt;')+'</div>';
+          h+='<div class="lx-cell" style="font-family:ui-monospace,monospace;color:#e2e8f0" title="'+escAttr(j.node)+'">'+(j.node.length>28?j.node.substring(0,26)+'\u2026':j.node).replace(/</g,'&lt;')+'</div>';
           h+='<div style="text-align:right;color:#06b6d4;font-variant-numeric:tabular-nums">'+(j.slot_hours.toFixed(2))+'</div>';
           h+='<div style="text-align:right;color:#94a3b8;font-variant-numeric:tabular-nums">'+(Math.round(j.runtime_sec)|0)+'</div>';
-          h+='<div class="lx-cell" style="overflow:hidden;text-overflow:ellipsis;color:#94a3b8" title="'+String(j.user_email).replace(/"/g,'&quot;')+'">'+(j.user_email.length>18?j.user_email.substring(0,16)+'\u2026':j.user_email).replace(/</g,'&lt;')+'</div>';
+          h+='<div style="text-align:right;color:#a78bfa;font-variant-numeric:tabular-nums">'+(j.avg_slots>=100?j.avg_slots.toFixed(0):(j.avg_slots>=10?j.avg_slots.toFixed(1):j.avg_slots.toFixed(2)))+'</div>';
+          h+='<div class="lx-cell" style="color:#64748b" title="'+escAttr(j.job_category)+'">'+(j.job_category.length>10?j.job_category.substring(0,8)+'\u2026':j.job_category||'—').replace(/</g,'&lt;')+'</div>';
+          h+='<div class="lx-cell" style="color:#64748b" title="'+escAttr(j.statement_type)+'">'+(j.statement_type.length>10?j.statement_type.substring(0,8)+'\u2026':j.statement_type||'—').replace(/</g,'&lt;')+'</div>';
           h+='<div class="lx-cell" style="color:#64748b">'+(j.state||'—').replace(/</g,'&lt;')+'</div></div>';
         });
-        if(jobs.length>100)h+='<div style="padding:8px 12px;font-size:10px;color:#64748b">Showing top 100 of '+jobs.length+' jobs by slot hours.</div>';
-        h+='</div></div></div>';
+        h+='</div></div></div></div>';
         R.innerHTML=h;
+        function rowForNodeCrossfilter(nodeVal){
+          if(!kNode||!nodeVal||nodeVal==='—')return null;
+          var tmpl=null;
+          for(var i=0;i<data.length;i++){if(getNode(data[i])===nodeVal&&data[i][kNode]){tmpl=data[i][kNode];break;}}
+          if(!tmpl)tmpl=firstRow[kNode];
+          var cell={value:nodeVal,links:[]};
+          if(tmpl&&typeof tmpl==='object'){for(var p in tmpl){if(p!=='value'&&p!=='filterable_value')cell[p]=tmpl[p];}cell.value=nodeVal;}
+          var o={};o[kNode]=cell;return o;
+        }
+        if(details&&details.crossfilterEnabled&&typeof LookerCharts!=='undefined'&&LookerCharts.Utils&&LookerCharts.Utils.toggleCrossfilter){
+          R.querySelectorAll('.lx-bq-job').forEach(function(el){
+            el.addEventListener('click',function(e){
+              var idx=parseInt(el.getAttribute('data-row-idx'),10);
+              if(isNaN(idx)||!data[idx])return;
+              try{LookerCharts.Utils.toggleCrossfilter({row:data[idx],event:e});}catch(err){}
+            });
+          });
+          R.querySelectorAll('.lx-bq-node').forEach(function(el){
+            el.addEventListener('click',function(e){
+              var mi=parseInt(el.getAttribute('data-node-idx'),10);
+              if(isNaN(mi)||!modelRows[mi])return;
+              var syn=rowForNodeCrossfilter(modelRows[mi].node);
+              if(syn)try{LookerCharts.Utils.toggleCrossfilter({row:syn,event:e});}catch(err){}
+            });
+          });
+        }
         done();return;
       }
 
