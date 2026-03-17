@@ -40,12 +40,14 @@ looker.plugins.visualizations.add({
 
     updateAsync: function(data, element, config, queryResponse, details, done) {
 
-      var R=element.querySelector('#lex'),W=element.offsetWidth||1200;
+      var R=element.querySelector('#lex'),W=(element&&element.offsetWidth)||1200;
 
       var baseUrl=(config.looker_base_url||'').trim().replace(/\/+$/,'');
       if(!baseUrl&&typeof window!=='undefined'&&window.location&&window.location.origin)baseUrl=window.location.origin;
 
-      if(!data||data.length===0){R.innerHTML='<div style="padding:40px;color:#475569;text-align:center">No data available</div>';done();return;}
+      if(!R){try{done();}catch(e){}return;}
+
+      if(!data||data.length===0){R.innerHTML='<div style="padding:40px;color:#475569;text-align:center">No data available</div>';try{done();}catch(e){}return;}
 
       var fields=queryResponse&&queryResponse.fields;
       var dims=fields&&fields.dimension_like?fields.dimension_like.map(function(f){return f.name;}):[];
@@ -153,11 +155,13 @@ looker.plugins.visualizations.add({
 
       var looksLikeBqJobs=F.bq_job_id&&(F.bq_slot_hours||F.bq_total_slot_ms);
 
+      var exploreNameBqJobs=(queryExplore||'').indexOf('bq_job')!==-1||(queryExplore||'').indexOf('bigquery')!==-1&&((queryExplore||'').indexOf('job')!==-1);
+
       if(onLkmlLabelsDashboard||looksLikeLkmlLabelsExplore)mode='lkml_labels';
 
       else if(F.table_name&&F.consumer_type&&hasNumJobsInQuery)mode='data_dyson';
 
-      else if(onBqJobsDashboard||looksLikeBqJobs)mode='bq_jobs';
+      else if(onBqJobsDashboard||looksLikeBqJobs||exploreNameBqJobs)mode='bq_jobs';
 
       else if(F.table_schema&&F.table_name&&F.consumer_type)mode='dbt_usage';
 
@@ -474,6 +478,8 @@ looker.plugins.visualizations.add({
 
         setTimeout(function(){
 
+        try{
+
         var useData=data.length>800?data.slice(0,800):data;
 
         var seen={},rows=[];
@@ -594,7 +600,17 @@ looker.plugins.visualizations.add({
 
         }
 
-        rL();done();
+        rL();
+
+        }catch(linEx){
+
+          try{R.innerHTML=navBar()+'<div class="lx-body"><div class="lx-bar" style="border-bottom:1px solid #1e293b"><span style="color:#e2e8f0;font-size:12px;font-weight:700">Lineage Explorer</span></div><div style="padding:20px;color:#f87171;font-size:12px">This query does not match the Looker lineage shape. For BigQuery jobs, use explore <strong>bq_jobs</strong> with Job Id + Total Slot Hours.</div><div style="padding:0 20px 20px;color:#64748b;font-size:10px">'+String(linEx&&linEx.message?linEx.message:'').replace(/</g,'&lt;')+'</div></div>';}catch(x){}
+
+        }finally{
+
+          try{done();}catch(d){}
+
+        }
 
         },20);
 
@@ -978,7 +994,7 @@ looker.plugins.visualizations.add({
           var stt=kState?String(cellVal(row,kState)||''):'';
           var avs=isFinite(av)?(av>=100?av.toFixed(0):(av>=10?av.toFixed(1):av.toFixed(2))):'\u2014';
           h+='<div class="lx-row lx-bq-job" data-row-idx="'+rowIdx+'" style="grid-template-columns:100px 1fr 56px 52px 44px 72px 72px 56px;padding:6px 8px;font-size:10px;border-bottom:1px solid rgba(30,41,59,0.25);cursor:'+(details&&details.crossfilterEnabled?'pointer':'default')+'">';
-          h+='<div class="lx-cell lx-bq-jobid" style="font-family:ui-monospace,monospace;color:#22d3ee;text-decoration:'+(details&&details.crossfilterEnabled?'underline dotted':'none')" title="'+escAttr(jobId)+'">'+(jobId.length>13?jobId.substring(0,11)+'\u2026':jobId).replace(/</g,'&lt;')+'</div>';
+          h+='<div class="lx-cell lx-bq-jobid" style="font-family:ui-monospace,monospace;color:#22d3ee;text-decoration:'+(details&&details.crossfilterEnabled?'underline dotted':'none')+'" title="'+escAttr(jobId)+'">'+(jobId.length>13?jobId.substring(0,11)+'\u2026':jobId).replace(/</g,'&lt;')+'</div>';
           h+='<div class="lx-cell" style="font-family:ui-monospace,monospace;color:#e2e8f0" title="'+escAttr(node)+'">'+(node.length>28?node.substring(0,26)+'\u2026':node).replace(/</g,'&lt;')+'</div>';
           h+='<div style="text-align:right;color:#06b6d4;font-variant-numeric:tabular-nums">'+(isFinite(slot)?slot.toFixed(2):'\u2014')+'</div>';
           h+='<div style="text-align:right;color:#94a3b8;font-variant-numeric:tabular-nums">'+(Math.round(runtime)|0)+'</div>';
