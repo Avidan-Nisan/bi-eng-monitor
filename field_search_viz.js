@@ -869,6 +869,8 @@ looker.plugins.visualizations.add({
           R.innerHTML=navBar()+'<div class="lx-body"><div class="lx-bar" style="border-bottom:1px solid #1e293b"><span style="color:#e2e8f0;font-size:12px;font-weight:700">BQ Jobs</span></div><div style="padding:24px 20px;color:#94a3b8;font-size:12px;line-height:1.5">Use the <strong style="color:#e2e8f0">bq_jobs</strong> explore. Add <strong>Job Id</strong> and measure <strong>Total Slot Hours</strong> (or dimension <strong>Total Slot Ms</strong>). Add <strong>Dbt Node Id</strong>, <strong>Runtime Sec</strong> for slot-intensity buckets. Optional: <strong>Job Category</strong>, <strong>Statement Type</strong>, <strong>User Email</strong>, <strong>State</strong>, bytes. Enable <strong>cross-filtering</strong> on the dashboard; click a job or DBT node to filter all tiles.</div></div>';
           done();return;
         }
+        var BQ_MAX_JOB_ROWS=800,BQ_MAX_NODE_ROWS=500;
+        try{
         function resolveBqKey(keys,row){
           if(!row)return null;
           for(var i=0;i<keys.length;i++)if(keys[i]&&row[keys[i]]!=null)return keys[i];
@@ -910,18 +912,21 @@ looker.plugins.visualizations.add({
         }
         var byModel={};
         var bucketCounts=[0,0,0,0,0,0];
-        var jobs=[];
+        var rowSlots=[];
         data.forEach(function(row,rowIdx){
-          var slot=getSlot(row),node=getNode(row),runtime=getRuntime(row),jobId=kJob?String(cellVal(row,kJob)||''):'';
+          var slot=getSlot(row),node=getNode(row),runtime=getRuntime(row);
           var av=getAvgSlots(row);
           var bi=bucketIdx(av,runtime);
           bucketCounts[bi]=(bucketCounts[bi]||0)+1;
           if(node&&node!=='—'){if(!byModel[node])byModel[node]={slot_hours:0,runtime_sec:0,count:0,avg_slots_sum:0};byModel[node].slot_hours+=slot;byModel[node].runtime_sec+=runtime;byModel[node].count+=1;byModel[node].avg_slots_sum+=av;}
-          jobs.push({rowIndex:rowIdx,job_id:jobId,slot_hours:slot,node:node,runtime_sec:runtime,avg_slots:av,user_email:kUser?String(cellVal(row,kUser)||''):'',state:kState?String(cellVal(row,kState)||''):'',job_category:kCat?String(cellVal(row,kCat)||''):'',statement_type:kStmt?String(cellVal(row,kStmt)||''):'',bytes_tb:kBytes?(parseFloat(cellVal(row,kBytes))||0)/Math.pow(1024,4):null});
+          rowSlots.push({i:rowIdx,s:isFinite(slot)?slot:0});
         });
-        var modelRows=Object.keys(byModel).map(function(n){var m=byModel[n];var wAvg=m.count?m.avg_slots_sum/m.count:0;return {node:n,slot_hours:m.slot_hours,runtime_sec:m.runtime_sec,count:m.count,avg_slots:wAvg};});
+        var modelRows=Object.keys(byModel).map(function(n){var m=byModel[n];var wAvg=m.count?m.avg_slots_sum/m.count:0;return {node:n,slot_hours:m.slot_hours,runtime_sec:m.runtime_sec,count:m.count,avg_slots:isFinite(wAvg)?wAvg:0};});
         modelRows.sort(function(a,b){return b.slot_hours-a.slot_hours;});
-        jobs.sort(function(a,b){return b.slot_hours-a.slot_hours;});
+        var modelRowsAll=modelRows;
+        modelRows=modelRows.slice(0,BQ_MAX_NODE_ROWS);
+        rowSlots.sort(function(a,b){return b.s-a.s;});
+        var displayIdx=rowSlots.slice(0,BQ_MAX_JOB_ROWS).map(function(x){return x.i;});
         var chartW=Math.max(360,Math.min(W-64,720)),chartH=200,padL=120,padB=36;
         var maxCnt=Math.max.apply(null,bucketCounts.concat([1]));
         var barGap=8,barW=(chartW-padL-40)/Math.max(1,buckets.length-1)-barGap;
@@ -956,24 +961,33 @@ looker.plugins.visualizations.add({
           h+='<div style="text-align:right;color:#94a3b8;font-variant-numeric:tabular-nums">'+(r.count|0)+'</div>';
           h+='<div style="text-align:right;color:#a78bfa;font-variant-numeric:tabular-nums">'+(r.avg_slots>=100?r.avg_slots.toFixed(0):r.avg_slots.toFixed(1))+'</div></div>';
         });
-        if(modelRows.length===0)h+='<div style="padding:16px;color:#64748b;font-size:11px">No DBT node id in results. Add dimension <strong>Dbt Node Id</strong>.</div>';
+        if(modelRowsAll.length===0)h+='<div style="padding:16px;color:#64748b;font-size:11px">No DBT node id in results. Add dimension <strong>Dbt Node Id</strong>.</div>';
+        else if(modelRowsAll.length>BQ_MAX_NODE_ROWS)h+='<div style="padding:8px 12px;font-size:10px;color:#f59e0b;border-top:1px solid #1e293b">Showing top '+BQ_MAX_NODE_ROWS+' nodes by slot hours ('+modelRowsAll.length.toLocaleString()+' total).</div>';
         h+='</div></div>';
         h+='<div><div style="color:#94a3b8;font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:.5px;margin-bottom:8px">Jobs (worst \u2192 best by slot hours)</div>';
         h+='<div style="font-size:10px;color:#64748b;margin-bottom:8px">Click <strong style="color:#94a3b8">job id</strong> or row to cross-filter by that job.</div>';
         h+='<div style="max-height:380px;overflow:auto;border:1px solid #1e293b;border-radius:8px;background:#0f172a">';
         h+='<div class="lx-hdr" style="grid-template-columns:100px 1fr 56px 52px 44px 72px 72px 56px;padding:6px 8px;font-size:9px;color:#64748b;border-bottom:1px solid #1e293b;align-items:start">';
         h+='<div>Job id</div><div>DBT node</div><div style="text-align:right">Slot h</div><div style="text-align:right">Run s</div><div style="text-align:right">Avg \u2299</div><div>Category</div><div>Stmt</div><div>State</div></div>';
-        jobs.forEach(function(j){
-          h+='<div class="lx-row lx-bq-job" data-row-idx="'+j.rowIndex+'" style="grid-template-columns:100px 1fr 56px 52px 44px 72px 72px 56px;padding:6px 8px;font-size:10px;border-bottom:1px solid rgba(30,41,59,0.25);cursor:'+(details&&details.crossfilterEnabled?'pointer':'default')+'">';
-          h+='<div class="lx-cell lx-bq-jobid" style="font-family:ui-monospace,monospace;color:#22d3ee;text-decoration:'+(details&&details.crossfilterEnabled?'underline dotted':'none')" title="'+escAttr(j.job_id)+'">'+(j.job_id.length>13?j.job_id.substring(0,11)+'\u2026':j.job_id).replace(/</g,'&lt;')+'</div>';
-          h+='<div class="lx-cell" style="font-family:ui-monospace,monospace;color:#e2e8f0" title="'+escAttr(j.node)+'">'+(j.node.length>28?j.node.substring(0,26)+'\u2026':j.node).replace(/</g,'&lt;')+'</div>';
-          h+='<div style="text-align:right;color:#06b6d4;font-variant-numeric:tabular-nums">'+(j.slot_hours.toFixed(2))+'</div>';
-          h+='<div style="text-align:right;color:#94a3b8;font-variant-numeric:tabular-nums">'+(Math.round(j.runtime_sec)|0)+'</div>';
-          h+='<div style="text-align:right;color:#a78bfa;font-variant-numeric:tabular-nums">'+(j.avg_slots>=100?j.avg_slots.toFixed(0):(j.avg_slots>=10?j.avg_slots.toFixed(1):j.avg_slots.toFixed(2)))+'</div>';
-          h+='<div class="lx-cell" style="color:#64748b" title="'+escAttr(j.job_category)+'">'+(j.job_category.length>10?j.job_category.substring(0,8)+'\u2026':j.job_category||'—').replace(/</g,'&lt;')+'</div>';
-          h+='<div class="lx-cell" style="color:#64748b" title="'+escAttr(j.statement_type)+'">'+(j.statement_type.length>10?j.statement_type.substring(0,8)+'\u2026':j.statement_type||'—').replace(/</g,'&lt;')+'</div>';
-          h+='<div class="lx-cell" style="color:#64748b">'+(j.state||'—').replace(/</g,'&lt;')+'</div></div>';
+        displayIdx.forEach(function(rowIdx){
+          var row=data[rowIdx];
+          var slot=getSlot(row),node=getNode(row),runtime=getRuntime(row),jobId=kJob?String(cellVal(row,kJob)||''):'';
+          var av=getAvgSlots(row);
+          var jc=kCat?String(cellVal(row,kCat)||''):'';
+          var st=kStmt?String(cellVal(row,kStmt)||''):'';
+          var stt=kState?String(cellVal(row,kState)||''):'';
+          var avs=isFinite(av)?(av>=100?av.toFixed(0):(av>=10?av.toFixed(1):av.toFixed(2))):'\u2014';
+          h+='<div class="lx-row lx-bq-job" data-row-idx="'+rowIdx+'" style="grid-template-columns:100px 1fr 56px 52px 44px 72px 72px 56px;padding:6px 8px;font-size:10px;border-bottom:1px solid rgba(30,41,59,0.25);cursor:'+(details&&details.crossfilterEnabled?'pointer':'default')+'">';
+          h+='<div class="lx-cell lx-bq-jobid" style="font-family:ui-monospace,monospace;color:#22d3ee;text-decoration:'+(details&&details.crossfilterEnabled?'underline dotted':'none')" title="'+escAttr(jobId)+'">'+(jobId.length>13?jobId.substring(0,11)+'\u2026':jobId).replace(/</g,'&lt;')+'</div>';
+          h+='<div class="lx-cell" style="font-family:ui-monospace,monospace;color:#e2e8f0" title="'+escAttr(node)+'">'+(node.length>28?node.substring(0,26)+'\u2026':node).replace(/</g,'&lt;')+'</div>';
+          h+='<div style="text-align:right;color:#06b6d4;font-variant-numeric:tabular-nums">'+(isFinite(slot)?slot.toFixed(2):'\u2014')+'</div>';
+          h+='<div style="text-align:right;color:#94a3b8;font-variant-numeric:tabular-nums">'+(Math.round(runtime)|0)+'</div>';
+          h+='<div style="text-align:right;color:#a78bfa;font-variant-numeric:tabular-nums">'+avs+'</div>';
+          h+='<div class="lx-cell" style="color:#64748b" title="'+escAttr(jc)+'">'+(jc.length>10?jc.substring(0,8)+'\u2026':jc||'\u2014').replace(/</g,'&lt;')+'</div>';
+          h+='<div class="lx-cell" style="color:#64748b" title="'+escAttr(st)+'">'+(st.length>10?st.substring(0,8)+'\u2026':st||'\u2014').replace(/</g,'&lt;')+'</div>';
+          h+='<div class="lx-cell" style="color:#64748b">'+(stt||'\u2014').replace(/</g,'&lt;')+'</div></div>';
         });
+        if(data.length>BQ_MAX_JOB_ROWS)h+='<div style="padding:10px 12px;font-size:10px;color:#f59e0b;border-top:1px solid #1e293b">Showing top '+BQ_MAX_JOB_ROWS+' jobs by slot hours of '+data.length.toLocaleString()+'. Narrow filters or time range to load fewer rows.</div>';
         h+='</div></div></div></div>';
         R.innerHTML=h;
         function rowForNodeCrossfilter(nodeVal){
@@ -1001,6 +1015,9 @@ looker.plugins.visualizations.add({
               if(syn)try{LookerCharts.Utils.toggleCrossfilter({row:syn,event:e});}catch(err){}
             });
           });
+        }
+        }catch(bqErr){
+          R.innerHTML=navBar()+'<div class="lx-body"><div class="lx-bar" style="border-bottom:1px solid #1e293b"><span style="color:#e2e8f0;font-size:12px;font-weight:700">BQ Jobs</span></div><div style="padding:24px 20px;color:#f87171;font-size:12px">Could not render BQ Jobs view. Try fewer rows or required fields.<br/><span style="color:#64748b;font-size:11px;margin-top:8px;display:block">'+(bqErr&&bqErr.message?String(bqErr.message).replace(/</g,'&lt;'):'')+'</span></div></div>';
         }
         done();return;
       }
