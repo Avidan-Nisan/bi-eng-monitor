@@ -1331,15 +1331,12 @@ looker.plugins.visualizations.add({
         }
 
         var lkmlFieldKeys=null;
-        var fieldKey=null,parentFieldKey=null;
         if(fields&&dims&&dims.length){
           var nk=function(f){return (f||'').toLowerCase().replace(/\s/g,'_');};
           var kFn=dims.find(function(f){var n=nk(f);return n.indexOf('rfcm_field_name')!==-1&&n.indexOf('rfcm_field_label')===-1;});
           var kFl=dims.find(function(f){return nk(f).indexOf('rfcm_field_label')!==-1;});
           var kCd=dims.find(function(f){return nk(f).indexOf('column_description')!==-1;});
           if(kFn&&kFl&&kCd)lkmlFieldKeys={fn:kFn,fl:kFl,cd:kCd};
-          fieldKey=dims.find(function(f){var n=nk(f);return n==='field'||n==='field_name'||n.indexOf('rfcm_field_name')!==-1;})||kFn;
-          parentFieldKey=dims.find(function(f){var n=nk(f);return (n.indexOf('parent')!==-1&&n.indexOf('field')!==-1)||n==='parent_field'||n==='parentfield';});
         }
         var semanticFromQuery=parseSemanticFromData(data,lkmlFieldKeys);
 
@@ -1352,12 +1349,6 @@ looker.plugins.visualizations.add({
         h+='<div><label style="color:#64748b;font-size:10px;display:block;margin-bottom:4px">Generated LKML</label>';
         h+='<div style="display:flex;gap:8px;align-items:flex-start"><textarea id="lx-lkml-output" readonly placeholder="Output appears here" style="flex:1;height:200px;background:#0f172a;border:1px solid #1e293b;border-radius:8px;color:#e2e8f0;font-family:ui-monospace,monospace;font-size:11px;padding:10px;resize:vertical;box-sizing:border-box"></textarea>';
         h+='<button type="button" id="lx-lkml-copy" style="padding:8px 14px;background:#334155;color:#e2e8f0;border:1px solid #475569;border-radius:8px;font-size:11px;font-weight:500;cursor:pointer;white-space:nowrap">Copy</button></div>';
-        h+='<div style="margin-top:12px;padding-top:12px;border-top:1px solid #1e293b"><label style="color:#64748b;font-size:10px;display:block;margin-bottom:6px">Add missing field (field name, label, parent field)</label>';
-        h+='<p style="color:#94a3b8;font-size:11px;margin:0 0 8px 0">Enter the missing field with its label and parent field, then copy the row. You can paste it into your sheet (rfcm_field_name, rfcm_field_label, rfcm_parent_field_name).</p>';
-        h+='<div style="display:flex;flex-wrap:wrap;gap:10px 16px;align-items:flex-end"><div><label style="color:#64748b;font-size:10px;display:block;margin-bottom:2px">Field name</label><input type="text" id="lx-lkml-sheet-field" placeholder="rfcm_field_name" style="width:180px;background:#0f172a;border:1px solid #1e293b;border-radius:6px;color:#e2e8f0;font-size:11px;padding:6px 8px;box-sizing:border-box"/></div>';
-        h+='<div><label style="color:#64748b;font-size:10px;display:block;margin-bottom:2px">Label</label><input type="text" id="lx-lkml-sheet-label" placeholder="rfcm_field_label" style="width:180px;background:#0f172a;border:1px solid #1e293b;border-radius:6px;color:#e2e8f0;font-size:11px;padding:6px 8px;box-sizing:border-box"/></div>';
-        h+='<div><label style="color:#64748b;font-size:10px;display:block;margin-bottom:2px">Parent field name</label><input type="text" id="lx-lkml-sheet-parent" placeholder="rfcm_parent_field_name" style="width:180px;background:#0f172a;border:1px solid #1e293b;border-radius:6px;color:#e2e8f0;font-size:11px;padding:6px 8px;box-sizing:border-box"/></div>';
-        h+='<button type="button" id="lx-lkml-copy-row" style="padding:8px 16px;background:#0d9488;color:#fff;border:none;border-radius:8px;font-size:11px;font-weight:600;cursor:pointer;white-space:nowrap">Copy row</button></div></div>';
         h+='<details id="lx-lkml-debug" style="margin-top:8px"><summary style="color:#64748b;font-size:11px;cursor:pointer">Debug</summary><pre id="lx-lkml-debug-body" style="margin:8px 0 0;padding:10px;background:#0f172a;border:1px solid #1e293b;border-radius:6px;color:#94a3b8;font-size:10px;font-family:ui-monospace,monospace;white-space:pre-wrap;max-height:200px;overflow:auto"></pre></details>';
         h+='</div></div>';
 
@@ -1368,21 +1359,9 @@ looker.plugins.visualizations.add({
           var outTa=document.getElementById('lx-lkml-output');
           var btn=document.getElementById('lx-lkml-generate');
           var copyBtn=document.getElementById('lx-lkml-copy');
-          var copyRowBtn=document.getElementById('lx-lkml-copy-row');
-          var sheetField=document.getElementById('lx-lkml-sheet-field');
-          var sheetLabel=document.getElementById('lx-lkml-sheet-label');
-          var sheetParent=document.getElementById('lx-lkml-sheet-parent');
+          var debugBody=document.getElementById('lx-lkml-debug-body');
           if(!btn||!outTa)return;
           if(copyBtn)copyBtn.addEventListener('click',function(){var v=outTa.value;if(!v)return;try{navigator.clipboard.writeText(v);copyBtn.textContent='Copied!';setTimeout(function(){copyBtn.textContent='Copy';},1500);}catch(e){}});
-          if(copyRowBtn&&sheetField&&sheetLabel&&sheetParent){
-            copyRowBtn.addEventListener('click',function(){
-              var f=(sheetField.value||'').trim();
-              var l=(sheetLabel.value||'').trim();
-              var p=(sheetParent.value||'').trim();
-              var row=[f,l,p].join('\t');
-              try{navigator.clipboard.writeText(row);copyRowBtn.textContent='Copied!';setTimeout(function(){copyRowBtn.textContent='Copy row';},1500);}catch(e){copyRowBtn.textContent='Copy failed';}
-            });
-          }
           btn.addEventListener('click',function(){
             var semantic=semanticFromQuery;
             if(!semantic||Object.keys(semantic).length===0){
