@@ -32,7 +32,7 @@ looker.plugins.visualizations.add({
 
       var s=document.createElement('style');
 
-      s.textContent='#lex *{box-sizing:border-box}.lx-nav{display:flex;align-items:center;gap:2px;padding:14px 20px 0;background:linear-gradient(180deg,#0f1629,#0a0e1a);border-bottom:1px solid #334155}.lx-nav-btn{padding:10px 22px;font-size:12px;font-weight:600;cursor:pointer;border:none;background:transparent;color:#94a3b8;border-radius:10px 10px 0 0;transition:all .2s;display:flex;align-items:center;gap:8px;letter-spacing:.3px;text-decoration:none;position:relative}.lx-nav-btn:hover{color:#cbd5e1;background:rgba(30,41,59,0.25)}.lx-nav-btn.active{color:#e2e8f0;background:#1e293b;cursor:default;border-bottom:2px solid transparent;font-weight:700}.lx-nav-btn.active::after{content:"";position:absolute;bottom:0;left:4px;right:4px;height:4px;border-radius:4px 4px 0 0;z-index:1}.lx-nav-btn.t-lineage.active{color:#10b981!important}.lx-nav-btn.t-lineage.active::after{background:#10b981;box-shadow:0 0 10px #10b981}.lx-nav-btn.t-overlap.active{color:#8b5cf6!important}.lx-nav-btn.t-overlap.active::after{background:#8b5cf6;box-shadow:0 0 10px #8b5cf6}.lx-nav-btn.t-bq_jobs.active{color:#06b6d4!important}.lx-nav-btn.t-bq_jobs.active::after{background:#06b6d4;box-shadow:0 0 10px #06b6d4}.lx-nav-btn.t-usage.active{color:#f59e0b!important}.lx-nav-btn.t-usage.active::after{background:#f59e0b;box-shadow:0 0 10px #f59e0b}.lx-nav-btn.t-dbt_lineage.active{color:#0ea5e9!important}.lx-nav-btn.t-dbt_lineage.active::after{background:#0ea5e9;box-shadow:0 0 10px #0ea5e9}.lx-nav-btn.t-data_dyson.active{color:#14b8a6!important}.lx-nav-btn.t-data_dyson.active::after{background:#14b8a6;box-shadow:0 0 10px #14b8a6}.lx-nav-btn.t-lkml_labels.active{color:#a78bfa!important}.lx-nav-btn.t-lkml_labels.active::after{background:#a78bfa;box-shadow:0 0 10px #a78bfa}.lx-body{flex:1;background:#131b2e;border-radius:12px 12px 0 0;overflow:hidden;display:flex;flex-direction:column;border:1px solid #1e293b;border-bottom:none;margin:0 12px}.lx-bar{padding:10px 16px;border-bottom:1px solid rgba(30,41,59,0.25);display:flex;align-items:center;justify-content:space-between;font-size:11px;min-height:42px}.lx-scroll{flex:1;overflow:auto}.lx-pill{display:inline-flex;align-items:center;gap:4px;padding:3px 10px;border-radius:6px;font-size:10px;font-weight:500}.lx-node{cursor:pointer;transition:opacity .15s}.lx-node:hover{opacity:.85}.lx-row{display:grid;border-bottom:1px solid rgba(30,41,59,0.1);transition:background .15s}.lx-row:hover{background:rgba(30,41,59,0.3)}.lx-hdr{display:grid;border-bottom:1px solid #1e293b;position:sticky;top:0;background:#131b2e;z-index:1}.lx-hdr>div{padding:10px 12px;font-size:10px;font-weight:600;color:#475569;cursor:pointer;user-select:none;text-transform:uppercase;letter-spacing:.5px;transition:color .15s}.lx-hdr>div:hover{color:#94a3b8}.lx-hdr>div.on{color:#e2e8f0}.lx-cell{padding:8px 12px;font-size:11px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.lx-ebtn{padding:7px 16px;border:1px solid #1e293b;cursor:pointer;font-size:11px;font-weight:500;transition:all .15s;background:transparent;color:#64748b;letter-spacing:.3px}.lx-ebtn:hover{background:#1e293b;color:#94a3b8}.lx-ebtn.on{background:#1e293b;border-color:#334155}.lx-link{color:#475569;text-decoration:none;transition:color .15s;display:inline-flex}.lx-link:hover{color:#e2e8f0}.dp-card{border-bottom:1px solid rgba(30,41,59,0.12)}.dp-head{display:flex;align-items:center;gap:12px;padding:12px 16px;cursor:pointer;transition:background .15s}.dp-head:hover{background:rgba(30,41,59,0.2)}#lex .lx-bq-dim{opacity:.3;filter:saturate(.7);pointer-events:auto}#lex .lx-bq-focus{position:relative;z-index:2;box-shadow:inset 0 0 0 2px #38bdf8;background:rgba(56,189,248,.1)!important}#lex .lx-bq-slot-bar{cursor:pointer;transition:filter .15s,stroke-width .15s,stroke .15s}#lex .lx-bq-slot-bar:hover{filter:brightness(1.15)}#lex .lx-bq-slot-bar.lx-bq-bar-sel{stroke:#f8fafc!important;stroke-width:2.5px}#lex .lx-bq-node,#lex .lx-bq-job{cursor:pointer}#lex .lx-dbt-node-stack{display:flex;flex-direction:column;align-items:flex-start;gap:3px;line-height:1.25;text-align:left}#lex .lx-dbt-line{display:flex;flex-wrap:wrap;align-items:center;gap:6px 8px}#lex .lx-dbt-kind{font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:.05em;color:#94a3b8;background:#0f172a;border:1px solid #334155;border-radius:4px;padding:2px 6px;font-family:Inter,system-ui,sans-serif}#lex .lx-dbt-proj{font-size:10px;color:#64748b;font-family:ui-monospace,monospace}#lex .lx-dbt-name{font-size:11px;font-weight:600;color:#e2e8f0;font-family:ui-monospace,monospace;word-break:break-word;max-width:100%}#lex .lx-job-stack{display:flex;flex-direction:column;gap:2px;align-items:flex-start;line-height:1.25;text-align:left;max-width:100%}#lex .lx-job-prefix{font-size:9px;color:#64748b;font-family:ui-monospace,monospace;line-height:1.2}#lex .lx-job-core{font-size:10px;font-weight:600;color:#22d3ee;font-family:ui-monospace,monospace;word-break:break-all;letter-spacing:.02em}#lex .lx-bq-clear{font:inherit;font-size:10px;font-weight:600;color:#64748b;background:transparent;border:1px solid #334155;border-radius:6px;padding:4px 10px;cursor:pointer;margin-left:auto}#lex .lx-bq-clear:hover{color:#e2e8f0;border-color:#475569}';
+      s.textContent='#lex *{box-sizing:border-box}.lx-nav{display:flex;align-items:center;gap:2px;padding:14px 20px 0;background:linear-gradient(180deg,#0f1629,#0a0e1a);border-bottom:1px solid #334155}.lx-nav-btn{padding:10px 22px;font-size:12px;font-weight:600;cursor:pointer;border:none;background:transparent;color:#94a3b8;border-radius:10px 10px 0 0;transition:all .2s;display:flex;align-items:center;gap:8px;letter-spacing:.3px;text-decoration:none;position:relative}.lx-nav-btn:hover{color:#cbd5e1;background:rgba(30,41,59,0.25)}.lx-nav-btn.active{color:#e2e8f0;background:#1e293b;cursor:default;border-bottom:2px solid transparent;font-weight:700}.lx-nav-btn.active::after{content:"";position:absolute;bottom:0;left:4px;right:4px;height:4px;border-radius:4px 4px 0 0;z-index:1}.lx-nav-btn.t-lineage.active{color:#10b981!important}.lx-nav-btn.t-lineage.active::after{background:#10b981;box-shadow:0 0 10px #10b981}.lx-nav-btn.t-overlap.active{color:#8b5cf6!important}.lx-nav-btn.t-overlap.active::after{background:#8b5cf6;box-shadow:0 0 10px #8b5cf6}.lx-nav-btn.t-bq_jobs.active{color:#06b6d4!important}.lx-nav-btn.t-bq_jobs.active::after{background:#06b6d4;box-shadow:0 0 10px #06b6d4}.lx-nav-btn.t-usage.active{color:#f59e0b!important}.lx-nav-btn.t-usage.active::after{background:#f59e0b;box-shadow:0 0 10px #f59e0b}.lx-nav-btn.t-dbt_lineage.active{color:#0ea5e9!important}.lx-nav-btn.t-dbt_lineage.active::after{background:#0ea5e9;box-shadow:0 0 10px #0ea5e9}.lx-nav-btn.t-data_dyson.active{color:#14b8a6!important}.lx-nav-btn.t-data_dyson.active::after{background:#14b8a6;box-shadow:0 0 10px #14b8a6}.lx-nav-btn.t-lkml_labels.active{color:#a78bfa!important}.lx-nav-btn.t-lkml_labels.active::after{background:#a78bfa;box-shadow:0 0 10px #a78bfa}.lx-body{flex:1;background:#131b2e;border-radius:12px 12px 0 0;overflow:hidden;display:flex;flex-direction:column;border:1px solid #1e293b;border-bottom:none;margin:0 12px}.lx-bar{padding:10px 16px;border-bottom:1px solid rgba(30,41,59,0.25);display:flex;align-items:center;justify-content:space-between;font-size:11px;min-height:42px}.lx-scroll{flex:1;overflow:auto}.lx-pill{display:inline-flex;align-items:center;gap:4px;padding:3px 10px;border-radius:6px;font-size:10px;font-weight:500}.lx-node{cursor:pointer;transition:opacity .15s}.lx-node:hover{opacity:.85}.lx-row{display:grid;border-bottom:1px solid rgba(30,41,59,0.1);transition:background .15s}.lx-row:hover{background:rgba(30,41,59,0.3)}.lx-hdr{display:grid;border-bottom:1px solid #1e293b;position:sticky;top:0;background:#131b2e;z-index:1}.lx-hdr>div{padding:10px 12px;font-size:10px;font-weight:600;color:#475569;cursor:pointer;user-select:none;text-transform:uppercase;letter-spacing:.5px;transition:color .15s}.lx-hdr>div:hover{color:#94a3b8}.lx-hdr>div.on{color:#e2e8f0}.lx-cell{padding:8px 12px;font-size:11px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.lx-ebtn{padding:7px 16px;border:1px solid #1e293b;cursor:pointer;font-size:11px;font-weight:500;transition:all .15s;background:transparent;color:#64748b;letter-spacing:.3px}.lx-ebtn:hover{background:#1e293b;color:#94a3b8}.lx-ebtn.on{background:#1e293b;border-color:#334155}.lx-link{color:#475569;text-decoration:none;transition:color .15s;display:inline-flex}.lx-link:hover{color:#e2e8f0}.dp-card{border-bottom:1px solid rgba(30,41,59,0.12)}.dp-head{display:flex;align-items:center;gap:12px;padding:12px 16px;cursor:pointer;transition:background .15s}.dp-head:hover{background:rgba(30,41,59,0.2)}#lex .lx-bq-filter-hide{display:none!important}#lex .lx-bq-slot-bar{cursor:pointer;transition:filter .15s,stroke-width .15s,stroke .15s}#lex .lx-bq-slot-bar:hover{filter:brightness(1.15)}#lex .lx-bq-node,#lex .lx-bq-job{cursor:pointer}#lex .lx-dbt-node-stack{display:flex;flex-direction:column;align-items:flex-start;gap:3px;line-height:1.25;text-align:left}#lex .lx-dbt-line{display:flex;flex-wrap:wrap;align-items:center;gap:6px 8px}#lex .lx-dbt-kind{font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:.05em;color:#94a3b8;background:#0f172a;border:1px solid #334155;border-radius:4px;padding:2px 6px;font-family:Inter,system-ui,sans-serif}#lex .lx-dbt-proj{font-size:10px;color:#64748b;font-family:ui-monospace,monospace}#lex .lx-dbt-name{font-size:11px;font-weight:600;color:#e2e8f0;font-family:ui-monospace,monospace;word-break:break-word;max-width:100%}#lex .lx-job-stack{display:flex;flex-direction:column;gap:2px;align-items:flex-start;line-height:1.25;text-align:left;max-width:100%}#lex .lx-job-prefix{font-size:9px;color:#64748b;font-family:ui-monospace,monospace;line-height:1.2}#lex .lx-job-core{font-size:10px;font-weight:600;color:#22d3ee;font-family:ui-monospace,monospace;word-break:break-all;letter-spacing:.02em}#lex .lx-bq-clear{font:inherit;font-size:10px;font-weight:600;color:#64748b;background:transparent;border:1px solid #334155;border-radius:6px;padding:4px 10px;cursor:pointer;margin-left:auto}#lex .lx-bq-clear:hover{color:#e2e8f0;border-color:#475569}';
 
       element.appendChild(s);
 
@@ -882,7 +882,7 @@ looker.plugins.visualizations.add({
         var slotMeasure=F.bq_slot_hours;
         var slotDim=F.bq_total_slot_ms;
         if(!F.bq_job_id||(!slotMeasure&&!slotDim)){
-          R.innerHTML=navBar()+'<div class="lx-body"><div class="lx-bar" style="border-bottom:1px solid #1e293b"><span style="color:#e2e8f0;font-size:12px;font-weight:700">BQ Jobs</span></div><div style="padding:24px 20px;color:#94a3b8;font-size:12px;line-height:1.5">Use the <strong style="color:#e2e8f0">bq_jobs</strong> explore. Add <strong>Job Id</strong> and measure <strong>Total Slot Hours</strong> (or dimension <strong>Total Slot Ms</strong>). Add <strong>Dbt Node Id</strong>, <strong>Runtime Sec</strong> for slot-intensity buckets. Optional: <strong>Job Category</strong>, <strong>Statement Type</strong>, <strong>User Email</strong>, <strong>State</strong>, bytes. Click a slot bucket, node, or job in this tile to highlight related rows in the lists below.</div></div>';
+          R.innerHTML=navBar()+'<div class="lx-body"><div class="lx-bar" style="border-bottom:1px solid #1e293b"><span style="color:#e2e8f0;font-size:12px;font-weight:700">BQ Jobs</span></div><div style="padding:24px 20px;color:#94a3b8;font-size:12px;line-height:1.5">Use the <strong style="color:#e2e8f0">bq_jobs</strong> explore. Add <strong>Job Id</strong> and measure <strong>Total Slot Hours</strong> (or dimension <strong>Total Slot Ms</strong>). Add <strong>Dbt Node Id</strong>, <strong>Runtime Sec</strong> for slot-intensity buckets. Optional: <strong>Job Category</strong>, <strong>Statement Type</strong>, <strong>User Email</strong>, <strong>State</strong>, bytes. Click a slot bucket, node, or job in this tile to filter the chart, node list, and job list to that slice. Use <strong style="color:#94a3b8">Clear filter</strong> or click the same item again to reset.</div></div>';
           done();return;
         }
         var BQ_MAX_JOB_ROWS=800,BQ_MAX_NODE_ROWS=500;
@@ -899,20 +899,20 @@ looker.plugins.visualizations.add({
           return keys[0]||null;
         }
         function escAttr(s){return String(s==null?'':s).replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/</g,'&lt;');}
-        function formatDbtNodeCell(nodeStr){
+        function dbtNodeShortName(nodeStr){
           var s=String(nodeStr==null?'':nodeStr);
-          if(!s||s==='\u2014'||s==='—')return '<div class="lx-dbt-node-stack"><span class="lx-dbt-name" style="color:#64748b">\u2014</span></div>';
+          if(!s||s==='\u2014'||s==='—')return '\u2014';
           var parts=s.split('.');
           if(parts.length>=3){
             var k=(parts[0]||'').toLowerCase();
-            if(k==='model'||k==='source'||k==='seed'||k==='snapshot'||k==='exposure'||k==='test'){
-              var kind=parts[0];
-              var proj=parts[1]||'';
-              var rest=parts.slice(2).join('.');
-              return '<div class="lx-dbt-node-stack"><div class="lx-dbt-line"><span class="lx-dbt-kind">'+kind.replace(/</g,'&lt;')+'</span><span class="lx-dbt-proj">'+proj.replace(/</g,'&lt;')+'</span></div><span class="lx-dbt-name">'+rest.replace(/</g,'&lt;')+'</span></div>';
-            }
+            if(k==='model'||k==='source'||k==='seed'||k==='snapshot'||k==='exposure'||k==='test')return parts.slice(2).join('.');
           }
-          return '<div class="lx-dbt-node-stack"><span class="lx-dbt-name">'+s.replace(/</g,'&lt;')+'</span></div>';
+          return s;
+        }
+        function formatDbtNodeCell(nodeStr){
+          var shortN=dbtNodeShortName(nodeStr);
+          if(shortN==='\u2014')return '<div class="lx-dbt-node-stack"><span class="lx-dbt-name" style="color:#64748b">\u2014</span></div>';
+          return '<div class="lx-dbt-node-stack"><span class="lx-dbt-name">'+shortN.replace(/</g,'&lt;')+'</span></div>';
         }
         function formatJobIdCell(fullJobId){
           var raw=String(fullJobId==null?'':fullJobId);
@@ -994,7 +994,7 @@ looker.plugins.visualizations.add({
         var maxSlotHr=Math.max.apply(null,slotHrCounts.slice(0,5).concat([1]));
         var barW=(chartW-48-4*barGap)/5;
         var h=navBar()+'<div class="lx-body" style="min-height:0">';
-        h+='<div class="lx-bar" style="display:flex;align-items:center;flex-wrap:wrap;gap:10px;border-bottom:1px solid #334155;background:linear-gradient(180deg,#1e293b,#162032);width:100%"><span style="color:#f1f5f9;font-size:13px;font-weight:700;letter-spacing:-.2px">BQ Jobs</span><span style="color:#64748b;font-size:11px;font-weight:500">'+data.length.toLocaleString()+' jobs</span><button type="button" class="lx-bq-clear lx-bq-clear-focus" style="display:none;margin-left:auto" aria-label="Clear highlight">\u2715 Clear focus</button></div>';
+        h+='<div class="lx-bar" style="display:flex;align-items:center;flex-wrap:wrap;gap:10px;border-bottom:1px solid #334155;background:linear-gradient(180deg,#1e293b,#162032);width:100%"><span style="color:#f1f5f9;font-size:13px;font-weight:700;letter-spacing:-.2px">BQ Jobs</span><span style="color:#64748b;font-size:11px;font-weight:500">'+data.length.toLocaleString()+' jobs</span><button type="button" class="lx-bq-clear lx-bq-clear-focus" style="display:none;margin-left:auto" aria-label="Clear filter">\u2715 Clear filter</button></div>';
         h+='<div class="lx-scroll" style="padding:14px 16px 20px;display:flex;flex-direction:column;gap:18px;flex:1;min-height:0;overflow:auto;background:#0f1419">';
         h+='<div style="background:linear-gradient(145deg,#1a2332 0%,#131b28 100%);border:1px solid #334155;border-radius:12px;padding:14px 16px 18px;box-shadow:0 4px 24px rgba(0,0,0,.25)">';
         h+='<div style="color:#94a3b8;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.08em;margin-bottom:4px">1. Slot usage (per job)</div>';
@@ -1003,9 +1003,11 @@ looker.plugins.visualizations.add({
         h+='<text x="16" y="18" fill="#64748b" font-size="11" font-weight="600">Jobs per bucket</text>';
         for(var bi=0;bi<5;bi++){
           var cnt=slotHrCounts[bi]||0,x0=24+bi*(barW+barGap),plotH=chartH-padT-padB,bh=cnt/maxSlotHr*plotH,y0=padT+plotH-bh;
+          h+='<g class="lx-bq-bar-group" data-slot-b="'+bi+'">';
           h+='<rect class="lx-bq-slot-bar" data-slot-b="'+bi+'" x="'+x0+'" y="'+y0+'" width="'+Math.max(barW,8)+'" height="'+Math.max(bh,3)+'" rx="6" fill="'+slotHrColors[bi]+'" fill-opacity="'+(0.45+0.45*(cnt/Math.max(maxSlotHr,1)))+'" stroke="#334155" stroke-width="1"/>';
           h+='<text x="'+(x0+barW/2)+'" y="'+(chartH-10)+'" text-anchor="middle" fill="#94a3b8" font-size="9">'+slotHrLabels[bi]+'</text>';
           if(cnt>0)h+='<text x="'+(x0+barW/2)+'" y="'+(Math.max(y0-6,padT+12))+'" text-anchor="middle" fill="#f1f5f9" font-size="12" font-weight="700">'+cnt+'</text>';
+          h+='</g>';
         }
         h+='</svg>';
         if(slotHrCounts[5]>0)h+='<div style="margin-top:8px;font-size:10px;color:#64748b">+'+slotHrCounts[5]+' jobs with 0 slot hours</div>';
@@ -1064,58 +1066,60 @@ looker.plugins.visualizations.add({
         }
         var bqFocus=null;
         var clearBtn=R.querySelector('.lx-bq-clear-focus');
-        function clearBqHighlightClasses(){
-          R.querySelectorAll('.lx-bq-dim').forEach(function(el){el.classList.remove('lx-bq-dim');});
-          R.querySelectorAll('.lx-bq-focus').forEach(function(el){el.classList.remove('lx-bq-focus');});
-          R.querySelectorAll('.lx-bq-bar-sel').forEach(function(el){el.classList.remove('lx-bq-bar-sel');});
+        function clearBqFilterClasses(){
+          R.querySelectorAll('.lx-bq-filter-hide').forEach(function(el){el.classList.remove('lx-bq-filter-hide');});
         }
         function syncClearBtn(){if(clearBtn)clearBtn.style.display=bqFocus?'inline-block':'none';}
         function applyBqFocus(){
-          clearBqHighlightClasses();
+          clearBqFilterClasses();
           syncClearBtn();
           if(!bqFocus)return;
           var jobEls=R.querySelectorAll('.lx-bq-job');
           var nodeEls=R.querySelectorAll('.lx-bq-node');
-          var bars=R.querySelectorAll('.lx-bq-slot-bar');
+          var barGroups=R.querySelectorAll('.lx-bq-bar-group');
           if(bqFocus.type==='bucket'){
             var bb=bqFocus.b;
-            bars.forEach(function(bar){if(parseInt(bar.getAttribute('data-slot-b'),10)===bb)bar.classList.add('lx-bq-bar-sel');});
+            barGroups.forEach(function(g){if(parseInt(g.getAttribute('data-slot-b'),10)!==bb)g.classList.add('lx-bq-filter-hide');});
             jobEls.forEach(function(el){
               var sb=parseInt(el.getAttribute('data-sh-bucket'),10);
-              if(sb!==bb)el.classList.add('lx-bq-dim');else el.classList.add('lx-bq-focus');
+              if(sb!==bb)el.classList.add('lx-bq-filter-hide');
             });
             nodeEls.forEach(function(el){
               var ni=parseInt(el.getAttribute('data-node-idx'),10);
               var nn=modelRows[ni]?modelRows[ni].node:null;
               var ok=nn&&nodeToBucketSet[nn]&&nodeToBucketSet[nn][bb];
-              if(!ok)el.classList.add('lx-bq-dim');else el.classList.add('lx-bq-focus');
+              if(!ok)el.classList.add('lx-bq-filter-hide');
             });
           }else if(bqFocus.type==='node'){
             var nSel=bqFocus.node;
-            bars.forEach(function(bar){
-              var bi=parseInt(bar.getAttribute('data-slot-b'),10);
-              if(nodeToBucketSet[nSel]&&nodeToBucketSet[nSel][bi])bar.classList.add('lx-bq-bar-sel');
+            barGroups.forEach(function(g){
+              var bi=parseInt(g.getAttribute('data-slot-b'),10);
+              if(!(nodeToBucketSet[nSel]&&nodeToBucketSet[nSel][bi]))g.classList.add('lx-bq-filter-hide');
             });
             jobEls.forEach(function(el){
               var rj=parseInt(el.getAttribute('data-row-idx'),10);
-              if(getNode(data[rj])!==nSel)el.classList.add('lx-bq-dim');else el.classList.add('lx-bq-focus');
+              if(getNode(data[rj])!==nSel)el.classList.add('lx-bq-filter-hide');
             });
             nodeEls.forEach(function(el){
               var ni=parseInt(el.getAttribute('data-node-idx'),10);
-              if(!modelRows[ni]||modelRows[ni].node!==nSel)el.classList.add('lx-bq-dim');else el.classList.add('lx-bq-focus');
+              if(!modelRows[ni]||modelRows[ni].node!==nSel)el.classList.add('lx-bq-filter-hide');
             });
           }else if(bqFocus.type==='job'){
             var ji=bqFocus.idx;
             var nJob=getNode(data[ji]);
             var sbJob=rowShBucket[ji];
+            barGroups.forEach(function(g){
+              var bi=parseInt(g.getAttribute('data-slot-b'),10);
+              if(sbJob>=0&&sbJob<=4){if(bi!==sbJob)g.classList.add('lx-bq-filter-hide');}
+              else g.classList.add('lx-bq-filter-hide');
+            });
             jobEls.forEach(function(el){
               var rj=parseInt(el.getAttribute('data-row-idx'),10);
-              if(rj!==ji)el.classList.add('lx-bq-dim');else el.classList.add('lx-bq-focus');
+              if(rj!==ji)el.classList.add('lx-bq-filter-hide');
             });
-            if(sbJob>=0&&sbJob<=4)bars.forEach(function(bar){if(parseInt(bar.getAttribute('data-slot-b'),10)===sbJob)bar.classList.add('lx-bq-bar-sel');});
             nodeEls.forEach(function(el){
               var ni=parseInt(el.getAttribute('data-node-idx'),10);
-              if(!modelRows[ni]||modelRows[ni].node!==nJob)el.classList.add('lx-bq-dim');else el.classList.add('lx-bq-focus');
+              if(!modelRows[ni]||modelRows[ni].node!==nJob)el.classList.add('lx-bq-filter-hide');
             });
           }
         }
