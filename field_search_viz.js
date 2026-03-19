@@ -36,6 +36,60 @@ looker.plugins.visualizations.add({
 
       element.appendChild(s);
 
+      function lxSameTabNavigate(url){
+
+        if(!url)return;
+
+        try{if(window.parent!==window){window.parent.location.assign(url);return;}}catch(err){}
+
+        try{if(window.top!==window){window.top.location.assign(url);return;}}catch(err2){}
+
+        try{if(typeof LookerCharts!=='undefined'&&LookerCharts.Utils&&LookerCharts.Utils.openUrl){LookerCharts.Utils.openUrl(url);return;}}catch(err3){}
+
+        try{window.parent.postMessage({type:'page-changed',url:url},'*');}catch(err4){}
+
+        window.location.assign(url);
+
+      }
+
+      element.addEventListener('click',function(ev){
+
+        var el=ev.target;
+
+        while(el&&el!==element){
+
+          if(el.getAttribute&&el.getAttribute('data-lx-dash-nav')==='1'){
+
+            var u=el.getAttribute('data-lx-dash-url');
+
+            if(u){ev.preventDefault();ev.stopPropagation();lxSameTabNavigate(u);}
+
+            return;
+
+          }
+
+          el=el.parentElement;
+
+        }
+
+      });
+
+      element.addEventListener('keydown',function(ev){
+
+        if(ev.key!=='Enter'&&ev.key!==' ')return;
+
+        var el=ev.target;
+
+        if(el.getAttribute&&el.getAttribute('data-lx-dash-nav')==='1'){
+
+          var u2=el.getAttribute('data-lx-dash-url');
+
+          if(u2){ev.preventDefault();lxSameTabNavigate(u2);}
+
+        }
+
+      });
+
     },
 
     updateAsync: function(data, element, config, queryResponse, details, done) {
@@ -261,15 +315,17 @@ looker.plugins.visualizations.add({
 
       function doNav(url){
 
-        try{if(typeof LookerCharts!=='undefined'&&LookerCharts.Utils&&LookerCharts.Utils.openUrl){LookerCharts.Utils.openUrl(url);return;}}catch(e){}
+        if(!url)return;
 
-        try{window.parent.postMessage({type:'page-changed',url:url},'*');}catch(e){}
+        try{if(window.parent!==window){window.parent.location.assign(url);return;}}catch(e){}
 
-        try{window.parent.location.href=url;return;}catch(e){}
+        try{if(window.top!==window){window.top.location.assign(url);return;}}catch(e2){}
 
-        try{window.top.location.href=url;return;}catch(e){}
+        try{if(typeof LookerCharts!=='undefined'&&LookerCharts.Utils&&LookerCharts.Utils.openUrl){LookerCharts.Utils.openUrl(url);return;}}catch(e3){}
 
-        window.location.href=url;
+        try{window.parent.postMessage({type:'page-changed',url:url},'*');}catch(e4){}
+
+        window.location.assign(url);
 
       }
 
@@ -303,7 +359,7 @@ looker.plugins.visualizations.add({
 
           }else if(baseUrl&&t.did){
 
-            h+='<a href="'+baseUrl+'/dashboards/'+t.did+'" target="_top" class="lx-nav-btn t-'+t.id+'" style="text-decoration:none;color:inherit">'+t.icon+' '+t.label+'</a>';
+            h+='<span role="link" tabindex="0" data-lx-dash-nav="1" data-lx-dash-url="'+(baseUrl+'/dashboards/'+String(t.did).trim()).replace(/&/g,'&amp;').replace(/"/g,'&quot;')+'" class="lx-nav-btn t-'+t.id+'" style="text-decoration:none;color:inherit">'+t.icon+' '+t.label+'</span>';
 
           }else{
 
