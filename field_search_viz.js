@@ -32,7 +32,7 @@ looker.plugins.visualizations.add({
 
       var s=document.createElement('style');
 
-      s.textContent='#lex *{box-sizing:border-box}.lx-nav{display:flex;align-items:center;gap:2px;padding:14px 20px 0;background:linear-gradient(180deg,#0f1629,#0a0e1a);border-bottom:1px solid #334155}.lx-nav-btn{padding:10px 22px;font-size:12px;font-weight:600;cursor:pointer;border:none;background:transparent;color:#94a3b8;border-radius:10px 10px 0 0;transition:all .2s;display:flex;align-items:center;gap:8px;letter-spacing:.3px;text-decoration:none;position:relative}.lx-nav-btn:hover{color:#cbd5e1;background:rgba(30,41,59,0.25)}.lx-nav-btn.active{color:#e2e8f0;background:#1e293b;cursor:default;border-bottom:2px solid transparent;font-weight:700}.lx-nav-btn.active::after{content:"";position:absolute;bottom:0;left:4px;right:4px;height:4px;border-radius:4px 4px 0 0;z-index:1}.lx-nav-btn.t-lineage.active{color:#10b981!important}.lx-nav-btn.t-lineage.active::after{background:#10b981;box-shadow:0 0 10px #10b981}.lx-nav-btn.t-overlap.active{color:#8b5cf6!important}.lx-nav-btn.t-overlap.active::after{background:#8b5cf6;box-shadow:0 0 10px #8b5cf6}.lx-nav-btn.t-bq_jobs.active{color:#06b6d4!important}.lx-nav-btn.t-bq_jobs.active::after{background:#06b6d4;box-shadow:0 0 10px #06b6d4}.lx-nav-btn.t-usage.active{color:#f59e0b!important}.lx-nav-btn.t-usage.active::after{background:#f59e0b;box-shadow:0 0 10px #f59e0b}.lx-nav-btn.t-dbt_lineage.active{color:#0ea5e9!important}.lx-nav-btn.t-dbt_lineage.active::after{background:#0ea5e9;box-shadow:0 0 10px #0ea5e9}.lx-nav-btn.t-data_dyson.active{color:#14b8a6!important}.lx-nav-btn.t-data_dyson.active::after{background:#14b8a6;box-shadow:0 0 10px #14b8a6}.lx-nav-btn.t-lkml_labels.active{color:#a78bfa!important}.lx-nav-btn.t-lkml_labels.active::after{background:#a78bfa;box-shadow:0 0 10px #a78bfa}.lx-body{flex:1;background:#131b2e;border-radius:12px 12px 0 0;overflow:hidden;display:flex;flex-direction:column;border:1px solid #1e293b;border-bottom:none;margin:0 12px}.lx-bar{padding:10px 16px;border-bottom:1px solid rgba(30,41,59,0.25);display:flex;align-items:center;justify-content:space-between;font-size:11px;min-height:42px}.lx-scroll{flex:1;overflow:auto}.lx-pill{display:inline-flex;align-items:center;gap:4px;padding:3px 10px;border-radius:6px;font-size:10px;font-weight:500}.lx-node{cursor:pointer;transition:opacity .15s}.lx-node:hover{opacity:.85}.lx-row{display:grid;border-bottom:1px solid rgba(30,41,59,0.1);transition:background .15s}.lx-row:hover{background:rgba(30,41,59,0.3)}.lx-hdr{display:grid;border-bottom:1px solid #1e293b;position:sticky;top:0;background:#131b2e;z-index:1}.lx-hdr>div{padding:10px 12px;font-size:10px;font-weight:600;color:#475569;cursor:pointer;user-select:none;text-transform:uppercase;letter-spacing:.5px;transition:color .15s}.lx-hdr>div:hover{color:#94a3b8}.lx-hdr>div.on{color:#e2e8f0}.lx-cell{padding:8px 12px;font-size:11px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.lx-ebtn{padding:7px 16px;border:1px solid #1e293b;cursor:pointer;font-size:11px;font-weight:500;transition:all .15s;background:transparent;color:#64748b;letter-spacing:.3px}.lx-ebtn:hover{background:#1e293b;color:#94a3b8}.lx-ebtn.on{background:#1e293b;border-color:#334155}.lx-link{color:#475569;text-decoration:none;transition:color .15s;display:inline-flex}.lx-link:hover{color:#e2e8f0}.dp-card{border-bottom:1px solid rgba(30,41,59,0.12)}.dp-head{display:flex;align-items:center;gap:12px;padding:12px 16px;cursor:pointer;transition:background .15s}.dp-head:hover{background:rgba(30,41,59,0.2)}';
+      s.textContent='#lex *{box-sizing:border-box}.lx-nav{display:flex;align-items:center;gap:2px;padding:14px 20px 0;background:linear-gradient(180deg,#0f1629,#0a0e1a);border-bottom:1px solid #334155}.lx-nav-btn{padding:10px 22px;font-size:12px;font-weight:600;cursor:pointer;border:none;background:transparent;color:#94a3b8;border-radius:10px 10px 0 0;transition:all .2s;display:flex;align-items:center;gap:8px;letter-spacing:.3px;text-decoration:none;position:relative}.lx-nav-btn:hover{color:#cbd5e1;background:rgba(30,41,59,0.25)}.lx-nav-btn.active{color:#e2e8f0;background:#1e293b;cursor:default;border-bottom:2px solid transparent;font-weight:700}.lx-nav-btn.active::after{content:"";position:absolute;bottom:0;left:4px;right:4px;height:4px;border-radius:4px 4px 0 0;z-index:1}.lx-nav-btn.t-lineage.active{color:#10b981!important}.lx-nav-btn.t-lineage.active::after{background:#10b981;box-shadow:0 0 10px #10b981}.lx-nav-btn.t-overlap.active{color:#8b5cf6!important}.lx-nav-btn.t-overlap.active::after{background:#8b5cf6;box-shadow:0 0 10px #8b5cf6}.lx-nav-btn.t-bq_jobs.active{color:#06b6d4!important}.lx-nav-btn.t-bq_jobs.active::after{background:#06b6d4;box-shadow:0 0 10px #06b6d4}.lx-nav-btn.t-usage.active{color:#f59e0b!important}.lx-nav-btn.t-usage.active::after{background:#f59e0b;box-shadow:0 0 10px #f59e0b}.lx-nav-btn.t-dbt_lineage.active{color:#0ea5e9!important}.lx-nav-btn.t-dbt_lineage.active::after{background:#0ea5e9;box-shadow:0 0 10px #0ea5e9}.lx-nav-btn.t-data_dyson.active{color:#14b8a6!important}.lx-nav-btn.t-data_dyson.active::after{background:#14b8a6;box-shadow:0 0 10px #14b8a6}.lx-nav-btn.t-lkml_labels.active{color:#a78bfa!important}.lx-nav-btn.t-lkml_labels.active::after{background:#a78bfa;box-shadow:0 0 10px #a78bfa}.lx-body{flex:1;background:#131b2e;border-radius:12px 12px 0 0;overflow:hidden;display:flex;flex-direction:column;border:1px solid #1e293b;border-bottom:none;margin:0 12px}.lx-bar{padding:10px 16px;border-bottom:1px solid rgba(30,41,59,0.25);display:flex;align-items:center;justify-content:space-between;font-size:11px;min-height:42px}.lx-scroll{flex:1;overflow:auto}.lx-pill{display:inline-flex;align-items:center;gap:4px;padding:3px 10px;border-radius:6px;font-size:10px;font-weight:500}.lx-node{cursor:pointer;transition:opacity .15s}.lx-node:hover{opacity:.85}.lx-row{display:grid;border-bottom:1px solid rgba(30,41,59,0.1);transition:background .15s}.lx-row:hover{background:rgba(30,41,59,0.3)}.lx-hdr{display:grid;border-bottom:1px solid #1e293b;position:sticky;top:0;background:#131b2e;z-index:1}.lx-hdr>div{padding:10px 12px;font-size:10px;font-weight:600;color:#475569;cursor:pointer;user-select:none;text-transform:uppercase;letter-spacing:.5px;transition:color .15s}.lx-hdr>div:hover{color:#94a3b8}.lx-hdr>div.on{color:#e2e8f0}.lx-cell{padding:8px 12px;font-size:11px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.lx-ebtn{padding:7px 16px;border:1px solid #1e293b;cursor:pointer;font-size:11px;font-weight:500;transition:all .15s;background:transparent;color:#64748b;letter-spacing:.3px}.lx-ebtn:hover{background:#1e293b;color:#94a3b8}.lx-ebtn.on{background:#1e293b;border-color:#334155}.lx-link{color:#475569;text-decoration:none;transition:color .15s;display:inline-flex}.lx-link:hover{color:#e2e8f0}.dp-card{border-bottom:1px solid rgba(30,41,59,0.12)}.dp-head{display:flex;align-items:center;gap:12px;padding:12px 16px;cursor:pointer;transition:background .15s}.dp-head:hover{background:rgba(30,41,59,0.2)}#lex .lx-bq-dim{opacity:.3;filter:saturate(.7);pointer-events:auto}#lex .lx-bq-focus{position:relative;z-index:2;box-shadow:inset 0 0 0 2px #38bdf8;background:rgba(56,189,248,.1)!important}#lex .lx-bq-slot-bar{cursor:pointer;transition:filter .15s,stroke-width .15s,stroke .15s}#lex .lx-bq-slot-bar:hover{filter:brightness(1.15)}#lex .lx-bq-slot-bar.lx-bq-bar-sel{stroke:#f8fafc!important;stroke-width:2.5px}#lex .lx-bq-node,#lex .lx-bq-job{cursor:pointer}#lex .lx-dbt-node-stack{display:flex;flex-direction:column;align-items:flex-start;gap:3px;line-height:1.25;text-align:left}#lex .lx-dbt-line{display:flex;flex-wrap:wrap;align-items:center;gap:6px 8px}#lex .lx-dbt-kind{font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:.05em;color:#94a3b8;background:#0f172a;border:1px solid #334155;border-radius:4px;padding:2px 6px;font-family:Inter,system-ui,sans-serif}#lex .lx-dbt-proj{font-size:10px;color:#64748b;font-family:ui-monospace,monospace}#lex .lx-dbt-name{font-size:11px;font-weight:600;color:#e2e8f0;font-family:ui-monospace,monospace;word-break:break-word;max-width:100%}#lex .lx-job-stack{display:flex;flex-direction:column;gap:2px;align-items:flex-start;line-height:1.25;text-align:left;max-width:100%}#lex .lx-job-prefix{font-size:9px;color:#64748b;font-family:ui-monospace,monospace;line-height:1.2}#lex .lx-job-core{font-size:10px;font-weight:600;color:#22d3ee;font-family:ui-monospace,monospace;word-break:break-all;letter-spacing:.02em}#lex .lx-bq-clear{font:inherit;font-size:10px;font-weight:600;color:#64748b;background:transparent;border:1px solid #334155;border-radius:6px;padding:4px 10px;cursor:pointer;margin-left:auto}#lex .lx-bq-clear:hover{color:#e2e8f0;border-color:#475569}';
 
       element.appendChild(s);
 
@@ -882,7 +882,7 @@ looker.plugins.visualizations.add({
         var slotMeasure=F.bq_slot_hours;
         var slotDim=F.bq_total_slot_ms;
         if(!F.bq_job_id||(!slotMeasure&&!slotDim)){
-          R.innerHTML=navBar()+'<div class="lx-body"><div class="lx-bar" style="border-bottom:1px solid #1e293b"><span style="color:#e2e8f0;font-size:12px;font-weight:700">BQ Jobs</span></div><div style="padding:24px 20px;color:#94a3b8;font-size:12px;line-height:1.5">Use the <strong style="color:#e2e8f0">bq_jobs</strong> explore. Add <strong>Job Id</strong> and measure <strong>Total Slot Hours</strong> (or dimension <strong>Total Slot Ms</strong>). Add <strong>Dbt Node Id</strong>, <strong>Runtime Sec</strong> for slot-intensity buckets. Optional: <strong>Job Category</strong>, <strong>Statement Type</strong>, <strong>User Email</strong>, <strong>State</strong>, bytes. Enable <strong>cross-filtering</strong> on the dashboard; click a job or DBT node to filter all tiles.</div></div>';
+          R.innerHTML=navBar()+'<div class="lx-body"><div class="lx-bar" style="border-bottom:1px solid #1e293b"><span style="color:#e2e8f0;font-size:12px;font-weight:700">BQ Jobs</span></div><div style="padding:24px 20px;color:#94a3b8;font-size:12px;line-height:1.5">Use the <strong style="color:#e2e8f0">bq_jobs</strong> explore. Add <strong>Job Id</strong> and measure <strong>Total Slot Hours</strong> (or dimension <strong>Total Slot Ms</strong>). Add <strong>Dbt Node Id</strong>, <strong>Runtime Sec</strong> for slot-intensity buckets. Optional: <strong>Job Category</strong>, <strong>Statement Type</strong>, <strong>User Email</strong>, <strong>State</strong>, bytes. Click a slot bucket, node, or job in this tile to highlight related rows in the lists below.</div></div>';
           done();return;
         }
         var BQ_MAX_JOB_ROWS=800,BQ_MAX_NODE_ROWS=500;
@@ -899,6 +899,31 @@ looker.plugins.visualizations.add({
           return keys[0]||null;
         }
         function escAttr(s){return String(s==null?'':s).replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/</g,'&lt;');}
+        function formatDbtNodeCell(nodeStr){
+          var s=String(nodeStr==null?'':nodeStr);
+          if(!s||s==='\u2014'||s==='—')return '<div class="lx-dbt-node-stack"><span class="lx-dbt-name" style="color:#64748b">\u2014</span></div>';
+          var parts=s.split('.');
+          if(parts.length>=3){
+            var k=(parts[0]||'').toLowerCase();
+            if(k==='model'||k==='source'||k==='seed'||k==='snapshot'||k==='exposure'||k==='test'){
+              var kind=parts[0];
+              var proj=parts[1]||'';
+              var rest=parts.slice(2).join('.');
+              return '<div class="lx-dbt-node-stack"><div class="lx-dbt-line"><span class="lx-dbt-kind">'+kind.replace(/</g,'&lt;')+'</span><span class="lx-dbt-proj">'+proj.replace(/</g,'&lt;')+'</span></div><span class="lx-dbt-name">'+rest.replace(/</g,'&lt;')+'</span></div>';
+            }
+          }
+          return '<div class="lx-dbt-node-stack"><span class="lx-dbt-name">'+s.replace(/</g,'&lt;')+'</span></div>';
+        }
+        function formatJobIdCell(fullJobId){
+          var raw=String(fullJobId==null?'':fullJobId);
+          if(!raw)return '<div class="lx-job-stack"><span style="color:#64748b;font-size:11px">\u2014</span></div>';
+          var pref='';
+          var body=raw;
+          if(body.indexOf('script_job_')===0){pref='script_job_';body=body.slice(11);}
+          var core=body;
+          if(core.length>48)core=core.slice(0,16)+'\u2026'+core.slice(-12);
+          return '<div class="lx-job-stack" title="'+escAttr(raw)+'">'+(pref?'<div class="lx-job-prefix">'+pref.replace(/</g,'&lt;')+'</div>':'')+'<div class="lx-job-core">'+core.replace(/</g,'&lt;')+'</div></div>';
+        }
         var firstRow=data[0];
         var kJob=resolveBqKey([F.bq_job_id],firstRow);
         var kSlotM=slotMeasure?resolveBqKey([F.bq_slot_hours],firstRow):null;
@@ -948,12 +973,14 @@ looker.plugins.visualizations.add({
         var bucketCounts=[0,0,0,0,0,0];
         var slotHrCounts=[0,0,0,0,0,0];
         var rowSlots=[];
+        var rowShBucket=[];
         data.forEach(function(row,rowIdx){
           var slot=getSlot(row),node=getNode(row),runtime=getRuntime(row);
           var av=getAvgSlots(row);
           var bi=bucketIdx(av,runtime);
           bucketCounts[bi]=(bucketCounts[bi]||0)+1;
           var shB=slotHourBucket(slot);slotHrCounts[shB]=(slotHrCounts[shB]||0)+1;
+          rowShBucket[rowIdx]=shB;
           if(node&&node!=='—'){if(!byModel[node])byModel[node]={slot_hours:0,runtime_sec:0,count:0,avg_slots_sum:0};byModel[node].slot_hours+=slot;byModel[node].runtime_sec+=runtime;byModel[node].count+=1;byModel[node].avg_slots_sum+=av;}
           rowSlots.push({i:rowIdx,s:isFinite(slot)?slot:0});
         });
@@ -967,7 +994,7 @@ looker.plugins.visualizations.add({
         var maxSlotHr=Math.max.apply(null,slotHrCounts.slice(0,5).concat([1]));
         var barW=(chartW-48-4*barGap)/5;
         var h=navBar()+'<div class="lx-body" style="min-height:0">';
-        h+='<div class="lx-bar" style="border-bottom:1px solid #334155;flex-wrap:wrap;gap:10px;background:linear-gradient(180deg,#1e293b,#162032)"><span style="color:#f1f5f9;font-size:13px;font-weight:700;letter-spacing:-.2px">BQ Jobs</span><span style="color:#64748b;font-size:11px;font-weight:500">'+data.length.toLocaleString()+' jobs</span></div>';
+        h+='<div class="lx-bar" style="display:flex;align-items:center;flex-wrap:wrap;gap:10px;border-bottom:1px solid #334155;background:linear-gradient(180deg,#1e293b,#162032);width:100%"><span style="color:#f1f5f9;font-size:13px;font-weight:700;letter-spacing:-.2px">BQ Jobs</span><span style="color:#64748b;font-size:11px;font-weight:500">'+data.length.toLocaleString()+' jobs</span><button type="button" class="lx-bq-clear lx-bq-clear-focus" style="display:none;margin-left:auto" aria-label="Clear highlight">\u2715 Clear focus</button></div>';
         h+='<div class="lx-scroll" style="padding:14px 16px 20px;display:flex;flex-direction:column;gap:18px;flex:1;min-height:0;overflow:auto;background:#0f1419">';
         h+='<div style="background:linear-gradient(145deg,#1a2332 0%,#131b28 100%);border:1px solid #334155;border-radius:12px;padding:14px 16px 18px;box-shadow:0 4px 24px rgba(0,0,0,.25)">';
         h+='<div style="color:#94a3b8;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.08em;margin-bottom:4px">1. Slot usage (per job)</div>';
@@ -976,7 +1003,7 @@ looker.plugins.visualizations.add({
         h+='<text x="16" y="18" fill="#64748b" font-size="11" font-weight="600">Jobs per bucket</text>';
         for(var bi=0;bi<5;bi++){
           var cnt=slotHrCounts[bi]||0,x0=24+bi*(barW+barGap),plotH=chartH-padT-padB,bh=cnt/maxSlotHr*plotH,y0=padT+plotH-bh;
-          h+='<rect x="'+x0+'" y="'+y0+'" width="'+Math.max(barW,8)+'" height="'+Math.max(bh,3)+'" rx="6" fill="'+slotHrColors[bi]+'" fill-opacity="'+(0.45+0.45*(cnt/Math.max(maxSlotHr,1)))+'" stroke="#334155" stroke-width="1"/>';
+          h+='<rect class="lx-bq-slot-bar" data-slot-b="'+bi+'" x="'+x0+'" y="'+y0+'" width="'+Math.max(barW,8)+'" height="'+Math.max(bh,3)+'" rx="6" fill="'+slotHrColors[bi]+'" fill-opacity="'+(0.45+0.45*(cnt/Math.max(maxSlotHr,1)))+'" stroke="#334155" stroke-width="1"/>';
           h+='<text x="'+(x0+barW/2)+'" y="'+(chartH-10)+'" text-anchor="middle" fill="#94a3b8" font-size="9">'+slotHrLabels[bi]+'</text>';
           if(cnt>0)h+='<text x="'+(x0+barW/2)+'" y="'+(Math.max(y0-6,padT+12))+'" text-anchor="middle" fill="#f1f5f9" font-size="12" font-weight="700">'+cnt+'</text>';
         }
@@ -989,8 +1016,8 @@ looker.plugins.visualizations.add({
         h+='<div class="lx-hdr" style="grid-template-columns:minmax(120px,1fr) 90px 90px 56px 72px;padding:10px 14px;font-size:10px;font-weight:700;color:#64748b;text-transform:uppercase;letter-spacing:.04em;border-bottom:1px solid #334155;background:#1e293b;position:sticky;top:0;z-index:2">';
         h+='<div>Node</div><div style="text-align:right">Slot hours</div><div style="text-align:right">Runtime (s)</div><div style="text-align:right">Jobs</div><div style="text-align:right">Avg slots</div></div>';
         modelRows.forEach(function(r,mi){
-          h+='<div class="lx-row lx-bq-node" data-node-idx="'+mi+'" style="grid-template-columns:minmax(120px,1fr) 90px 90px 56px 72px;padding:10px 14px;font-size:11px;border-bottom:1px solid #283548;align-items:start;cursor:'+(kNode?'pointer':'default')+'">';
-          h+='<div class="lx-cell" style="font-family:ui-monospace,monospace;color:#67e8f9;line-height:1.35;white-space:normal;word-break:break-all;text-decoration:underline dotted" title="'+escAttr(r.node)+'">'+(r.node.length>56?r.node.substring(0,54)+'\u2026':r.node).replace(/</g,'&lt;')+'</div>';
+          h+='<div class="lx-row lx-bq-node" data-node-idx="'+mi+'" style="grid-template-columns:minmax(120px,1fr) 90px 90px 56px 72px;padding:10px 14px;font-size:11px;border-bottom:1px solid #283548;align-items:start;cursor:pointer" title="'+escAttr(r.node)+'">';
+          h+='<div class="lx-cell" style="line-height:1.35;white-space:normal">'+formatDbtNodeCell(r.node)+'</div>';
           h+='<div style="text-align:right;color:#22d3ee;font-variant-numeric:tabular-nums;font-weight:600;padding-top:2px">'+(r.slot_hours.toFixed(2))+'</div>';
           h+='<div style="text-align:right;color:#cbd5e1;font-variant-numeric:tabular-nums;padding-top:2px">'+(Math.round(r.runtime_sec)|0).toLocaleString()+'</div>';
           h+='<div style="text-align:right;color:#94a3b8;font-variant-numeric:tabular-nums;padding-top:2px">'+(r.count|0)+'</div>';
@@ -1007,15 +1034,16 @@ looker.plugins.visualizations.add({
         displayIdx.forEach(function(rowIdx){
           var row=data[rowIdx];
           var slot=getSlot(row),node=getNode(row),runtime=getRuntime(row),jobId=kJob?String(cellVal(row,kJob)||''):'';
+          var shB=rowShBucket[rowIdx]!=null?rowShBucket[rowIdx]:slotHourBucket(slot);
           var av=getAvgSlots(row);
           var jc=kCat?String(cellVal(row,kCat)||''):'';
           var st=kStmt?String(cellVal(row,kStmt)||''):'';
           var stt=kState?String(cellVal(row,kState)||''):'';
           var ue=kUser?String(cellVal(row,kUser)||''):'';
           var avs=isFinite(av)?(av>=100?av.toFixed(0):(av>=10?av.toFixed(1):av.toFixed(2))):'\u2014';
-          h+='<div class="lx-row lx-bq-job" data-row-idx="'+rowIdx+'" style="grid-template-columns:minmax(160px,1.2fr) minmax(110px,1fr) 80px 72px 72px minmax(140px,1fr) 72px 72px 72px 64px;padding:10px 12px;font-size:10px;border-bottom:1px solid #283548;cursor:pointer">';
-          h+='<div class="lx-cell lx-bq-jobid" style="font-family:ui-monospace,monospace;color:#67e8f9;line-height:1.3;white-space:normal;word-break:break-all;text-decoration:underline dotted" title="'+escAttr(jobId)+'">'+(jobId.length>42?jobId.substring(0,40)+'\u2026':jobId).replace(/</g,'&lt;')+'</div>';
-          h+='<div class="lx-cell" style="font-family:ui-monospace,monospace;color:#e2e8f0;line-height:1.3;white-space:normal;word-break:break-word" title="'+escAttr(node)+'">'+(node.length>44?node.substring(0,42)+'\u2026':node).replace(/</g,'&lt;')+'</div>';
+          h+='<div class="lx-row lx-bq-job" data-row-idx="'+rowIdx+'" data-sh-bucket="'+shB+'" style="grid-template-columns:minmax(160px,1.2fr) minmax(110px,1fr) 80px 72px 72px minmax(140px,1fr) 72px 72px 72px 64px;padding:10px 12px;font-size:10px;border-bottom:1px solid #283548;cursor:pointer">';
+          h+='<div class="lx-cell">'+formatJobIdCell(jobId)+'</div>';
+          h+='<div class="lx-cell" style="line-height:1.35;white-space:normal">'+formatDbtNodeCell(node)+'</div>';
           h+='<div class="lx-cell" style="color:#cbd5e1" title="'+escAttr(jc)+'">'+(jc.length>14?jc.substring(0,12)+'\u2026':jc||'\u2014').replace(/</g,'&lt;')+'</div>';
           h+='<div class="lx-cell" style="color:#94a3b8" title="'+escAttr(st)+'">'+(st.length>10?st.substring(0,8)+'\u2026':st||'\u2014').replace(/</g,'&lt;')+'</div>';
           h+='<div class="lx-cell" style="color:#64748b">'+(stt||'\u2014').replace(/</g,'&lt;')+'</div>';
@@ -1027,41 +1055,104 @@ looker.plugins.visualizations.add({
         if(data.length>BQ_MAX_JOB_ROWS)h+='<div style="padding:10px 12px;font-size:10px;color:#f59e0b;border-top:1px solid #1e293b">Showing top '+BQ_MAX_JOB_ROWS+' jobs by slot hours of '+data.length.toLocaleString()+'. Narrow filters or time range to load fewer rows.</div>';
         h+='</div></div></div></div>';
         R.innerHTML=h;
-        function rowForNodeCrossfilter(nodeVal){
-          if(!kNode||!nodeVal||nodeVal==='—')return null;
-          var tmpl=null;
-          for(var i=0;i<data.length;i++){if(getNode(data[i])===nodeVal&&data[i][kNode]){tmpl=data[i][kNode];break;}}
-          if(!tmpl)tmpl=firstRow[kNode];
-          var cell={value:nodeVal,links:tmpl&&tmpl.links?tmpl.links:[],filterable_value:nodeVal};
-          if(tmpl&&typeof tmpl==='object'&&tmpl.filterable_value!=null)cell.filterable_value=tmpl.filterable_value;
-          if(tmpl&&typeof tmpl==='object'){for(var p in tmpl){if(p!=='value'&&p!=='filterable_value')cell[p]=tmpl[p];}cell.value=nodeVal;}
-          var o={};o[kNode]=cell;return o;
+        var nodeToBucketSet={};
+        for(var ri=0;ri<data.length;ri++){
+          var nKey=getNode(data[ri]);
+          var bKey=rowShBucket[ri];
+          if(!nodeToBucketSet[nKey])nodeToBucketSet[nKey]={};
+          nodeToBucketSet[nKey][bKey]=true;
         }
-        var hasToggleCrossfilter=typeof LookerCharts!=='undefined'&&LookerCharts.Utils&&LookerCharts.Utils.toggleCrossfilter;
-        if(hasToggleCrossfilter){
-          R.querySelectorAll('.lx-bq-job').forEach(function(el){
-            el.addEventListener('click',function(e){
-              var idx=parseInt(el.getAttribute('data-row-idx'),10);
-              if(isNaN(idx)||!data[idx])return;
-              e.preventDefault();e.stopPropagation();
-              try{LookerCharts.Utils.toggleCrossfilter({row:data[idx],event:e});}catch(err){}
-            });
-          });
-          R.querySelectorAll('.lx-bq-node').forEach(function(el){
-            el.addEventListener('click',function(e){
-              var mi=parseInt(el.getAttribute('data-node-idx'),10);
-              if(isNaN(mi)||!modelRows[mi])return;
-              e.preventDefault();e.stopPropagation();
-              var syn=rowForNodeCrossfilter(modelRows[mi].node);
-              if(syn){try{LookerCharts.Utils.toggleCrossfilter({row:syn,event:e});}catch(err){}}
-              else{
-                var firstWithNode=-1;
-                for(var di=0;di<data.length;di++){if(getNode(data[di])===modelRows[mi].node){firstWithNode=di;break;}}
-                if(firstWithNode>=0)try{LookerCharts.Utils.toggleCrossfilter({row:data[firstWithNode],event:e});}catch(err){}
-              }
-            });
-          });
+        var bqFocus=null;
+        var clearBtn=R.querySelector('.lx-bq-clear-focus');
+        function clearBqHighlightClasses(){
+          R.querySelectorAll('.lx-bq-dim').forEach(function(el){el.classList.remove('lx-bq-dim');});
+          R.querySelectorAll('.lx-bq-focus').forEach(function(el){el.classList.remove('lx-bq-focus');});
+          R.querySelectorAll('.lx-bq-bar-sel').forEach(function(el){el.classList.remove('lx-bq-bar-sel');});
         }
+        function syncClearBtn(){if(clearBtn)clearBtn.style.display=bqFocus?'inline-block':'none';}
+        function applyBqFocus(){
+          clearBqHighlightClasses();
+          syncClearBtn();
+          if(!bqFocus)return;
+          var jobEls=R.querySelectorAll('.lx-bq-job');
+          var nodeEls=R.querySelectorAll('.lx-bq-node');
+          var bars=R.querySelectorAll('.lx-bq-slot-bar');
+          if(bqFocus.type==='bucket'){
+            var bb=bqFocus.b;
+            bars.forEach(function(bar){if(parseInt(bar.getAttribute('data-slot-b'),10)===bb)bar.classList.add('lx-bq-bar-sel');});
+            jobEls.forEach(function(el){
+              var sb=parseInt(el.getAttribute('data-sh-bucket'),10);
+              if(sb!==bb)el.classList.add('lx-bq-dim');else el.classList.add('lx-bq-focus');
+            });
+            nodeEls.forEach(function(el){
+              var ni=parseInt(el.getAttribute('data-node-idx'),10);
+              var nn=modelRows[ni]?modelRows[ni].node:null;
+              var ok=nn&&nodeToBucketSet[nn]&&nodeToBucketSet[nn][bb];
+              if(!ok)el.classList.add('lx-bq-dim');else el.classList.add('lx-bq-focus');
+            });
+          }else if(bqFocus.type==='node'){
+            var nSel=bqFocus.node;
+            bars.forEach(function(bar){
+              var bi=parseInt(bar.getAttribute('data-slot-b'),10);
+              if(nodeToBucketSet[nSel]&&nodeToBucketSet[nSel][bi])bar.classList.add('lx-bq-bar-sel');
+            });
+            jobEls.forEach(function(el){
+              var rj=parseInt(el.getAttribute('data-row-idx'),10);
+              if(getNode(data[rj])!==nSel)el.classList.add('lx-bq-dim');else el.classList.add('lx-bq-focus');
+            });
+            nodeEls.forEach(function(el){
+              var ni=parseInt(el.getAttribute('data-node-idx'),10);
+              if(!modelRows[ni]||modelRows[ni].node!==nSel)el.classList.add('lx-bq-dim');else el.classList.add('lx-bq-focus');
+            });
+          }else if(bqFocus.type==='job'){
+            var ji=bqFocus.idx;
+            var nJob=getNode(data[ji]);
+            var sbJob=rowShBucket[ji];
+            jobEls.forEach(function(el){
+              var rj=parseInt(el.getAttribute('data-row-idx'),10);
+              if(rj!==ji)el.classList.add('lx-bq-dim');else el.classList.add('lx-bq-focus');
+            });
+            if(sbJob>=0&&sbJob<=4)bars.forEach(function(bar){if(parseInt(bar.getAttribute('data-slot-b'),10)===sbJob)bar.classList.add('lx-bq-bar-sel');});
+            nodeEls.forEach(function(el){
+              var ni=parseInt(el.getAttribute('data-node-idx'),10);
+              if(!modelRows[ni]||modelRows[ni].node!==nJob)el.classList.add('lx-bq-dim');else el.classList.add('lx-bq-focus');
+            });
+          }
+        }
+        function setBqFocus(next){
+          if(bqFocus&&next&&bqFocus.type===next.type){
+            if(bqFocus.type==='bucket'&&next.type==='bucket'&&bqFocus.b===next.b){bqFocus=null;applyBqFocus();return;}
+            if(bqFocus.type==='node'&&next.type==='node'&&bqFocus.node===next.node){bqFocus=null;applyBqFocus();return;}
+            if(bqFocus.type==='job'&&next.type==='job'&&bqFocus.idx===next.idx){bqFocus=null;applyBqFocus();return;}
+          }
+          bqFocus=next;
+          applyBqFocus();
+        }
+        R.querySelectorAll('.lx-bq-slot-bar').forEach(function(bar){
+          bar.addEventListener('click',function(e){
+            e.preventDefault();e.stopPropagation();
+            var b=parseInt(bar.getAttribute('data-slot-b'),10);
+            if(isNaN(b))return;
+            setBqFocus({type:'bucket',b:b});
+          });
+        });
+        R.querySelectorAll('.lx-bq-job').forEach(function(el){
+          el.addEventListener('click',function(e){
+            e.preventDefault();e.stopPropagation();
+            var idx=parseInt(el.getAttribute('data-row-idx'),10);
+            if(isNaN(idx)||!data[idx])return;
+            setBqFocus({type:'job',idx:idx});
+          });
+        });
+        R.querySelectorAll('.lx-bq-node').forEach(function(el){
+          el.addEventListener('click',function(e){
+            e.preventDefault();e.stopPropagation();
+            var mi=parseInt(el.getAttribute('data-node-idx'),10);
+            if(isNaN(mi)||!modelRows[mi])return;
+            setBqFocus({type:'node',node:modelRows[mi].node});
+          });
+        });
+        if(clearBtn)clearBtn.addEventListener('click',function(e){e.preventDefault();e.stopPropagation();bqFocus=null;applyBqFocus();});
         }catch(bqErr){
           R.innerHTML=navBar()+'<div class="lx-body"><div class="lx-bar" style="border-bottom:1px solid #1e293b"><span style="color:#e2e8f0;font-size:12px;font-weight:700">BQ Jobs</span></div><div style="padding:24px 20px;color:#f87171;font-size:12px">Could not render BQ Jobs view. Try fewer rows or required fields.<br/><span style="color:#64748b;font-size:11px;margin-top:8px;display:block">'+(bqErr&&bqErr.message?String(bqErr.message).replace(/</g,'&lt;'):'')+'</span></div></div>';
         }
