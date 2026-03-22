@@ -1661,7 +1661,7 @@ looker.plugins.visualizations.add({
         function consumerPct(c){var n=Object.keys(consumerTables[c.key]||{}).length;return totalTables?Math.round((n/totalTables)*100):0;}
         var allConsumers=Object.values(consumerSet).sort(function(a,b){return consumerPct(b)-consumerPct(a);});
 
-        var nW=380,nH=40,sp=44,pd=24,leftX=pd,cNw=140,cNh=140,cSp=148,sY=52;
+        var nW=380,nH=40,sp=44,pd=24,leftX=pd,cNw=140,cNh=172,cSp=186,sY=52;
         var selectedUsageNode=null;
         function getRelevantUsage(){
           if(!selectedUsageNode)return {models:allModels,consumers:allConsumers,edges:edges};
@@ -1706,21 +1706,22 @@ looker.plugins.visualizations.add({
             var stroke=isSel?'#e2e8f0':'#06b6d4';var strokeW=isSel?2.5:1.5;
             var mTitle=String(m.label||m.key||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');nd+='<g class="lx-node lx-dbt-click" data-dbt-type="model" data-key="'+mk+'" style="cursor:pointer" transform="translate('+p.x+','+p.y+')"><title>'+mTitle+'</title><rect width="'+nW+'" height="'+nH+'" rx="8" fill="'+(isSel?'#1e293b':'#131b2e')+'" stroke="'+stroke+'" stroke-width="'+strokeW+'"/><rect x="2" y="2" width="34" height="'+(nH-4)+'" rx="6" fill="#06b6d408"/><g transform="translate(10,'+(nH/2-8)+')" fill="#06b6d4">'+tI.table+'</g><text x="42" y="'+(nH/2+4)+'" fill="#e2e8f0" font-size="11" font-weight="500">'+(m.label.length>32?m.label.substring(0,30)+'\u2026':m.label).replace(/</g,'&lt;')+'</text></g>';
           });
-          var cLogoSize=112,cLogoX=(cNw-cLogoSize)/2,cLogoY=(cNh-cLogoSize)/2;
+          var cLogoSize=84,cLogoPadTop=10,cFooterH=34,cLogoTx=(cNw-cLogoSize)/2,cLogoTy=cLogoPadTop;
           function getLogo(key){var k=(key||'').toString().trim(),l=k.toLowerCase();if(l.indexOf('looker dev')!==-1)return consumerLogos['Looker Dev']||consumerLogos['User'];if(l.indexOf('looker')!==-1)return consumerLogos['Looker']||consumerLogos['User'];if(l.indexOf('dbt')!==-1)return consumerLogos['dbt']||consumerLogos['DBT']||consumerLogos['User'];if(l.indexOf('tableau')!==-1)return consumerLogos['Tableau']||consumerLogos['User'];if(l.indexOf('workato')!==-1)return consumerLogos['Workato']||consumerLogos['User'];return consumerLogos[key]||(k!==key&&consumerLogos[k])||consumerLogos['User'];}
           consumers.forEach(function(c){
             var p=posConsumer[c.key];
             var logo=getLogo(c.key);
             var hasLogo=logo&&(logo.indexOf('data:')===0||(typeof logo==='string'&&logo.length>0&&logo.indexOf('<')!==-1));
             var contentEl;
-            if(hasLogo){var isDataUrl=logo.indexOf('data:')===0;var scale=cLogoSize/24;var tx=(cNw-cLogoSize)/2,ty=(cNh-cLogoSize)/2;var logoBg='<rect width="'+cLogoSize+'" height="'+cLogoSize+'" rx="12" ry="12" fill="#131b2e"/>';contentEl=isDataUrl?'<g transform="translate('+cLogoX+','+cLogoY+')" clip-path="url(#lx-logo-clip)">'+logoBg+'<image x="0" y="0" width="'+cLogoSize+'" height="'+cLogoSize+'" xlink:href="'+logo+'" preserveAspectRatio="xMidYMid meet"/></g>':'<g transform="translate('+tx+','+ty+')" clip-path="url(#lx-logo-clip)">'+logoBg+'<g transform="scale('+scale+')">'+logo+'</g></g>';}
-            else{var lab=(c.label||c.key||'').toString().replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');contentEl='<text x="'+cNw/2+'" y="'+(cNh/2+5)+'" text-anchor="middle" fill="#e2e8f0" font-size="14" font-weight="600">'+lab+'</text>';}
+            if(hasLogo){var isDataUrl=logo.indexOf('data:')===0;var scale=cLogoSize/24;var logoBg='<rect width="'+cLogoSize+'" height="'+cLogoSize+'" rx="10" ry="10" fill="#131b2e"/>';contentEl=isDataUrl?'<g transform="translate('+cLogoTx+','+cLogoTy+')">'+logoBg+'<image x="0" y="0" width="'+cLogoSize+'" height="'+cLogoSize+'" xlink:href="'+logo+'" preserveAspectRatio="xMidYMid meet"/></g>':'<g transform="translate('+cLogoTx+','+cLogoTy+')">'+logoBg+'<g transform="translate('+cLogoSize/2+','+cLogoSize/2+') scale('+scale+') translate(-12,-12)">'+logo+'</g></g>';}
+            else{var lab=(c.label||c.key||'').toString().replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');contentEl='<text x="'+cNw/2+'" y="'+(cNh/2-6)+'" text-anchor="middle" fill="#e2e8f0" font-size="14" font-weight="600">'+lab+'</text>';}
             var pct=consumerPct(c);var pctText=(pct+'% of tables').replace(/</g,'&lt;');
             var ck=(c.key||'').replace(/"/g,'&quot;');
             var cTitle=String(c.label||c.key||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
             var isSel=selectedUsageNode&&selectedUsageNode.type==='consumer'&&selectedUsageNode.key===c.key;
             var stroke=isSel?'#e2e8f0':'#f59e0b';var strokeW=isSel?2.5:1.5;
-            nd+='<g class="lx-node lx-dbt-click" data-dbt-type="consumer" data-key="'+ck+'" style="cursor:pointer" transform="translate('+p.x+','+p.y+')"><title>'+cTitle+'</title><rect width="'+cNw+'" height="'+cNh+'" rx="10" fill="'+(isSel?'#1e293b':'#131b2e')+'" stroke="'+stroke+'" stroke-width="'+strokeW+'"/><rect x="2" y="2" width="'+(cNw-4)+'" height="'+(cNh-4)+'" rx="8" fill="#f59e0b08"/>'+contentEl+'<text x="'+cNw/2+'" y="'+(cNh-10)+'" text-anchor="middle" fill="#94a3b8" font-size="10">'+pctText+'</text></g>';
+            var pctY=cNh-11;
+            nd+='<g class="lx-node lx-dbt-click" data-dbt-type="consumer" data-key="'+ck+'" style="cursor:pointer" transform="translate('+p.x+','+p.y+')"><title>'+cTitle+'</title><rect width="'+cNw+'" height="'+cNh+'" rx="10" fill="'+(isSel?'#1e293b':'#131b2e')+'" stroke="'+stroke+'" stroke-width="'+strokeW+'"/><rect x="2" y="2" width="'+(cNw-4)+'" height="'+(cNh-4)+'" rx="8" fill="#f59e0b08"/><line x1="6" y1="'+(cNh-cFooterH)+'" x2="'+(cNw-6)+'" y2="'+(cNh-cFooterH)+'" stroke="#334155" stroke-width="1"/>'+contentEl+'<text x="'+cNw/2+'" y="'+pctY+'" text-anchor="middle" fill="#94a3b8" font-size="10" font-weight="500">'+pctText+'</text></g>';
           });
           var barLabel='';
           if(selectedUsageNode){
@@ -1732,7 +1733,7 @@ looker.plugins.visualizations.add({
           var h=navBar()+'<div class="lx-body">';
           h+='<div class="lx-bar" style="border-bottom:1px solid rgba(30,41,59,0.25)"><span style="color:#e2e8f0;font-size:12px;font-weight:700">Consumer dependencies</span></div>';
           h+='<div class="lx-bar"><div style="color:#94a3b8">'+barLabel+'</div><div style="color:#475569">'+visEdges.length+' connections \u00B7 '+data.length+' rows</div></div>';
-          h+='<div class="lx-scroll" style="padding:12px" id="lx-dbt-usage-scroll"><svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" width="'+sW+'" height="'+sH+'"><defs><clipPath id="lx-logo-clip"><rect width="112" height="112" rx="12" ry="12"/></clipPath></defs>';
+          h+='<div class="lx-scroll" style="padding:12px" id="lx-dbt-usage-scroll"><svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" width="'+sW+'" height="'+sH+'">';
           h+='<text x="'+(leftX+nW/2)+'" y="24" text-anchor="middle" fill="#06b6d4" font-size="10" font-weight="700" letter-spacing="1">DBT MODELS</text>';
           h+='<text x="'+(rightX+cNw/2)+'" y="24" text-anchor="middle" fill="#f59e0b" font-size="10" font-weight="700" letter-spacing="1">CONSUMERS</text>';
           h+=ed+nd+'</svg></div></div>';
