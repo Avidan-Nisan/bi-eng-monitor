@@ -1708,12 +1708,32 @@ looker.plugins.visualizations.add({
           });
           var cLogoSize=84,cLogoPadTop=10,cFooterH=34,cLogoTx=(cNw-cLogoSize)/2,cLogoTy=cLogoPadTop;
           function getLogo(key){var k=(key||'').toString().trim(),l=k.toLowerCase();if(l.indexOf('looker dev')!==-1)return consumerLogos['Looker Dev']||consumerLogos['User'];if(l.indexOf('looker')!==-1)return consumerLogos['Looker']||consumerLogos['User'];if(l.indexOf('dbt')!==-1)return consumerLogos['dbt']||consumerLogos['DBT']||consumerLogos['User'];if(l.indexOf('tableau')!==-1)return consumerLogos['Tableau']||consumerLogos['User'];if(l.indexOf('workato')!==-1)return consumerLogos['Workato']||consumerLogos['User'];return consumerLogos[key]||(k!==key&&consumerLogos[k])||consumerLogos['User'];}
+          function svgLogoViewBoxAndInner(logo){
+            var s=String(logo||'').trim();
+            if(!/^<svg\b/i.test(s))return null;
+            var mOpen=s.match(/^<svg\b[^>]*>/i);
+            if(!mOpen)return null;
+            var tag=mOpen[0];
+            var inner=s.replace(/^<svg\b[^>]*>/i,'').replace(/<\/svg>\s*$/i,'');
+            if(!inner||inner===s)return null;
+            var minX=0,minY=0,vw=24,vh=24;
+            var vb=tag.match(/viewBox\s*=\s*["']\s*([-\d.]+)[\s,]+([-\d.]+)[\s,]+([-\d.]+)[\s,]+([-\d.]+)\s*["']/i);
+            if(vb){
+              minX=parseFloat(vb[1]);minY=parseFloat(vb[2]);vw=parseFloat(vb[3]);vh=parseFloat(vb[4]);
+              if(!isFinite(minX)||!isFinite(minY)||!isFinite(vw)||!isFinite(vh)||vw<=0||vh<=0)return null;
+            }else{
+              var wm=tag.match(/\bwidth\s*=\s*["']([^"']+)/i);
+              var hm=tag.match(/\bheight\s*=\s*["']([^"']+)/i);
+              if(wm&&hm){vw=parseFloat(wm[1]);vh=parseFloat(hm[1]);if(!isFinite(vw)||!isFinite(vh)||vw<=0||vh<=0)return null;}
+            }
+            return{inner:inner,minX:minX,minY:minY,vw:vw,vh:vh};
+          }
           consumers.forEach(function(c){
             var p=posConsumer[c.key];
             var logo=getLogo(c.key);
             var hasLogo=logo&&(logo.indexOf('data:')===0||(typeof logo==='string'&&logo.length>0&&logo.indexOf('<')!==-1));
             var contentEl;
-            if(hasLogo){var isDataUrl=logo.indexOf('data:')===0;var scale=cLogoSize/24;var logoBg='<rect width="'+cLogoSize+'" height="'+cLogoSize+'" rx="10" ry="10" fill="#131b2e"/>';contentEl=isDataUrl?'<g transform="translate('+cLogoTx+','+cLogoTy+')">'+logoBg+'<image x="0" y="0" width="'+cLogoSize+'" height="'+cLogoSize+'" xlink:href="'+logo+'" preserveAspectRatio="xMidYMid meet"/></g>':'<g transform="translate('+cLogoTx+','+cLogoTy+')">'+logoBg+'<g transform="translate('+cLogoSize/2+','+cLogoSize/2+') scale('+scale+') translate(-12,-12)">'+logo+'</g></g>';}
+            if(hasLogo){var isDataUrl=logo.indexOf('data:')===0;var logoBg='<rect width="'+cLogoSize+'" height="'+cLogoSize+'" rx="10" ry="10" fill="#131b2e"/>';if(isDataUrl){contentEl='<g transform="translate('+cLogoTx+','+cLogoTy+')">'+logoBg+'<image x="0" y="0" width="'+cLogoSize+'" height="'+cLogoSize+'" xlink:href="'+logo+'" preserveAspectRatio="xMidYMid meet"/></g>';}else{var parsed=svgLogoViewBoxAndInner(logo);if(parsed){var pad=0.88;var sc=Math.min(cLogoSize/parsed.vw,cLogoSize/parsed.vh)*pad;var ox=(cLogoSize-sc*parsed.vw)/2-sc*parsed.minX;var oy=(cLogoSize-sc*parsed.vh)/2-sc*parsed.minY;contentEl='<g transform="translate('+cLogoTx+','+cLogoTy+')">'+logoBg+'<g transform="translate('+ox+','+oy+') scale('+sc+')">'+parsed.inner+'</g></g>';}else{var sc=cLogoSize/24;contentEl='<g transform="translate('+cLogoTx+','+cLogoTy+')">'+logoBg+'<g transform="translate('+cLogoSize/2+','+cLogoSize/2+') scale('+sc+') translate(-12,-12)">'+logo+'</g></g>';}}}
             else{var lab=(c.label||c.key||'').toString().replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');contentEl='<text x="'+cNw/2+'" y="'+(cNh/2-6)+'" text-anchor="middle" fill="#e2e8f0" font-size="14" font-weight="600">'+lab+'</text>';}
             var pct=consumerPct(c);var pctText=(pct+'% of tables').replace(/</g,'&lt;');
             var ck=(c.key||'').replace(/"/g,'&quot;');
