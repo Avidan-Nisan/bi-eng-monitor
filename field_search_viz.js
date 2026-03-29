@@ -192,6 +192,17 @@ looker.plugins.visualizations.add({
     F.audit_user_id=dims.find(function(f){var n=nkAud(f);return n==='event.user_id'||n==='user.id'||n==='users.id';});
     if(!F.audit_user_email)F.audit_user_email=dims.find(function(f){var n=nkAud(f);return n.indexOf('email')!==-1&&n.indexOf('user')!==-1&&n.indexOf('event')===-1&&n.indexOf('attribute')===-1;});
     if(!F.audit_user_name)F.audit_user_name=dims.find(function(f){var n=nkAud(f);return n.indexOf('user')!==-1&&n.indexOf('name')!==-1&&n.indexOf('email')===-1&&n.indexOf('event')===-1&&n.indexOf('attribute')===-1&&n.indexOf('group')===-1;});
+    F.audit_user_dims=dims.filter(function(f){
+      var n=nkAud(f);
+      if(n.indexOf('event_attribute')===0)return false;
+      if(n.indexOf('event.name')===0||n.indexOf('event.category')===0||(n.indexOf('event.')===0&&n.indexOf('created')!==-1))return false;
+      var u=n.indexOf('user')!==-1||n.indexOf('users')===0||n.indexOf('user_facts')===0;
+      if(!u)return false;
+      if(n.indexOf('email')!==-1||n.indexOf('mail')!==-1)return true;
+      if((n.indexOf('name')!==-1||n.indexOf('display_name')!==-1||n.indexOf('first_name')!==-1||n.indexOf('last_name')!==-1)&&n.indexOf('attribute')===-1&&n.indexOf('filename')===-1&&n.indexOf('username')===-1)return true;
+      if(n==='user.id'||n==='users.id'||n==='event.user_id')return true;
+      return false;
+    });
     F.audit_attr_name=dims.find(function(f){return nkAud(f)==='event_attribute.name';})||dims.find(function(f){var n=nkAud(f);return n.indexOf('event_attribute')===0&&n.indexOf('name')!==-1&&n.indexOf('value')===-1;});
     F.audit_attr_value=dims.find(function(f){return nkAud(f)==='event_attribute.value';})||dims.find(function(f){var n=nkAud(f);return n.indexOf('event_attribute')===0&&n.indexOf('value')!==-1;});
     var hasEventAttributeDim=dims.some(function(f){return nkAud(f).indexOf('event_attribute')===0;});
@@ -5027,10 +5038,39 @@ looker.plugins.visualizations.add({
 
       function escAudit(s){return String(s==null?'':s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');}
 
+      function auditCellDeep(row,key){
+        if(!row||!key)return '';
+        var k=String(key);
+        var direct=cellVal(row,k);
+        if(direct!=null&&String(direct).trim()!=='')return String(direct);
+        var parts=k.split('.');
+        if(parts.length<2)return '';
+        var o=row;
+        for(var pi=0;pi<parts.length&&o!=null;pi++){
+          var seg=parts[pi];
+          o=o[seg];
+          if(o!=null&&typeof o==='object'){
+            if('value' in o&&o.value!=null&&String(o.value).trim()!=='')return String(o.value);
+            if('rendered' in o&&o.rendered!=null&&String(o.rendered).trim()!=='')return String(o.rendered);
+          }
+        }
+        if(o!=null&&typeof o!=='object')return String(o);
+        return '';
+      }
+
       function auditUserCell(row){
-        if(F.audit_user_email&&gv(row,F.audit_user_email))return gv(row,F.audit_user_email);
-        if(F.audit_user_name&&gv(row,F.audit_user_name))return gv(row,F.audit_user_name);
-        if(F.audit_user_id&&gv(row,F.audit_user_id))return gv(row,F.audit_user_id);
+        var tried={}, order=[];
+        if(F.audit_user_email)order.push(F.audit_user_email);
+        if(F.audit_user_name)order.push(F.audit_user_name);
+        if(F.audit_user_id)order.push(F.audit_user_id);
+        if(F.audit_user_dims&&F.audit_user_dims.length)order=order.concat(F.audit_user_dims);
+        for(var ui=0;ui<order.length;ui++){
+          var uk=order[ui];
+          if(!uk||tried[uk])continue;
+          tried[uk]=true;
+          var s=auditCellDeep(row,uk);
+          if(s&&String(s).trim()!=='')return s;
+        }
         return '';
       }
 
@@ -5076,7 +5116,7 @@ looker.plugins.visualizations.add({
 
       if(!F.audit_event_name||!F.audit_created){
 
-        R.innerHTML=navBar()+'<div class="lx-body"><div class="lx-bar" style="border-bottom:1px solid #1e293b"><span style="color:#e2e8f0;font-size:12px;font-weight:700">LookML audit</span></div><div style="padding:24px 20px;color:#94a3b8;font-size:12px;line-height:1.6">Use <strong style="color:#e2e8f0">System Activity</strong> (\u201cEvent\u201d or \u201cEvent Attribute\u201d explore). Add <strong style="color:#cbd5e1">Event Name</strong> (<code style="color:#fb7185">event.name</code>) and <strong style="color:#cbd5e1">Created time</strong> (<code style="color:#fb7185">event.created_time</code> or date). <strong style="color:#cbd5e1">Join User</strong> and add <code style="color:#fb7185">user.email</code> or <code style="color:#fb7185">users.email</code> for \u201cWho\u201d. For file paths in Detail, add <code style="color:#fb7185">event_attribute.name</code> / <code style="color:#fb7185">event_attribute.value</code>. The tile shows add/update/delete for dashboards, Looks, models, and <code>.view.lkml</code> / <code>.explore.lkml</code> / <code>.model.lkml</code> files; use the <strong>filters in this tile</strong> to narrow further.</div></div>';
+        R.innerHTML=navBar()+'<div class="lx-body"><div class="lx-bar" style="border-bottom:1px solid #1e293b"><span style="color:#e2e8f0;font-size:12px;font-weight:700">LookML audit</span></div><div style="padding:24px 20px;color:#94a3b8;font-size:12px;line-height:1.6">Use <strong style="color:#e2e8f0">System Activity</strong> (\u201cEvent\u201d or \u201cEvent Attribute\u201d explore). Add <strong style="color:#cbd5e1">Event Name</strong> (<code style="color:#fb7185">event.name</code>) and <strong style="color:#cbd5e1">Created time</strong> (<code style="color:#fb7185">event.created_time</code> or date). For <strong>Who</strong>, add fields from the <strong>User</strong> join (e.g. <code style="color:#fb7185">User Email</code> / <code style="color:#fb7185">user.email</code> or Name) to the query\u2014filters belong in the <strong>Explore or dashboard filter bar</strong>, not in this viz. For file paths in Detail, add <code style="color:#fb7185">event_attribute.name</code> and <code style="color:#fb7185">event_attribute.value</code>. This viz only lists add/update/delete for dashboards, Looks, models, and <code>.view.lkml</code> / <code>.explore.lkml</code> / <code>.model.lkml</code> files.</div></div>';
 
         try{done();}catch(e){}
 
@@ -5120,13 +5160,9 @@ looker.plugins.visualizations.add({
 
       var gridCols='minmax(128px,1fr) minmax(160px,1.3fr) minmax(88px,0.75fr) minmax(72px,0.55fr) minmax(160px,1.1fr) minmax(140px,1.2fr)';
 
-      var selStyle='background:#0f172a;border:1px solid #334155;border-radius:8px;color:#e2e8f0;font-size:11px;padding:6px 10px;min-width:120px;box-sizing:border-box';
-
-      var inpStyle='background:#0f172a;border:1px solid #334155;border-radius:8px;color:#e2e8f0;font-size:11px;padding:6px 10px;width:100%;min-width:160px;max-width:280px;box-sizing:border-box';
-
       var h=navBar()+'<div class="lx-body" style="display:flex;flex-direction:column;min-height:0">';
 
-      h+='<div class="lx-bar" style="border-bottom:1px solid #1e293b;flex-wrap:wrap;gap:8px;align-items:center"><span style="color:#e2e8f0;font-size:12px;font-weight:700">LookML audit</span><span id="lx-audit-stat" style="color:#64748b;font-size:10px"></span></div>';
+      h+='<div class="lx-bar" style="border-bottom:1px solid #1e293b;flex-wrap:wrap;gap:8px;align-items:center"><span style="color:#e2e8f0;font-size:12px;font-weight:700">LookML audit</span><span style="color:#64748b;font-size:10px">'+auditRows.length+' content changes \u00B7 use Explore / dashboard filters to narrow</span></div>';
 
       if(auditRows.length===0){
 
@@ -5140,139 +5176,35 @@ looker.plugins.visualizations.add({
 
       }
 
-      h+='<div class="lx-audit-filters" style="padding:10px 16px;border-bottom:1px solid #1e293b;background:#0c1222;display:flex;flex-wrap:wrap;gap:12px 20px;align-items:flex-end">';
+      h+='<div class="lx-scroll" style="flex:1;min-height:0"><div class="lx-hdr lx-audit-hdr" style="grid-template-columns:'+gridCols+';padding:6px 16px;font-size:9px"><div>When</div><div>Who</div><div>Object</div><div>Action</div><div>Event</div><div>Detail</div></div>';
 
-      h+='<div style="display:flex;flex-direction:column;gap:4px;flex:1;min-width:140px;max-width:300px"><label for="lx-audit-q" style="color:#64748b;font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:0.04em">Search</label><input type="text" id="lx-audit-q" autocomplete="off" placeholder="Who, event, detail\u2026" style="'+inpStyle+'"/></div>';
+      auditRows.forEach(function(r){
 
-      h+='<div style="display:flex;flex-direction:column;gap:4px"><label for="lx-audit-obj" style="color:#64748b;font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:0.04em">Object</label><select id="lx-audit-obj" style="'+selStyle+'"><option value="">All</option><option value="Dashboard">Dashboard</option><option value="Look">Look</option><option value="Model">Model</option><option value="View">View</option><option value="Explore">Explore</option><option value="Project file">Project file</option></select></div>';
+        var det=r.an&&r.av?r.an+': '+r.av:(r.av||r.an||'\u2014');
 
-      h+='<div style="display:flex;flex-direction:column;gap:4px"><label for="lx-audit-act" style="color:#64748b;font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:0.04em">Action</label><select id="lx-audit-act" style="'+selStyle+'"><option value="">All</option><option value="Added">Added</option><option value="Updated">Updated</option><option value="Deleted">Deleted</option></select></div>';
+        if(det.length>220)det=det.substring(0,217)+'\u2026';
 
-      h+='<button type="button" id="lx-audit-reset" style="padding:6px 14px;background:#1e293b;border:1px solid #334155;border-radius:8px;color:#94a3b8;font-size:11px;font-weight:600;cursor:pointer;margin-bottom:1px">Reset filters</button>';
+        h+='<div class="lx-row lx-audit-row" style="grid-template-columns:'+gridCols+';padding:8px 16px;font-size:11px;border-bottom:1px solid rgba(30,41,59,0.35)">';
 
-      h+='</div>';
+        h+='<div class="lx-cell" style="color:#cbd5e1;font-variant-numeric:tabular-nums">'+escAudit(r.t)+'</div>';
 
-      h+='<div class="lx-scroll" style="flex:1;min-height:0"><div class="lx-hdr lx-audit-hdr" style="grid-template-columns:'+gridCols+';padding:6px 16px;font-size:9px"><div>When</div><div>Who</div><div>Object</div><div>Action</div><div>Event</div><div>Detail</div></div><div id="lx-audit-tbody"></div></div></div>';
+        h+='<div class="lx-cell" style="color:#e2e8f0">'+escAudit(r.user||'\u2014')+'</div>';
+
+        h+='<div class="lx-cell" style="color:#a5b4fc;font-weight:600;font-size:10px">'+escAudit(r.obj)+'</div>';
+
+        h+='<div class="lx-cell" style="color:#34d399;font-size:10px;font-weight:600">'+escAudit(r.act)+'</div>';
+
+        h+='<div class="lx-cell" style="color:#fb7185;font-family:ui-monospace,monospace;font-size:10px">'+escAudit(r.ev)+'</div>';
+
+        h+='<div class="lx-cell" style="color:#94a3b8;white-space:normal;word-break:break-word;font-size:10px" title="'+escAudit(r.an&&r.av?r.an+': '+r.av:r.av)+'">'+escAudit(det)+'</div>';
+
+        h+='</div>';
+
+      });
+
+      h+='</div></div>';
 
       R.innerHTML=h;
-
-      (function(){
-
-        var all=auditRows;
-
-        var statEl=R.querySelector('#lx-audit-stat');
-
-        var tbody=R.querySelector('#lx-audit-tbody');
-
-        var qIn=R.querySelector('#lx-audit-q');
-
-        var objIn=R.querySelector('#lx-audit-obj');
-
-        var actIn=R.querySelector('#lx-audit-act');
-
-        var resetBtn=R.querySelector('#lx-audit-reset');
-
-        if(!tbody)return;
-
-        function rowHtml(r){
-
-          var det=r.an&&r.av?r.an+': '+r.av:(r.av||r.an||'\u2014');
-
-          if(det.length>220)det=det.substring(0,217)+'\u2026';
-
-          var t='';
-
-          t+='<div class="lx-row lx-audit-row" style="grid-template-columns:'+gridCols+';padding:8px 16px;font-size:11px;border-bottom:1px solid rgba(30,41,59,0.35)">';
-
-          t+='<div class="lx-cell" style="color:#cbd5e1;font-variant-numeric:tabular-nums">'+escAudit(r.t)+'</div>';
-
-          t+='<div class="lx-cell" style="color:#e2e8f0">'+escAudit(r.user||'\u2014')+'</div>';
-
-          t+='<div class="lx-cell" style="color:#a5b4fc;font-weight:600;font-size:10px">'+escAudit(r.obj)+'</div>';
-
-          t+='<div class="lx-cell" style="color:#34d399;font-size:10px;font-weight:600">'+escAudit(r.act)+'</div>';
-
-          t+='<div class="lx-cell" style="color:#fb7185;font-family:ui-monospace,monospace;font-size:10px">'+escAudit(r.ev)+'</div>';
-
-          t+='<div class="lx-cell" style="color:#94a3b8;white-space:normal;word-break:break-word;font-size:10px" title="'+escAudit(r.an&&r.av?r.an+': '+r.av:r.av)+'">'+escAudit(det)+'</div>';
-
-          t+='</div>';
-
-          return t;
-
-        }
-
-        function applyFilters(){
-
-          var q=(qIn&&qIn.value?qIn.value:'').toLowerCase().trim();
-
-          var objV=objIn&&objIn.value?objIn.value:'';
-
-          var actV=actIn&&actIn.value?actIn.value:'';
-
-          var sub=all.filter(function(r){
-
-            if(objV&&r.obj!==objV)return false;
-
-            if(actV&&r.act!==actV)return false;
-
-            if(q){
-
-              var blob=(r.t+' '+r.user+' '+r.obj+' '+r.act+' '+r.ev+' '+r.an+' '+r.av).toLowerCase();
-
-              if(blob.indexOf(q)===-1)return false;
-
-            }
-
-            return true;
-
-          });
-
-          if(statEl)statEl.textContent=sub.length===all.length?all.length+' content changes':('Showing '+sub.length+' of '+all.length);
-
-          if(sub.length===0){
-
-            tbody.innerHTML='<div style="padding:28px 20px;color:#64748b;font-size:12px;text-align:center">No rows match the tile filters. Adjust Search, Object, or Action, or click Reset filters.</div>';
-
-            return;
-
-          }
-
-          tbody.innerHTML=sub.map(rowHtml).join('');
-
-        }
-
-        var tmr;
-
-        function onQInput(){
-
-          clearTimeout(tmr);
-
-          tmr=setTimeout(applyFilters,120);
-
-        }
-
-        if(qIn)qIn.addEventListener('input',onQInput);
-
-        if(objIn)objIn.addEventListener('change',applyFilters);
-
-        if(actIn)actIn.addEventListener('change',applyFilters);
-
-        if(resetBtn)resetBtn.addEventListener('click',function(){
-
-          if(qIn)qIn.value='';
-
-          if(objIn)objIn.value='';
-
-          if(actIn)actIn.value='';
-
-          applyFilters();
-
-        });
-
-        applyFilters();
-
-      })();
 
       try{done();}catch(e){}
 
