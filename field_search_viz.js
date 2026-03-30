@@ -22,7 +22,7 @@ looker.plugins.visualizations.add({
 
     lkml_labels_dashboard_id: {type:"string",label:"LKML Labels Dashboard ID",default:"",section:"Navigation",order:8},
 
-    lkml_audit_dashboard_id: {type:"string",label:"LKML / LookML Audit Dashboard ID",default:"",section:"Navigation",order:9}
+    lkml_audit_dashboard_id: {type:"string",label:"Looker Audit Dashboard ID",default:"",section:"Navigation",order:9}
 
   },
 
@@ -184,16 +184,31 @@ looker.plugins.visualizations.add({
     var queryExplore=(queryResponse.meta&&(queryResponse.meta.explore||queryResponse.meta.model))?String(queryResponse.meta.explore||queryResponse.meta.model||'').toLowerCase():'';
 
     function nkAud(f){return (f||'').toLowerCase().replace(/\s/g,'_');}
+    function dimBySuffix(suf){
+      return dims.find(function(f){var n=nkAud(f);return n===suf||n.endsWith('.'+suf);});
+    }
+    F.hila_audit_when=dimBySuffix('hila_audit_time')||dimBySuffix('hila_audit_date')||dimBySuffix('hila_audit_time_of_day')||dimBySuffix('hila_audit_raw')||dimBySuffix('hila_audit_week')||dimBySuffix('hila_audit_month')||dimBySuffix('hila_audit_quarter')||dimBySuffix('hila_audit_year')||dimBySuffix('hila_stats_date')||dimBySuffix('hila_stats_week')||dimBySuffix('hila_stats_month')||dimBySuffix('hila_stats_quarter')||dimBySuffix('hila_stats_year');
+    F.hila_log_type=dimBySuffix('hila_log_type');
+    F.hila_entity_type=dimBySuffix('hila_entity_type');
+    F.hila_entity_name=dimBySuffix('hila_entity_name');
+    F.hila_change=dimBySuffix('hila_change');
+    F.hila_user_name=dimBySuffix('hila_user_name');
+    var hasAnyHilaDim=dims.some(function(f){return nkAud(f).indexOf('hila_')!==-1;});
+    var exploreIsLookerAuditEvents=(queryExplore||'').indexOf('looker_audit_event')!==-1;
+    F.audit_hila_context=exploreIsLookerAuditEvents||hasAnyHilaDim;
+    var looksLikeHilaAuditExplore=!!F.audit_hila_context&&!!F.hila_audit_when;
+    F.audit_use_hila=looksLikeHilaAuditExplore;
     F.audit_event_name=dims.find(function(f){return nkAud(f)==='event.name';});
     F.audit_created=dims.find(function(f){var n=nkAud(f);return n==='event.created_time'||n==='event.created_date'||n==='event.created_raw'||(n.indexOf('event.')===0&&(n.indexOf('created_time')!==-1||n.indexOf('created_date')!==-1||n.indexOf('created_raw')!==-1));});
     F.audit_category=dims.find(function(f){return nkAud(f)==='event.category';});
     F.audit_user_email=dims.find(function(f){var n=nkAud(f);return n==='user.email'||n==='users.email'||(n.indexOf('user.')===0&&n.indexOf('email')!==-1);});
     F.audit_user_name=dims.find(function(f){var n=nkAud(f);return n==='user.name'||n==='user.display_name'||n==='users.name'||n==='users.display_name';});
     F.audit_user_id=dims.find(function(f){var n=nkAud(f);return n==='event.user_id'||n==='user.id'||n==='users.id';});
-    if(!F.audit_user_email)F.audit_user_email=dims.find(function(f){var n=nkAud(f);return n.indexOf('email')!==-1&&n.indexOf('user')!==-1&&n.indexOf('event')===-1&&n.indexOf('attribute')===-1;});
-    if(!F.audit_user_name)F.audit_user_name=dims.find(function(f){var n=nkAud(f);return n.indexOf('user')!==-1&&n.indexOf('name')!==-1&&n.indexOf('email')===-1&&n.indexOf('event')===-1&&n.indexOf('attribute')===-1&&n.indexOf('group')===-1;});
+    if(!F.audit_user_email)F.audit_user_email=dims.find(function(f){var n=nkAud(f);return n.indexOf('hila_')===-1&&n.indexOf('email')!==-1&&n.indexOf('user')!==-1&&n.indexOf('event')===-1&&n.indexOf('attribute')===-1;});
+    if(!F.audit_user_name)F.audit_user_name=dims.find(function(f){var n=nkAud(f);return n.indexOf('hila_')===-1&&n.indexOf('user')!==-1&&n.indexOf('name')!==-1&&n.indexOf('email')===-1&&n.indexOf('event')===-1&&n.indexOf('attribute')===-1&&n.indexOf('group')===-1;});
     F.audit_user_dims=dims.filter(function(f){
       var n=nkAud(f);
+      if(n.indexOf('hila_')!==-1)return false;
       if(n.indexOf('event_attribute')===0)return false;
       if(n.indexOf('event.name')===0||n.indexOf('event.category')===0||(n.indexOf('event.')===0&&n.indexOf('created')!==-1))return false;
       var u=n.indexOf('user')!==-1||n.indexOf('users')===0||n.indexOf('user_facts')===0;
@@ -220,7 +235,7 @@ looker.plugins.visualizations.add({
 
     if(onLkmlLabelsDashboard||looksLikeLkmlLabelsExplore)mode='lkml_labels';
 
-    else if(onLkmlAuditDashboard||looksLikeLkmlAuditExplore)mode='lkml_audit';
+    else if(onLkmlAuditDashboard||F.audit_hila_context||looksLikeLkmlAuditExplore)mode='lkml_audit';
 
     else if(F.table_name&&F.consumer_type&&hasNumJobsInQuery)mode='data_dyson';
 
@@ -3908,7 +3923,7 @@ looker.plugins.visualizations.add({
 
         {id:'lkml_labels',label:'LKML Labels Generator',icon:ic.lkml,did:config.lkml_labels_dashboard_id},
 
-        {id:'lkml_audit',label:'LookML audit',icon:ic.audit,did:config.lkml_audit_dashboard_id}
+        {id:'lkml_audit',label:'Looker audit',icon:ic.audit,did:config.lkml_audit_dashboard_id}
 
       ];
 
@@ -5032,7 +5047,7 @@ looker.plugins.visualizations.add({
       done();return;
     }
 
-    // ========== LOOKML AUDIT: dashboards / Looks / models / view&explore .lkml files (add, edit, delete) ==========
+    // ========== LOOKER AUDIT: looker_audit_events (hila_*) or System Activity (event / event_attribute) ==========
 
     if(mode==='lkml_audit'){
 
@@ -5056,6 +5071,92 @@ looker.plugins.visualizations.add({
         }
         if(o!=null&&typeof o!=='object')return String(o);
         return '';
+      }
+
+      if(F.audit_hila_context&&!F.audit_use_hila){
+
+        R.innerHTML=navBar()+'<div class="lx-body"><div class="lx-bar" style="border-bottom:1px solid #1e293b"><span style="color:#e2e8f0;font-size:12px;font-weight:700">Looker audit</span></div><div style="padding:24px 20px;color:#94a3b8;font-size:12px;line-height:1.6">Add a <strong style="color:#cbd5e1">time</strong> field from <code style="color:#fb7185">looker_audit_events</code>: <code style="color:#fb7185">hila_audit_time</code>, <code style="color:#fb7185">hila_audit_date</code>, <code style="color:#fb7185">hila_audit_raw</code>, or partition <code style="color:#fb7185">hila_stats_date</code>. Other useful dimensions: <code style="color:#fb7185">hila_user_name</code>, <code style="color:#fb7185">hila_entity_type</code>, <code style="color:#fb7185">hila_log_type</code>, <code style="color:#fb7185">hila_entity_name</code>, <code style="color:#fb7185">hila_change</code>.</div></div>';
+
+        try{done();}catch(e){}
+
+        return;
+
+      }
+
+      if(F.audit_use_hila){
+
+        function hilaLogTypeLabel(lt){
+          var s=(lt||'').toLowerCase().replace(/^\s+|\s+$/g,'');
+          if(s==='add'||s==='create')return 'Added';
+          if(s==='edit'||s==='update')return 'Updated';
+          if(s==='delete'||s==='removed')return 'Deleted';
+          return lt&&String(lt).trim()!==''?String(lt):'\u2014';
+        }
+
+        var auditRowsHila=[];
+
+        data.forEach(function(row){
+
+          auditRowsHila.push({
+
+            t:auditCellDeep(row,F.hila_audit_when),
+
+            user:F.hila_user_name?auditCellDeep(row,F.hila_user_name):'',
+
+            obj:F.hila_entity_type?auditCellDeep(row,F.hila_entity_type):'',
+
+            act:hilaLogTypeLabel(F.hila_log_type?auditCellDeep(row,F.hila_log_type):''),
+
+            ev:F.hila_entity_name?auditCellDeep(row,F.hila_entity_name):'',
+
+            det:F.hila_change?auditCellDeep(row,F.hila_change):''
+
+          });
+
+        });
+
+        auditRowsHila.sort(function(a,b){return String(b.t).localeCompare(String(a.t));});
+
+        var gridColsHila='minmax(128px,1fr) minmax(160px,1.3fr) minmax(88px,0.75fr) minmax(72px,0.55fr) minmax(160px,1.1fr) minmax(140px,1.2fr)';
+
+        var hh=navBar()+'<div class="lx-body" style="display:flex;flex-direction:column;min-height:0">';
+
+        hh+='<div class="lx-bar" style="border-bottom:1px solid #1e293b;flex-wrap:wrap;gap:8px;align-items:center"><span style="color:#e2e8f0;font-size:12px;font-weight:700">Looker audit</span><span style="color:#64748b;font-size:10px">'+auditRowsHila.length+' rows</span></div>';
+
+        hh+='<div class="lx-scroll" style="flex:1;min-height:0"><div class="lx-hdr lx-audit-hdr" style="grid-template-columns:'+gridColsHila+';padding:6px 16px;font-size:9px"><div>When</div><div>Who</div><div>Object</div><div>Action</div><div>Entity</div><div>Change</div></div>';
+
+        auditRowsHila.forEach(function(r){
+
+          var det=r.det||'\u2014';
+
+          if(det.length>220)det=det.substring(0,217)+'\u2026';
+
+          hh+='<div class="lx-row lx-audit-row" style="grid-template-columns:'+gridColsHila+';padding:8px 16px;font-size:11px;border-bottom:1px solid rgba(30,41,59,0.35)">';
+
+          hh+='<div class="lx-cell" style="color:#cbd5e1;font-variant-numeric:tabular-nums">'+escAudit(r.t||'\u2014')+'</div>';
+
+          hh+='<div class="lx-cell" style="color:#e2e8f0">'+escAudit(r.user||'\u2014')+'</div>';
+
+          hh+='<div class="lx-cell" style="color:#a5b4fc;font-weight:600;font-size:10px">'+escAudit(r.obj||'\u2014')+'</div>';
+
+          hh+='<div class="lx-cell" style="color:#34d399;font-size:10px;font-weight:600">'+escAudit(r.act)+'</div>';
+
+          hh+='<div class="lx-cell" style="color:#fb7185;font-family:ui-monospace,monospace;font-size:10px">'+escAudit(r.ev||'\u2014')+'</div>';
+
+          hh+='<div class="lx-cell" style="color:#94a3b8;white-space:normal;word-break:break-word;font-size:10px" title="'+escAudit(r.det)+'">'+escAudit(det)+'</div>';
+
+          hh+='</div>';
+
+        });
+
+        hh+='</div></div>';
+
+        R.innerHTML=hh;
+
+        try{done();}catch(e){}
+
+        return;
+
       }
 
       function auditUserCell(row){
@@ -5116,7 +5217,7 @@ looker.plugins.visualizations.add({
 
       if(!F.audit_event_name||!F.audit_created){
 
-        R.innerHTML=navBar()+'<div class="lx-body"><div class="lx-bar" style="border-bottom:1px solid #1e293b"><span style="color:#e2e8f0;font-size:12px;font-weight:700">LookML audit</span></div><div style="padding:24px 20px;color:#94a3b8;font-size:12px;line-height:1.6">Use <strong style="color:#e2e8f0">System Activity</strong> (\u201cEvent\u201d or \u201cEvent Attribute\u201d explore). Add <strong style="color:#cbd5e1">Event Name</strong> (<code style="color:#fb7185">event.name</code>) and <strong style="color:#cbd5e1">Created time</strong> (<code style="color:#fb7185">event.created_time</code> or date). For <strong>Who</strong>, add fields from the <strong>User</strong> join (e.g. <code style="color:#fb7185">User Email</code> / <code style="color:#fb7185">user.email</code> or Name) to the query\u2014filters belong in the <strong>Explore or dashboard filter bar</strong>, not in this viz. For file paths in Detail, add <code style="color:#fb7185">event_attribute.name</code> and <code style="color:#fb7185">event_attribute.value</code>. This viz only lists add/update/delete for dashboards, Looks, models, and <code>.view.lkml</code> / <code>.explore.lkml</code> / <code>.model.lkml</code> files.</div></div>';
+        R.innerHTML=navBar()+'<div class="lx-body"><div class="lx-bar" style="border-bottom:1px solid #1e293b"><span style="color:#e2e8f0;font-size:12px;font-weight:700">Looker audit</span></div><div style="padding:24px 20px;color:#94a3b8;font-size:12px;line-height:1.6"><strong style="color:#e2e8f0">Recommended:</strong> the <code style="color:#fb7185">looker_audit_events</code> explore. Add <code style="color:#fb7185">hila_audit_time</code> or <code style="color:#fb7185">hila_audit_date</code> (or partition <code style="color:#fb7185">hila_stats_date</code>), plus optional <code style="color:#fb7185">hila_user_name</code>, <code style="color:#fb7185">hila_entity_type</code>, <code style="color:#fb7185">hila_log_type</code>, <code style="color:#fb7185">hila_entity_name</code>, and <code style="color:#fb7185">hila_change</code>. This viz lists every query row with no extra filtering.<br/><br/><strong style="color:#e2e8f0">Alternative (System Activity):</strong> Event / Event Attribute explore with <code style="color:#fb7185">event.name</code>, created time, user fields, and <code style="color:#fb7185">event_attribute.name</code> / <code style="color:#fb7185">event_attribute.value</code>. That mode only shows add/update/delete for dashboards, Looks, models, and <code>.view.lkml</code> / <code>.explore.lkml</code> / <code>.model.lkml</code> files.</div></div>';
 
         try{done();}catch(e){}
 
@@ -5162,7 +5263,7 @@ looker.plugins.visualizations.add({
 
       var h=navBar()+'<div class="lx-body" style="display:flex;flex-direction:column;min-height:0">';
 
-      h+='<div class="lx-bar" style="border-bottom:1px solid #1e293b;flex-wrap:wrap;gap:8px;align-items:center"><span style="color:#e2e8f0;font-size:12px;font-weight:700">LookML audit</span><span style="color:#64748b;font-size:10px">'+auditRows.length+' content changes \u00B7 use Explore / dashboard filters to narrow</span></div>';
+      h+='<div class="lx-bar" style="border-bottom:1px solid #1e293b;flex-wrap:wrap;gap:8px;align-items:center"><span style="color:#e2e8f0;font-size:12px;font-weight:700">Looker audit</span><span style="color:#64748b;font-size:10px">'+auditRows.length+' content changes (System Activity only) \u00B7 use Explore / dashboard filters to narrow</span></div>';
 
       if(auditRows.length===0){
 
