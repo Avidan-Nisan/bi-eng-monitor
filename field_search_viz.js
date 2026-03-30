@@ -5117,13 +5117,13 @@ looker.plugins.visualizations.add({
 
         auditRowsHila.sort(function(a,b){return String(b.t).localeCompare(String(a.t));});
 
-        var gridColsHila='minmax(128px,1fr) minmax(160px,1.3fr) minmax(88px,0.75fr) minmax(72px,0.55fr) minmax(160px,1.1fr) minmax(140px,1.2fr)';
+        var gridColsHila='minmax(128px,1fr) minmax(72px,0.55fr) minmax(92px,0.8fr) minmax(160px,1.15fr) minmax(140px,1.1fr) minmax(140px,1.2fr)';
 
         var hh=navBar()+'<div class="lx-body" style="display:flex;flex-direction:column;min-height:0">';
 
         hh+='<div class="lx-bar" style="border-bottom:1px solid #1e293b;flex-wrap:wrap;gap:8px;align-items:center"><span style="color:#e2e8f0;font-size:12px;font-weight:700">Looker audit</span><span style="color:#64748b;font-size:10px">'+auditRowsHila.length+' rows</span></div>';
 
-        hh+='<div class="lx-scroll" style="flex:1;min-height:0"><div class="lx-hdr lx-audit-hdr" style="grid-template-columns:'+gridColsHila+';padding:6px 16px;font-size:9px"><div>When</div><div>Who</div><div>Object</div><div>Action</div><div>Entity</div><div>Change</div></div>';
+        hh+='<div class="lx-scroll" style="flex:1;min-height:0"><div class="lx-hdr lx-audit-hdr" style="grid-template-columns:'+gridColsHila+';padding:6px 16px;font-size:9px"><div>Audit time</div><div>Log type</div><div>Entity type</div><div>Entity name</div><div>User name</div><div>Change</div></div>';
 
         auditRowsHila.forEach(function(r){
 
@@ -5135,13 +5135,13 @@ looker.plugins.visualizations.add({
 
           hh+='<div class="lx-cell" style="color:#cbd5e1;font-variant-numeric:tabular-nums">'+escAudit(r.t||'\u2014')+'</div>';
 
-          hh+='<div class="lx-cell" style="color:#e2e8f0">'+escAudit(r.user||'\u2014')+'</div>';
+          hh+='<div class="lx-cell" style="color:#34d399;font-size:10px;font-weight:600">'+escAudit(r.act)+'</div>';
 
           hh+='<div class="lx-cell" style="color:#a5b4fc;font-weight:600;font-size:10px">'+escAudit(r.obj||'\u2014')+'</div>';
 
-          hh+='<div class="lx-cell" style="color:#34d399;font-size:10px;font-weight:600">'+escAudit(r.act)+'</div>';
-
           hh+='<div class="lx-cell" style="color:#fb7185;font-family:ui-monospace,monospace;font-size:10px">'+escAudit(r.ev||'\u2014')+'</div>';
+
+          hh+='<div class="lx-cell" style="color:#e2e8f0">'+escAudit(r.user||'\u2014')+'</div>';
 
           hh+='<div class="lx-cell" style="color:#94a3b8;white-space:normal;word-break:break-word;font-size:10px" title="'+escAudit(r.det)+'">'+escAudit(det)+'</div>';
 
@@ -5259,7 +5259,7 @@ looker.plugins.visualizations.add({
 
       auditRows.sort(function(a,b){return String(b.t).localeCompare(String(a.t));});
 
-      var gridCols='minmax(128px,1fr) minmax(160px,1.3fr) minmax(88px,0.75fr) minmax(72px,0.55fr) minmax(160px,1.1fr) minmax(140px,1.2fr)';
+      var gridCols='minmax(128px,1fr) minmax(72px,0.55fr) minmax(92px,0.8fr) minmax(160px,1.15fr) minmax(140px,1.1fr) minmax(140px,1.2fr)';
 
       var h=navBar()+'<div class="lx-body" style="display:flex;flex-direction:column;min-height:0">';
 
@@ -5277,7 +5277,7 @@ looker.plugins.visualizations.add({
 
       }
 
-      h+='<div class="lx-scroll" style="flex:1;min-height:0"><div class="lx-hdr lx-audit-hdr" style="grid-template-columns:'+gridCols+';padding:6px 16px;font-size:9px"><div>When</div><div>Who</div><div>Object</div><div>Action</div><div>Event</div><div>Detail</div></div>';
+      h+='<div class="lx-scroll" style="flex:1;min-height:0"><div class="lx-hdr lx-audit-hdr" style="grid-template-columns:'+gridCols+';padding:6px 16px;font-size:9px"><div>Event time</div><div>Action</div><div>Object type</div><div>Event name</div><div>User name</div><div>Detail</div></div>';
 
       auditRows.forEach(function(r){
 
@@ -5289,13 +5289,13 @@ looker.plugins.visualizations.add({
 
         h+='<div class="lx-cell" style="color:#cbd5e1;font-variant-numeric:tabular-nums">'+escAudit(r.t)+'</div>';
 
-        h+='<div class="lx-cell" style="color:#e2e8f0">'+escAudit(r.user||'\u2014')+'</div>';
+        h+='<div class="lx-cell" style="color:#34d399;font-size:10px;font-weight:600">'+escAudit(r.act)+'</div>';
 
         h+='<div class="lx-cell" style="color:#a5b4fc;font-weight:600;font-size:10px">'+escAudit(r.obj)+'</div>';
 
-        h+='<div class="lx-cell" style="color:#34d399;font-size:10px;font-weight:600">'+escAudit(r.act)+'</div>';
-
         h+='<div class="lx-cell" style="color:#fb7185;font-family:ui-monospace,monospace;font-size:10px">'+escAudit(r.ev)+'</div>';
+
+        h+='<div class="lx-cell" style="color:#e2e8f0">'+escAudit(r.user||'\u2014')+'</div>';
 
         h+='<div class="lx-cell" style="color:#94a3b8;white-space:normal;word-break:break-word;font-size:10px" title="'+escAudit(r.an&&r.av?r.an+': '+r.av:r.av)+'">'+escAudit(det)+'</div>';
 
