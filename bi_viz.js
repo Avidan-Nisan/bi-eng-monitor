@@ -32,7 +32,61 @@ looker.plugins.visualizations.add({
 
     element.innerHTML='<div id="lex" style="width:100%;height:100%;font-family:Inter,system-ui,-apple-system,sans-serif;background:#0a0e1a;color:#e2e8f0;display:flex;flex-direction:column;overflow:hidden"></div>';
 
-    // Dashboard tabs use plain <a target="_top"> links only. Do not use LookerCharts.Utils.openUrl or window.location here — several Looker/sandbox combinations throw "Unsafe attempt to load URL .../sandbox/render/..." when navigating from the viz iframe.
+    // Looker's sandbox injects a document-level click handler that calls openUrl() on any element with href — that double-handles real <a> tabs and triggers "Unsafe attempt to load URL .../sandbox/render/...". Use data-lx-nav-url (no href) and capture-phase + openUrl only.
+
+    var lexNav=element.querySelector('#lex');
+
+    if(lexNav){
+
+      function lxNavActivate(ev,url){
+
+        if(!url)return;
+
+        try{if(typeof LookerCharts!=='undefined'&&LookerCharts.Utils&&LookerCharts.Utils.openUrl){LookerCharts.Utils.openUrl(url,ev);return;}}catch(e){}
+
+      }
+
+      lexNav.addEventListener('click',function(ev){
+
+        var n=ev.target&&ev.target.closest&&ev.target.closest('[data-lx-nav-url]');
+
+        if(!n)return;
+
+        var url=n.getAttribute('data-lx-nav-url');
+
+        if(!url)return;
+
+        ev.preventDefault();
+
+        ev.stopPropagation();
+
+        ev.stopImmediatePropagation();
+
+        lxNavActivate(ev,url);
+
+      },true);
+
+      lexNav.addEventListener('keydown',function(ev){
+
+        if(ev.key!=='Enter'&&ev.key!==' ')return;
+
+        var n=ev.target&&ev.target.closest&&ev.target.closest('[data-lx-nav-url]');
+
+        if(!n)return;
+
+        var url=n.getAttribute('data-lx-nav-url');
+
+        if(!url)return;
+
+        ev.preventDefault();
+
+        ev.stopPropagation();
+
+        lxNavActivate(ev,url);
+
+      },true);
+
+    }
 
     var s=document.createElement('style');
 
@@ -3865,27 +3919,11 @@ looker.plugins.visualizations.add({
 
     function doNav(url){
 
-      try{
-
-        var t=document.createElement('a');
-
-        t.href=url;
-
-        t.target='_top';
-
-        t.rel='noopener';
-
-        t.style.cssText='position:absolute;left:-9999px;';
-
-        document.body.appendChild(t);
-
-        t.click();
-
-        t.remove();
-
-      }catch(e){}
+      try{if(typeof LookerCharts!=='undefined'&&LookerCharts.Utils&&LookerCharts.Utils.openUrl){LookerCharts.Utils.openUrl(url,null);return;}}catch(e){}
 
     }
+
+    function escLxAttr(v){return String(v).replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/</g,'&lt;');}
 
     function navBar(){
 
@@ -3919,7 +3957,7 @@ looker.plugins.visualizations.add({
 
         }else if(baseUrl&&t.did){
 
-          h+='<a href="'+baseUrl+'/dashboards/'+t.did+'" target="_top" rel="noopener noreferrer" class="lx-nav-btn lx-nav-dash t-'+t.id+'" style="text-decoration:none;color:inherit">'+t.icon+' '+t.label+'</a>';
+          h+='<span role="link" tabindex="0" class="lx-nav-btn lx-nav-dash t-'+t.id+'" data-lx-nav-url="'+escLxAttr(baseUrl+'/dashboards/'+String(t.did).trim())+'" style="text-decoration:none;color:inherit">'+t.icon+' '+t.label+'</span>';
 
         }else{
 
@@ -3941,7 +3979,7 @@ looker.plugins.visualizations.add({
 
       if(!F.dbt_model||!(F.parent_1||F.parent_2||F.parent_3||F.parent_4||F.parent_5||F.parent_6||F.parent_7||F.parent_8||F.parent_9)){
 
-        R.innerHTML=navBar()+'<div class="lx-body"><div class="lx-bar" style="border-bottom:1px solid #1e293b"><span style="color:#e2e8f0;font-size:12px;font-weight:700">Model dependencies</span></div><div style="padding:24px 20px;color:#94a3b8;font-size:12px;line-height:1.5">This tile is on the DBT Lineage dashboard but the query does not include the required fields.<br/><br/>Use the <strong style="color:#e2e8f0">madl_dbt_model_lineage</strong> explore and add dimensions: <strong>Model</strong> (child) and at least one <strong>Parent 1</strong> … <strong>Parent 9</strong>.</div></div>';
+        R.innerHTML=navBar()+'<div class="lx-body"><div class="lx-bar" style="border-bottom:1px solid #1e293b"><span style="color:#e2e8f0;font-size:12px;font-weight:700">Model dependencies</span></div><div style="padding:24px 20px;color:#94a3b8;font-size:12px;line-height:1.5">This tile is on the DBT Lineage dashboard but the query does not include the required fields.<br><br>Use the <strong style="color:#e2e8f0">madl_dbt_model_lineage</strong> explore and add dimensions: <strong>Model</strong> (child) and at least one <strong>Parent 1</strong> … <strong>Parent 9</strong>.</div></div>';
 
         done();return;
 
@@ -4884,7 +4922,7 @@ looker.plugins.visualizations.add({
       if(clearBtn)clearBtn.addEventListener('click',function(e){e.preventDefault();e.stopPropagation();bqFocus=null;applyBqFocus();});
       syncBqQueryPanel();
       }catch(bqErr){
-        R.innerHTML=navBar()+'<div class="lx-body"><div class="lx-bar" style="border-bottom:1px solid #1e293b"><span style="color:#e2e8f0;font-size:12px;font-weight:700">BQ Jobs</span></div><div style="padding:24px 20px;color:#f87171;font-size:12px">Could not render BQ Jobs view. Try fewer rows or required fields.<br/><span style="color:#64748b;font-size:11px;margin-top:8px;display:block">'+(bqErr&&bqErr.message?String(bqErr.message).replace(/</g,'&lt;'):'')+'</span></div></div>';
+        R.innerHTML=navBar()+'<div class="lx-body"><div class="lx-bar" style="border-bottom:1px solid #1e293b"><span style="color:#e2e8f0;font-size:12px;font-weight:700">BQ Jobs</span></div><div style="padding:24px 20px;color:#f87171;font-size:12px">Could not render BQ Jobs view. Try fewer rows or required fields.<br><span style="color:#64748b;font-size:11px;margin-top:8px;display:block">'+(bqErr&&bqErr.message?String(bqErr.message).replace(/</g,'&lt;'):'')+'</span></div></div>';
       }
       done();return;
     }
@@ -4894,7 +4932,7 @@ looker.plugins.visualizations.add({
     if(mode==='data_dyson'){
 
       if(!F.table_name||!F.consumer_type){
-        R.innerHTML=navBar()+'<div class="lx-body"><div class="lx-bar" style="border-bottom:1px solid #1e293b"><span style="color:#e2e8f0;font-size:12px;font-weight:700">Data Dyson</span></div><div style="padding:24px 20px;color:#94a3b8;font-size:12px;line-height:1.5">This tile is on the Data Dyson dashboard but the query does not include the required fields.<br/><br/>Use the <strong style="color:#e2e8f0">DBT Usage</strong> explore and add dimensions: <strong>Table Schema</strong>, <strong>Table Name</strong>, <strong>Consumer Type</strong>, and a measure such as <strong>Num Jobs</strong>.</div></div>';
+        R.innerHTML=navBar()+'<div class="lx-body"><div class="lx-bar" style="border-bottom:1px solid #1e293b"><span style="color:#e2e8f0;font-size:12px;font-weight:700">Data Dyson</span></div><div style="padding:24px 20px;color:#94a3b8;font-size:12px;line-height:1.5">This tile is on the Data Dyson dashboard but the query does not include the required fields.<br><br>Use the <strong style="color:#e2e8f0">DBT Usage</strong> explore and add dimensions: <strong>Table Schema</strong>, <strong>Table Name</strong>, <strong>Consumer Type</strong>, and a measure such as <strong>Num Jobs</strong>.</div></div>';
         done();return;
       }
 
@@ -5273,7 +5311,7 @@ looker.plugins.visualizations.add({
 
       if(!F.audit_event_name||!F.audit_created){
 
-        R.innerHTML=navBar()+'<div class="lx-body"><div class="lx-bar" style="border-bottom:1px solid #1e293b"><span style="color:#e2e8f0;font-size:12px;font-weight:700">Looker audit</span></div><div style="padding:24px 20px;color:#94a3b8;font-size:12px;line-height:1.6"><strong style="color:#e2e8f0">Recommended:</strong> the <code style="color:#fb7185">looker_audit_events</code> explore. Add <code style="color:#fb7185">hila_audit_time</code> or <code style="color:#fb7185">hila_audit_date</code> (or partition <code style="color:#fb7185">hila_stats_date</code>), plus optional <code style="color:#fb7185">hila_user_name</code>, <code style="color:#fb7185">hila_entity_type</code>, <code style="color:#fb7185">hila_log_type</code>, <code style="color:#fb7185">hila_entity_name</code>, and <code style="color:#fb7185">hila_change</code>. This viz lists every query row with no extra filtering.<br/><br/><strong style="color:#e2e8f0">Alternative (System Activity):</strong> Event / Event Attribute explore with <code style="color:#fb7185">event.name</code>, created time, user fields, and <code style="color:#fb7185">event_attribute.name</code> / <code style="color:#fb7185">event_attribute.value</code>. That mode only shows add/update/delete for dashboards, Looks, models, and <code>.view.lkml</code> / <code>.explore.lkml</code> / <code>.model.lkml</code> files.</div></div>';
+        R.innerHTML=navBar()+'<div class="lx-body"><div class="lx-bar" style="border-bottom:1px solid #1e293b"><span style="color:#e2e8f0;font-size:12px;font-weight:700">Looker audit</span></div><div style="padding:24px 20px;color:#94a3b8;font-size:12px;line-height:1.6"><strong style="color:#e2e8f0">Recommended:</strong> the <code style="color:#fb7185">looker_audit_events</code> explore. Add <code style="color:#fb7185">hila_audit_time</code> or <code style="color:#fb7185">hila_audit_date</code> (or partition <code style="color:#fb7185">hila_stats_date</code>), plus optional <code style="color:#fb7185">hila_user_name</code>, <code style="color:#fb7185">hila_entity_type</code>, <code style="color:#fb7185">hila_log_type</code>, <code style="color:#fb7185">hila_entity_name</code>, and <code style="color:#fb7185">hila_change</code>. This viz lists every query row with no extra filtering.<br><br><strong style="color:#e2e8f0">Alternative (System Activity):</strong> Event / Event Attribute explore with <code style="color:#fb7185">event.name</code>, created time, user fields, and <code style="color:#fb7185">event_attribute.name</code> / <code style="color:#fb7185">event_attribute.value</code>. That mode only shows add/update/delete for dashboards, Looks, models, and <code>.view.lkml</code> / <code>.explore.lkml</code> / <code>.model.lkml</code> files.</div></div>';
 
         try{done();}catch(e){}
 
@@ -5655,7 +5693,7 @@ looker.plugins.visualizations.add({
     if(mode==='dbt_usage'){
 
       if(!F.table_name||!F.consumer_type){
-        R.innerHTML=navBar()+'<div class="lx-body"><div class="lx-bar" style="border-bottom:1px solid #1e293b"><span style="color:#e2e8f0;font-size:12px;font-weight:700">Consumer dependencies</span></div><div style="padding:24px 20px;color:#94a3b8;font-size:12px;line-height:1.5">This tile is on the DBT Usage dashboard but the query does not include the required fields.<br/><br/>Use the <strong style="color:#e2e8f0">DBT Usage</strong> explore and add dimensions: <strong>Table Schema</strong>, <strong>Table Name</strong>, <strong>Consumer Type</strong>, and a measure such as <strong>Num Jobs</strong>.</div></div>';
+        R.innerHTML=navBar()+'<div class="lx-body"><div class="lx-bar" style="border-bottom:1px solid #1e293b"><span style="color:#e2e8f0;font-size:12px;font-weight:700">Consumer dependencies</span></div><div style="padding:24px 20px;color:#94a3b8;font-size:12px;line-height:1.5">This tile is on the DBT Usage dashboard but the query does not include the required fields.<br><br>Use the <strong style="color:#e2e8f0">DBT Usage</strong> explore and add dimensions: <strong>Table Schema</strong>, <strong>Table Name</strong>, <strong>Consumer Type</strong>, and a measure such as <strong>Num Jobs</strong>.</div></div>';
         done();return;
       }
 
