@@ -46,17 +46,13 @@ looker.plugins.visualizations.add({
 
         if(ev.button!==0)return;
 
-        ev.preventDefault();
-
         var url=a.getAttribute('href');
 
-        try{if(typeof LookerCharts!=='undefined'&&LookerCharts.Utils&&LookerCharts.Utils.openUrl){LookerCharts.Utils.openUrl(url);return;}}catch(e){}
+        try{if(typeof LookerCharts!=='undefined'&&LookerCharts.Utils&&LookerCharts.Utils.openUrl){ev.preventDefault();LookerCharts.Utils.openUrl(url);return;}}catch(e){}
 
         try{window.parent.postMessage({type:'page-changed',url:url},'*');}catch(e){}
 
-        try{window.top.location.href=url;return;}catch(e){}
-
-        window.location.href=url;
+        // Let the default <a target="_top"> navigate the host page; never set window.location here — that loads Looker inside the viz iframe and breaks the sandbox.
 
       });
 
@@ -3897,11 +3893,7 @@ looker.plugins.visualizations.add({
 
       try{window.parent.postMessage({type:'page-changed',url:url},'*');}catch(e){}
 
-      try{window.parent.location.href=url;return;}catch(e){}
-
-      try{window.top.location.href=url;return;}catch(e){}
-
-      window.location.href=url;
+      try{if(window.open){window.open(url,'_top');return;}}catch(e){}
 
     }
 
@@ -3937,7 +3929,7 @@ looker.plugins.visualizations.add({
 
         }else if(baseUrl&&t.did){
 
-          h+='<a href="'+baseUrl+'/dashboards/'+t.did+'" class="lx-nav-btn lx-nav-dash t-'+t.id+'" style="text-decoration:none;color:inherit">'+t.icon+' '+t.label+'</a>';
+          h+='<a href="'+baseUrl+'/dashboards/'+t.did+'" target="_top" rel="noopener noreferrer" class="lx-nav-btn lx-nav-dash t-'+t.id+'" style="text-decoration:none;color:inherit">'+t.icon+' '+t.label+'</a>';
 
         }else{
 
