@@ -32,31 +32,7 @@ looker.plugins.visualizations.add({
 
     element.innerHTML='<div id="lex" style="width:100%;height:100%;font-family:Inter,system-ui,-apple-system,sans-serif;background:#0a0e1a;color:#e2e8f0;display:flex;flex-direction:column;overflow:hidden"></div>';
 
-    var lex0=element.querySelector('#lex');
-
-    if(lex0){
-
-      lex0.addEventListener('click',function(ev){
-
-        var a=ev.target&&ev.target.closest&&ev.target.closest('a.lx-nav-dash');
-
-        if(!a||!a.getAttribute('href'))return;
-
-        if(ev.metaKey||ev.ctrlKey||ev.shiftKey||ev.altKey)return;
-
-        if(ev.button!==0)return;
-
-        var url=a.getAttribute('href');
-
-        try{if(typeof LookerCharts!=='undefined'&&LookerCharts.Utils&&LookerCharts.Utils.openUrl){ev.preventDefault();LookerCharts.Utils.openUrl(url);return;}}catch(e){}
-
-        try{window.parent.postMessage({type:'page-changed',url:url},'*');}catch(e){}
-
-        // Let the default <a target="_top"> navigate the host page; never set window.location here — that loads Looker inside the viz iframe and breaks the sandbox.
-
-      });
-
-    }
+    // Dashboard tabs use plain <a target="_top"> links only. Do not use LookerCharts.Utils.openUrl or window.location here — several Looker/sandbox combinations throw "Unsafe attempt to load URL .../sandbox/render/..." when navigating from the viz iframe.
 
     var s=document.createElement('style');
 
@@ -3889,11 +3865,25 @@ looker.plugins.visualizations.add({
 
     function doNav(url){
 
-      try{if(typeof LookerCharts!=='undefined'&&LookerCharts.Utils&&LookerCharts.Utils.openUrl){LookerCharts.Utils.openUrl(url);return;}}catch(e){}
+      try{
 
-      try{window.parent.postMessage({type:'page-changed',url:url},'*');}catch(e){}
+        var t=document.createElement('a');
 
-      try{if(window.open){window.open(url,'_top');return;}}catch(e){}
+        t.href=url;
+
+        t.target='_top';
+
+        t.rel='noopener';
+
+        t.style.cssText='position:absolute;left:-9999px;';
+
+        document.body.appendChild(t);
+
+        t.click();
+
+        t.remove();
+
+      }catch(e){}
 
     }
 
