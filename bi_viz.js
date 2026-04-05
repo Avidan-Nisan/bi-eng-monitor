@@ -4544,7 +4544,7 @@ looker.plugins.visualizations.add({
         R.innerHTML=navBar()+'<div class="lx-body"><div class="lx-bar" style="border-bottom:1px solid #1e293b"><span style="color:#e2e8f0;font-size:12px;font-weight:700">BQ Jobs</span></div><div style="padding:24px 20px;color:#94a3b8;font-size:12px;line-height:1.5">Use the <strong style="color:#e2e8f0">bq_jobs</strong> explore. Add <strong>Job Id</strong> and measure <strong>Total Slot Hours</strong> (or dimension <strong>Total Slot Ms</strong>). Add <strong>Dbt Node Id</strong>, measure <strong>Total Runtime Sec</strong> (sum of wall seconds per job; SCRIPT-aware in PDT), and measure <strong>Avg Slots Job</strong> (weighted slot-ms / wall-ms). Optional: <strong>BQ Job Console Url</strong> (or Job Id link) for BigQuery; <strong>Statement Type</strong>, <strong>User Email</strong>, <strong>State</strong>, <strong>Query</strong>. Click a slot bucket, node, or job to filter. Use <strong style="color:#94a3b8">Clear filter</strong> or click the same item again to reset.</div></div>';
         done();return;
       }
-      var BQ_MAX_JOB_ROWS=800,BQ_MAX_NODE_ROWS=500;
+      var BQ_MAX_JOB_ROWS=10000,BQ_MAX_NODE_ROWS=500;
       try{
       function resolveBqKey(keys,row){
         if(!row)return null;
@@ -4809,6 +4809,7 @@ looker.plugins.visualizations.add({
       var slotHrCounts=[0,0,0,0,0,0];
       var rowSlots=[];
       var rowShBucket=[];
+      var bqJobsListTruncated=data.length>BQ_MAX_JOB_ROWS;
       data.forEach(function(row,rowIdx){
         var slot=getSlot(row),node=getNode(row),runtime=getRuntime(row);
         var nodeKey=dbtNodeShortName(node);
@@ -4817,15 +4818,24 @@ looker.plugins.visualizations.add({
         bucketCounts[bi]=(bucketCounts[bi]||0)+1;
         var shB=slotHourBucket(slot);slotHrCounts[shB]=(slotHrCounts[shB]||0)+1;
         rowShBucket[rowIdx]=shB;
-        if(nodeKey&&nodeKey!=='—'){if(!byModel[nodeKey])byModel[nodeKey]={slot_hours:0,runtime_sec:0,count:0,avg_slots_sum:0,fullLabel:node&&node!=='—'?node:nodeKey};byModel[nodeKey].slot_hours+=slot;byModel[nodeKey].runtime_sec+=runtime;byModel[nodeKey].count+=1;byModel[nodeKey].avg_slots_sum+=av;}
+        if(!bqJobsListTruncated&&nodeKey&&nodeKey!=='—'){if(!byModel[nodeKey])byModel[nodeKey]={slot_hours:0,runtime_sec:0,count:0,avg_slots_sum:0,fullLabel:node&&node!=='—'?node:nodeKey};byModel[nodeKey].slot_hours+=slot;byModel[nodeKey].runtime_sec+=runtime;byModel[nodeKey].count+=1;byModel[nodeKey].avg_slots_sum+=av;}
         rowSlots.push({i:rowIdx,s:isFinite(slot)?slot:0});
       });
+      rowSlots.sort(function(a,b){return b.s-a.s;});
+      var displayIdx=rowSlots.slice(0,Math.min(BQ_MAX_JOB_ROWS,data.length)).map(function(x){return x.i;});
+      function bqAccumNode(row){
+        var slot=getSlot(row),node=getNode(row),runtime=getRuntime(row);
+        var nodeKey=dbtNodeShortName(node);
+        var av=getAvgSlots(row);
+        if(nodeKey&&nodeKey!=='—'){if(!byModel[nodeKey])byModel[nodeKey]={slot_hours:0,runtime_sec:0,count:0,avg_slots_sum:0,fullLabel:node&&node!=='—'?node:nodeKey};byModel[nodeKey].slot_hours+=slot;byModel[nodeKey].runtime_sec+=runtime;byModel[nodeKey].count+=1;byModel[nodeKey].avg_slots_sum+=av;}
+      }
+      if(bqJobsListTruncated){
+        for(var bqi=0;bqi<displayIdx.length;bqi++)bqAccumNode(data[displayIdx[bqi]]);
+      }
       var modelRows=Object.keys(byModel).map(function(n){var m=byModel[n];var wAvg=m.runtime_sec>0?(m.slot_hours*3600)/m.runtime_sec:(m.count?m.avg_slots_sum/m.count:0);return {node:n,slot_hours:m.slot_hours,runtime_sec:m.runtime_sec,count:m.count,avg_slots:isFinite(wAvg)?wAvg:0,fullLabel:m.fullLabel||n};});
       modelRows.sort(function(a,b){return b.slot_hours-a.slot_hours;});
       var modelRowsAll=modelRows;
       modelRows=modelRows.slice(0,BQ_MAX_NODE_ROWS);
-      rowSlots.sort(function(a,b){return b.s-a.s;});
-      var displayIdx=rowSlots.slice(0,BQ_MAX_JOB_ROWS).map(function(x){return x.i;});
       var chartW=Math.max(400,Math.min(W-32,960)),chartH=220,padT=28,padB=44,barGap=10;
       var maxSlotHr=Math.max.apply(null,slotHrCounts.slice(0,5).concat([1]));
       var barW=(chartW-48-4*barGap)/5;
@@ -4849,10 +4859,12 @@ looker.plugins.visualizations.add({
       if(slotHrCounts[5]>0)h+='<div style="margin-top:8px;font-size:10px;color:#64748b">+'+slotHrCounts[5]+' jobs with 0 slot hours</div>';
       h+='</div>';
       h+='<div style="background:linear-gradient(145deg,#1a2332 0%,#131b28 100%);border:1px solid #334155;border-radius:12px;padding:0;overflow:hidden;box-shadow:0 4px 24px rgba(0,0,0,.2)">';
-      h+='<div style="padding:12px 16px;border-bottom:1px solid #334155"><div style="color:#94a3b8;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.08em">2. DBT nodes</div></div>';
+      h+='<div style="padding:12px 16px;border-bottom:1px solid #334155"><div style="color:#94a3b8;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.08em">2. DBT nodes</div>';
+      if(bqJobsListTruncated)h+='<div style="color:#64748b;font-size:10px;margin-top:6px;line-height:1.45">Totals and <strong style="color:#94a3b8">Jobs</strong> counts match section 3 only: they use the same top '+BQ_MAX_JOB_ROWS.toLocaleString()+' jobs by slot hours, not all '+data.length.toLocaleString()+' rows.</div>';
+      h+='</div>';
       h+='<div style="max-height:260px;overflow:auto">';
       h+='<div class="lx-hdr" style="grid-template-columns:minmax(120px,1fr) 90px 90px 56px 72px;padding:10px 14px;font-size:10px;font-weight:700;color:#64748b;text-transform:uppercase;letter-spacing:.04em;border-bottom:1px solid #334155;background:#1e293b;position:sticky;top:0;z-index:2">';
-      h+='<div>Node</div><div style="text-align:right" title="Sum of slot-hours">Slot hours</div><div style="text-align:right" title="Sum of wall seconds per job row">Runtime (s)</div><div style="text-align:right">Jobs</div><div style="text-align:right" title="Mean of avg slots per row">Avg slots</div></div>';
+      h+='<div>Node</div><div style="text-align:right" title="Sum of slot-hours">Slot hours</div><div style="text-align:right" title="Sum of wall seconds per job row">Runtime (s)</div><div style="text-align:right" title="Number of job rows (same rows as in section 3)">Jobs</div><div style="text-align:right" title="Weighted by wall time when possible">Avg slots</div></div>';
       modelRows.forEach(function(r,mi){
         h+='<div class="lx-row lx-bq-node" data-node-idx="'+mi+'" style="grid-template-columns:minmax(120px,1fr) 90px 90px 56px 72px;padding:10px 14px;font-size:11px;border-bottom:1px solid #283548;align-items:start;cursor:pointer" title="'+escAttr(r.fullLabel||r.node)+'">';
         h+='<div class="lx-cell" style="line-height:1.35;white-space:normal">'+formatDbtNodeCell(r.node)+'</div>';
@@ -4890,7 +4902,7 @@ looker.plugins.visualizations.add({
         h+='<div style="text-align:right;color:#cbd5e1;font-variant-numeric:tabular-nums" title="'+escAttr(formatBqRuntimeTitle(runtime))+'">'+(isFinite(runtime)&&runtime>0?(runtime>=10?Math.round(runtime).toLocaleString():runtime.toFixed(2)):'\u2014')+'</div>';
         h+='<div style="text-align:right;color:#a5b4fc;font-variant-numeric:tabular-nums" title="Average concurrent slots (not slot-hours)">'+avs+'</div></div>';
       });
-      if(data.length>BQ_MAX_JOB_ROWS)h+='<div style="padding:10px 12px;font-size:10px;color:#f59e0b;border-top:1px solid #1e293b">Showing top '+BQ_MAX_JOB_ROWS+' jobs by slot hours of '+data.length.toLocaleString()+'. Narrow filters or time range to load fewer rows.</div>';
+      if(data.length>BQ_MAX_JOB_ROWS)h+='<div style="padding:10px 12px;font-size:10px;color:#f59e0b;border-top:1px solid #1e293b">Listing the top '+BQ_MAX_JOB_ROWS.toLocaleString()+' jobs by slot hours (of '+data.length.toLocaleString()+' in this query). Section 2 uses the same set so counts match. Narrow filters or row limit to analyze fewer jobs.</div>';
       h+='</div>';
       h+='<div class="lx-bq-query-wrap" style="border-top:1px solid #334155;background:#0c1220">';
       h+='<div style="padding:8px 14px 4px;font-size:10px;font-weight:700;color:#64748b;text-transform:uppercase;letter-spacing:.04em">Job query</div>';
