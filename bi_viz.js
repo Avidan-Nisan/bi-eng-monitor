@@ -4516,7 +4516,7 @@ looker.plugins.visualizations.add({
       var slotMeasure=F.bq_slot_hours;
       var slotDim=F.bq_total_slot_ms;
       if(!F.bq_job_id||(!slotMeasure&&!slotDim)){
-        R.innerHTML=navBar()+'<div class="lx-body"><div class="lx-bar" style="border-bottom:1px solid #1e293b"><span style="color:#e2e8f0;font-size:12px;font-weight:700">BQ Jobs</span></div><div style="padding:24px 20px;color:#94a3b8;font-size:12px;line-height:1.5">Use the <strong style="color:#e2e8f0">bq_jobs</strong> explore. Add <strong>Job Id</strong> and measure <strong>Total Slot Hours</strong> (or dimension <strong>Total Slot Ms</strong>). Add <strong>Dbt Node Id</strong>, <strong>Runtime Sec</strong> for slot-intensity buckets. Optional: <strong>Statement Type</strong>, <strong>User Email</strong>, <strong>State</strong>, <strong>Query</strong> (SQL appears under the jobs table when you click a row), start/end time or runtime in ms, bytes. Click a slot bucket, node, or job in this tile to filter the chart, node list, and job list to that slice. Use <strong style="color:#94a3b8">Clear filter</strong> or click the same item again to reset.</div></div>';
+        R.innerHTML=navBar()+'<div class="lx-body"><div class="lx-bar" style="border-bottom:1px solid #1e293b"><span style="color:#e2e8f0;font-size:12px;font-weight:700">BQ Jobs</span></div><div style="padding:24px 20px;color:#94a3b8;font-size:12px;line-height:1.5">Use the <strong style="color:#e2e8f0">bq_jobs</strong> explore. Add <strong>Job Id</strong> and measure <strong>Total Slot Hours</strong> (or dimension <strong>Total Slot Ms</strong>). Add <strong>Dbt Node Id</strong>, <strong>Runtime Sec</strong> for slot-intensity buckets. Optional: <strong>Statement Type</strong>, <strong>User Email</strong>, <strong>State</strong>, <strong>Query</strong> (SQL appears under the jobs table when you click a row), start/end time or runtime in ms, bytes. For a per-row link to the job in the BigQuery console, either use a <strong>Job Id</strong> in the form <strong style="color:#cbd5e1">project:location:job_id</strong>, or add dimensions for <strong>Project Id</strong> (or equivalent) and <strong>Job Location</strong> / <strong>Query Location</strong> alongside <strong>Job Id</strong>. Click a slot bucket, node, or job in this tile to filter the chart, node list, and job list to that slice. Use <strong style="color:#94a3b8">Clear filter</strong> or click the same item again to reset.</div></div>';
         done();return;
       }
       var BQ_MAX_JOB_ROWS=800,BQ_MAX_NODE_ROWS=500;
@@ -4548,15 +4548,22 @@ looker.plugins.visualizations.add({
         if(shortN==='\u2014')return '<div class="lx-dbt-node-stack"><span class="lx-dbt-name" style="color:#64748b">\u2014</span></div>';
         return '<div class="lx-dbt-node-stack"><span class="lx-dbt-name">'+shortN.replace(/</g,'&lt;')+'</span></div>';
       }
-      function formatJobIdCell(fullJobId){
+      function formatJobIdCell(fullJobId,consoleUrl){
         var raw=String(fullJobId==null?'':fullJobId);
-        if(!raw)return '<div class="lx-job-stack"><span style="color:#64748b;font-size:11px">\u2014</span></div>';
-        var pref='';
-        var body=raw;
-        if(body.indexOf('script_job_')===0){pref='script_job_';body=body.slice(11);}
-        var core=body;
-        if(core.length>48)core=core.slice(0,16)+'\u2026'+core.slice(-12);
-        return '<div class="lx-job-stack" title="'+escAttr(raw)+'">'+(pref?'<div class="lx-job-prefix">'+pref.replace(/</g,'&lt;')+'</div>':'')+'<div class="lx-job-core">'+core.replace(/</g,'&lt;')+'</div></div>';
+        var stack;
+        if(!raw)stack='<div class="lx-job-stack"><span style="color:#64748b;font-size:11px">\u2014</span></div>';
+        else {
+          var pref='';
+          var body=raw;
+          if(body.indexOf('script_job_')===0){pref='script_job_';body=body.slice(11);}
+          var core=body;
+          if(core.length>48)core=core.slice(0,16)+'\u2026'+core.slice(-12);
+          stack='<div class="lx-job-stack" title="'+escAttr(raw)+'">'+(pref?'<div class="lx-job-prefix">'+pref.replace(/</g,'&lt;')+'</div>':'')+'<div class="lx-job-core">'+core.replace(/</g,'&lt;')+'</div></div>';
+        }
+        if(consoleUrl){
+          return '<div style="display:flex;align-items:flex-start;gap:6px;min-width:0"><div style="min-width:0;flex:1">'+stack+'</div><a class="lx-bq-job-link" href="'+escAttr(consoleUrl)+'" target="_blank" rel="noopener noreferrer" style="flex-shrink:0;color:#38bdf8;font-size:13px;line-height:1.2;text-decoration:none;font-weight:700;margin-top:1px" title="Open job in BigQuery console">\u2197</a></div>';
+        }
+        return stack;
       }
       var firstRow=data[0];
       var kJob=resolveBqKey([F.bq_job_id],firstRow);
@@ -4789,8 +4796,8 @@ looker.plugins.visualizations.add({
       h+='<div style="background:linear-gradient(145deg,#1a2332 0%,#131b28 100%);border:1px solid #334155;border-radius:12px;padding:0;overflow:hidden;box-shadow:0 4px 24px rgba(0,0,0,.2)">';
       h+='<div style="padding:12px 16px;border-bottom:1px solid #334155"><div style="color:#94a3b8;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.08em">3. Jobs</div></div>';
       h+='<div style="max-height:420px;overflow:auto">';
-      h+='<div class="lx-hdr" style="grid-template-columns:minmax(160px,1.2fr) minmax(110px,1fr) 72px 72px minmax(140px,1fr) 72px 72px 72px 40px;padding:10px 12px;font-size:10px;font-weight:700;color:#64748b;text-transform:uppercase;letter-spacing:.03em;border-bottom:1px solid #334155;background:#1e293b;position:sticky;top:0;z-index:2;align-items:end">';
-      h+='<div>Job id</div><div>DBT node</div><div>Stmt</div><div>State</div><div>User email</div><div style="text-align:right">Slot h</div><div style="text-align:right">Run s</div><div style="text-align:right">Avg slots</div><div style="text-align:center" title="Open in Google Cloud Console">GCP</div></div>';
+      h+='<div class="lx-hdr" style="grid-template-columns:minmax(160px,1.2fr) minmax(110px,1fr) 72px 72px minmax(140px,1fr) 72px 72px 72px 64px;padding:10px 12px;font-size:10px;font-weight:700;color:#64748b;text-transform:uppercase;letter-spacing:.03em;border-bottom:1px solid #334155;background:#1e293b;position:sticky;top:0;z-index:2;align-items:end">';
+      h+='<div>Job id</div><div>DBT node</div><div>Stmt</div><div>State</div><div>User email</div><div style="text-align:right">Slot h</div><div style="text-align:right">Run s</div><div style="text-align:right">Avg slots</div></div>';
       displayIdx.forEach(function(rowIdx){
         var row=data[rowIdx];
         var slot=getSlot(row),node=getNode(row),runtime=getRuntime(row),jobId=kJob?String(cellVal(row,kJob)||''):'';
@@ -4801,16 +4808,15 @@ looker.plugins.visualizations.add({
         var ue=kUser?String(cellVal(row,kUser)||''):'';
         var avs=isFinite(av)?(av>=100?av.toFixed(0):(av>=10?av.toFixed(1):av.toFixed(2))):'\u2014';
         var bqJobUrl=buildBqConsoleJobUrl(row);
-        h+='<div class="lx-row lx-bq-job" data-row-idx="'+rowIdx+'" data-sh-bucket="'+shB+'" style="grid-template-columns:minmax(160px,1.2fr) minmax(110px,1fr) 72px 72px minmax(140px,1fr) 72px 72px 72px 40px;padding:10px 12px;font-size:10px;border-bottom:1px solid #283548;cursor:pointer">';
-        h+='<div class="lx-cell">'+formatJobIdCell(jobId)+'</div>';
+        h+='<div class="lx-row lx-bq-job" data-row-idx="'+rowIdx+'" data-sh-bucket="'+shB+'" style="grid-template-columns:minmax(160px,1.2fr) minmax(110px,1fr) 72px 72px minmax(140px,1fr) 72px 72px 72px 64px;padding:10px 12px;font-size:10px;border-bottom:1px solid #283548;cursor:pointer">';
+        h+='<div class="lx-cell">'+formatJobIdCell(jobId,bqJobUrl)+'</div>';
         h+='<div class="lx-cell" style="line-height:1.35;white-space:normal">'+formatDbtNodeCell(node)+'</div>';
         h+='<div class="lx-cell" style="color:#94a3b8" title="'+escAttr(st)+'">'+(st.length>10?st.substring(0,8)+'\u2026':st||'\u2014').replace(/</g,'&lt;')+'</div>';
         h+='<div class="lx-cell" style="color:#64748b">'+(stt||'\u2014').replace(/</g,'&lt;')+'</div>';
         h+='<div class="lx-cell" style="color:#94a3b8;line-height:1.3;word-break:break-all" title="'+escAttr(ue)+'">'+(ue.length>32?ue.substring(0,30)+'\u2026':ue||'\u2014').replace(/</g,'&lt;')+'</div>';
         h+='<div style="text-align:right;color:#22d3ee;font-variant-numeric:tabular-nums;font-weight:600">'+(isFinite(slot)?slot.toFixed(2):'\u2014')+'</div>';
         h+='<div style="text-align:right;color:#cbd5e1;font-variant-numeric:tabular-nums">'+(isFinite(runtime)&&runtime>0?(runtime>=10?Math.round(runtime).toLocaleString():runtime.toFixed(2)):'\u2014')+'</div>';
-        h+='<div style="text-align:right;color:#a5b4fc;font-variant-numeric:tabular-nums">'+avs+'</div>';
-        h+='<div style="display:flex;align-items:center;justify-content:center;padding-top:2px">'+(bqJobUrl?'<a class="lx-bq-job-link" href="'+escAttr(bqJobUrl)+'" target="_blank" rel="noopener noreferrer" style="color:#38bdf8;font-size:14px;line-height:1;text-decoration:none;font-weight:700" title="Open job in BigQuery (GCP Console)">\u2197</a>':'<span style="color:#475569;font-size:10px" title="Add Project Id and job location dimensions (or use project:location:job_id) for console link">\u2014</span>')+'</div></div>';
+        h+='<div style="text-align:right;color:#a5b4fc;font-variant-numeric:tabular-nums">'+avs+'</div></div>';
       });
       if(data.length>BQ_MAX_JOB_ROWS)h+='<div style="padding:10px 12px;font-size:10px;color:#f59e0b;border-top:1px solid #1e293b">Showing top '+BQ_MAX_JOB_ROWS+' jobs by slot hours of '+data.length.toLocaleString()+'. Narrow filters or time range to load fewer rows.</div>';
       h+='</div>';
