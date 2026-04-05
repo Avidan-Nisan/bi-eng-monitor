@@ -22,7 +22,11 @@ looker.plugins.visualizations.add({
 
     lkml_labels_dashboard_id: {type:"string",label:"LKML Labels Dashboard ID",default:"",section:"Navigation",order:8},
 
-    lkml_audit_dashboard_id: {type:"string",label:"Looker Audit Dashboard ID",default:"",section:"Navigation",order:9}
+    lkml_audit_dashboard_id: {type:"string",label:"Looker Audit Dashboard ID",default:"",section:"Navigation",order:9},
+
+    bq_console_default_project: {type:"string",label:"BQ Jobs — default GCP project id (for console links when the query has no project column)",default:"",section:"Settings",order:20},
+
+    bq_console_default_location: {type:"string",label:"BQ Jobs — default region (e.g. US, EU) when the query has no location column",default:"",section:"Settings",order:21}
 
   },
 
@@ -4516,7 +4520,7 @@ looker.plugins.visualizations.add({
       var slotMeasure=F.bq_slot_hours;
       var slotDim=F.bq_total_slot_ms;
       if(!F.bq_job_id||(!slotMeasure&&!slotDim)){
-        R.innerHTML=navBar()+'<div class="lx-body"><div class="lx-bar" style="border-bottom:1px solid #1e293b"><span style="color:#e2e8f0;font-size:12px;font-weight:700">BQ Jobs</span></div><div style="padding:24px 20px;color:#94a3b8;font-size:12px;line-height:1.5">Use the <strong style="color:#e2e8f0">bq_jobs</strong> explore. Add <strong>Job Id</strong> and measure <strong>Total Slot Hours</strong> (or dimension <strong>Total Slot Ms</strong>). Add <strong>Dbt Node Id</strong>, <strong>Runtime Sec</strong> for slot-intensity buckets. Optional: <strong>Statement Type</strong>, <strong>User Email</strong>, <strong>State</strong>, <strong>Query</strong> (SQL appears under the jobs table when you click a row), start/end time or runtime in ms, bytes. For a per-row link to the job in the BigQuery console, either use a <strong>Job Id</strong> in the form <strong style="color:#cbd5e1">project:location:job_id</strong>, or add dimensions for <strong>Project Id</strong> (or equivalent) and <strong>Job Location</strong> / <strong>Query Location</strong> alongside <strong>Job Id</strong>. Click a slot bucket, node, or job in this tile to filter the chart, node list, and job list to that slice. Use <strong style="color:#94a3b8">Clear filter</strong> or click the same item again to reset.</div></div>';
+        R.innerHTML=navBar()+'<div class="lx-body"><div class="lx-bar" style="border-bottom:1px solid #1e293b"><span style="color:#e2e8f0;font-size:12px;font-weight:700">BQ Jobs</span></div><div style="padding:24px 20px;color:#94a3b8;font-size:12px;line-height:1.5">Use the <strong style="color:#e2e8f0">bq_jobs</strong> explore. Add <strong>Job Id</strong> and measure <strong>Total Slot Hours</strong> (or dimension <strong>Total Slot Ms</strong>). Add <strong>Dbt Node Id</strong>, <strong>Runtime Sec</strong> for slot-intensity buckets. Optional: <strong>Statement Type</strong>, <strong>User Email</strong>, <strong>State</strong>, <strong>Query</strong> (SQL appears under the jobs table when you click a row), start/end time or runtime in ms, bytes. For a per-row <strong>Open</strong> link to the job in the BigQuery console: use <strong>Job Id</strong> as <strong style="color:#cbd5e1">project:location:job_id</strong>, or add <strong>Project Id</strong> and <strong>Job Location</strong> (or <strong>Query Location</strong> / <strong>Region</strong>) to the query, or set viz options <strong style="color:#cbd5e1">BQ Jobs — default GCP project id</strong> and <strong style="color:#cbd5e1">default region</strong> under Settings when your query only returns a plain job id. Click a slot bucket, node, or job in this tile to filter the chart, node list, and job list to that slice. Use <strong style="color:#94a3b8">Clear filter</strong> or click the same item again to reset.</div></div>';
         done();return;
       }
       var BQ_MAX_JOB_ROWS=800,BQ_MAX_NODE_ROWS=500;
@@ -4561,7 +4565,7 @@ looker.plugins.visualizations.add({
           stack='<div class="lx-job-stack" title="'+escAttr(raw)+'">'+(pref?'<div class="lx-job-prefix">'+pref.replace(/</g,'&lt;')+'</div>':'')+'<div class="lx-job-core">'+core.replace(/</g,'&lt;')+'</div></div>';
         }
         if(consoleUrl){
-          return '<div style="display:flex;align-items:flex-start;gap:6px;min-width:0"><div style="min-width:0;flex:1">'+stack+'</div><a class="lx-bq-job-link" href="'+escAttr(consoleUrl)+'" target="_blank" rel="noopener noreferrer" style="flex-shrink:0;color:#38bdf8;font-size:13px;line-height:1.2;text-decoration:none;font-weight:700;margin-top:1px" title="Open job in BigQuery console">\u2197</a></div>';
+          return '<div style="display:flex;align-items:flex-start;gap:8px;min-width:0;flex-wrap:wrap"><div style="min-width:0;flex:1">'+stack+'</div><a class="lx-bq-job-link" href="'+escAttr(consoleUrl)+'" target="_blank" rel="noopener noreferrer" style="flex-shrink:0;display:inline-block;margin-top:1px;padding:3px 8px;border-radius:6px;font-size:9px;font-weight:700;letter-spacing:.04em;text-transform:uppercase;text-decoration:none;color:#e0f2fe;background:rgba(56,189,248,0.12);border:1px solid rgba(56,189,248,0.45)" title="Open this job in the BigQuery console (Google Cloud)">Open</a></div>';
         }
         return stack;
       }
@@ -4643,27 +4647,67 @@ looker.plugins.visualizations.add({
       })();
       var kBqProject=null,kBqLocation=null;
       (function detectBqProjectLocation(){
+        function nk(k){return (k||'').toLowerCase().replace(/[\s.]/g,'_');}
+        function looksLikeGcpProjectId(s){
+          var t=String(s==null?'':s).trim();
+          return /^[a-z][a-z0-9-]{4,61}[a-z0-9]$/.test(t);
+        }
+        function looksLikeBqRegion(s){
+          var t=String(s==null?'':s).trim();
+          if(t.length<2||t.length>64)return false;
+          if(/@/.test(t)||/\s/.test(t))return false;
+          if(/^[0-9.]+$/.test(t))return false;
+          return /^[A-Za-z][A-Za-z0-9_-]*[A-Za-z0-9]$/.test(t);
+        }
         var keys=Object.keys(firstRow||{});
-        var i,ll;
+        var i,ll,v;
         for(i=0;i<keys.length;i++){
-          ll=keys[i].toLowerCase().replace(/[\s.]/g,'_');
-          if(!kBqProject&&(ll==='project_id'||ll.endsWith('_project_id')||ll==='bq_project_id'||ll==='gcp_project_id'))kBqProject=keys[i];
+          ll=nk(keys[i]);
+          if(ll==='project_id'||ll.endsWith('_project_id')||ll==='bq_project_id'||ll==='gcp_project_id'||ll.indexOf('destination_project_id')!==-1||ll.indexOf('gcp_project_id')!==-1){kBqProject=keys[i];break;}
+        }
+        if(!kBqProject){
+          for(i=0;i<keys.length;i++){
+            ll=nk(keys[i]);
+            if(ll.indexOf('looker')!==-1||ll.indexOf('dbt_project')!==-1)continue;
+            if((ll.indexOf('project_id')!==-1||ll==='gcp_project'||ll.endsWith('_gcp_project'))&&ll.indexOf('name')===-1){
+              v=cellVal(firstRow,keys[i]);
+              if(looksLikeGcpProjectId(v)){kBqProject=keys[i];break;}
+            }
+          }
+        }
+        if(!kBqProject){
+          for(i=0;i<keys.length;i++){
+            ll=nk(keys[i]);
+            if(ll==='project'||ll.endsWith('.project')){
+              v=cellVal(firstRow,keys[i]);
+              if(looksLikeGcpProjectId(v)){kBqProject=keys[i];break;}
+            }
+          }
         }
         for(i=0;i<keys.length;i++){
-          ll=keys[i].toLowerCase().replace(/[\s.]/g,'_');
-          if(ll.indexOf('job_location')!==-1||ll.indexOf('query_location')!==-1||ll.indexOf('bigquery_job_location')!==-1||ll==='bq_location'){kBqLocation=keys[i];break;}
+          ll=nk(keys[i]);
+          if(ll.indexOf('job_location')!==-1||ll.indexOf('query_location')!==-1||ll.indexOf('processing_location')!==-1||ll.indexOf('bigquery_job_location')!==-1||ll==='bq_location'||ll.indexOf('execution_location')!==-1){kBqLocation=keys[i];break;}
         }
         if(!kBqLocation){
           for(i=0;i<keys.length;i++){
-            ll=keys[i].toLowerCase().replace(/[\s.]/g,'_');
-            if(ll!=='location')continue;
-            var lv=cellVal(firstRow,keys[i]);
-            if(lv==null)continue;
-            var lvs=String(lv).trim();
-            if(/^[A-Za-z][A-Za-z0-9_-]{1,62}$/.test(lvs)){kBqLocation=keys[i];break;}
+            ll=nk(keys[i]);
+            if(ll!=='location'&&ll.indexOf('_location')===-1)continue;
+            if(ll.indexOf('allocation')!==-1||ll.indexOf('geograph')!==-1||ll.indexOf('geo_')===0)continue;
+            v=cellVal(firstRow,keys[i]);
+            if(looksLikeBqRegion(v)){kBqLocation=keys[i];break;}
+          }
+        }
+        if(!kBqLocation){
+          for(i=0;i<keys.length;i++){
+            ll=nk(keys[i]);
+            if(ll!=='region'&&ll.indexOf('job_region')===-1&&ll.indexOf('bq_region')===-1)continue;
+            v=cellVal(firstRow,keys[i]);
+            if(looksLikeBqRegion(v)){kBqLocation=keys[i];break;}
           }
         }
       })();
+      var bqCfgDefaultProj=(config.bq_console_default_project||'').trim();
+      var bqCfgDefaultLoc=(config.bq_console_default_location||'').trim();
       function buildBqConsoleJobUrl(row){
         if(!kJob||!row)return '';
         var raw=String(cellVal(row,kJob)||'').trim();
@@ -4673,6 +4717,8 @@ looker.plugins.visualizations.add({
         if(m){proj=m[1].trim();loc=m[2].trim();jid=m[3].trim();}
         if(!proj&&kBqProject)proj=String(cellVal(row,kBqProject)||'').trim();
         if(!loc&&kBqLocation)loc=String(cellVal(row,kBqLocation)||'').trim();
+        if(!proj&&bqCfgDefaultProj)proj=bqCfgDefaultProj;
+        if(!loc&&bqCfgDefaultLoc)loc=bqCfgDefaultLoc;
         if(!proj||!loc||!jid)return '';
         var jParam='bq:'+loc+':'+jid;
         return 'https://console.cloud.google.com/bigquery?project='+encodeURIComponent(proj)+'&j='+encodeURIComponent(jParam)+'&page=jobs';
