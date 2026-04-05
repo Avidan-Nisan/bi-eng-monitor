@@ -22,11 +22,7 @@ looker.plugins.visualizations.add({
 
     lkml_labels_dashboard_id: {type:"string",label:"LKML Labels Dashboard ID",default:"",section:"Navigation",order:8},
 
-    lkml_audit_dashboard_id: {type:"string",label:"Looker Audit Dashboard ID",default:"",section:"Navigation",order:9},
-
-    bq_console_default_project: {type:"string",label:"BQ Jobs — default GCP project id (for console links when the query has no project column)",default:"",section:"Settings",order:20},
-
-    bq_console_default_location: {type:"string",label:"BQ Jobs — default region (e.g. US, EU) when the query has no location column",default:"",section:"Settings",order:21}
+    lkml_audit_dashboard_id: {type:"string",label:"Looker Audit Dashboard ID",default:"",section:"Navigation",order:9}
 
   },
 
@@ -158,7 +154,9 @@ looker.plugins.visualizations.add({
     F.bq_user_email=dims.find(function(f){var l=(f||'').toLowerCase().replace(/\s/g,'_');return l.indexOf('user_email')!==-1;});
     F.bq_state=dims.find(function(f){var l=(f||'').toLowerCase().replace(/\s/g,'_');return l.indexOf('state')!==-1&&l.indexOf('statement')===-1;});
 
-    F.bq_avg_slots_dim=dims.find(function(f){var l=(f||'').toLowerCase().replace(/\s/g,'_');return l.indexOf('avg_slots')!==-1&&l.indexOf('average')===-1;});
+    F.bq_avg_slots_dim=dims.find(function(f){var l=(f||'').toLowerCase().replace(/\s/g,'_');return l==='avg_slots_job'||l.endsWith('.avg_slots_job')||l.endsWith('_avg_slots_job');})||dims.find(function(f){var l=(f||'').toLowerCase().replace(/\s/g,'_');return l.indexOf('avg_slots')!==-1&&l.indexOf('average')===-1;});
+
+    F.bq_console_url_dim=dims.find(function(f){var l=(f||'').toLowerCase().replace(/\s/g,'_');return l.indexOf('bq_job_console_url')!==-1;});
 
     F.bq_job_category=dims.find(function(f){var l=(f||'').toLowerCase().replace(/\s/g,'_');return l.indexOf('job_category')!==-1;})||dims.find(function(f){var l=(f||'').toLowerCase().replace(/\s/g,'_');return l.indexOf('category')!==-1&&l.indexOf('job')!==-1;});
 
@@ -4520,7 +4518,7 @@ looker.plugins.visualizations.add({
       var slotMeasure=F.bq_slot_hours;
       var slotDim=F.bq_total_slot_ms;
       if(!F.bq_job_id||(!slotMeasure&&!slotDim)){
-        R.innerHTML=navBar()+'<div class="lx-body"><div class="lx-bar" style="border-bottom:1px solid #1e293b"><span style="color:#e2e8f0;font-size:12px;font-weight:700">BQ Jobs</span></div><div style="padding:24px 20px;color:#94a3b8;font-size:12px;line-height:1.5">Use the <strong style="color:#e2e8f0">bq_jobs</strong> explore. Add <strong>Job Id</strong> and measure <strong>Total Slot Hours</strong> (or dimension <strong>Total Slot Ms</strong>). Add <strong>Dbt Node Id</strong>, <strong>Runtime Sec</strong> for slot-intensity buckets. Optional: <strong>Statement Type</strong>, <strong>User Email</strong>, <strong>State</strong>, <strong>Query</strong> (SQL appears under the jobs table when you click a row), start/end time or runtime in ms, bytes. For a per-row <strong>Open</strong> link to the job in the BigQuery console: use <strong>Job Id</strong> as <strong style="color:#cbd5e1">project:location:job_id</strong>, or add <strong>Project Id</strong> and <strong>Job Location</strong> (or <strong>Query Location</strong> / <strong>Region</strong>) to the query, or set viz options <strong style="color:#cbd5e1">BQ Jobs — default GCP project id</strong> and <strong style="color:#cbd5e1">default region</strong> under Settings when your query only returns a plain job id. Click a slot bucket, node, or job in this tile to filter the chart, node list, and job list to that slice. Use <strong style="color:#94a3b8">Clear filter</strong> or click the same item again to reset.</div></div>';
+        R.innerHTML=navBar()+'<div class="lx-body"><div class="lx-bar" style="border-bottom:1px solid #1e293b"><span style="color:#e2e8f0;font-size:12px;font-weight:700">BQ Jobs</span></div><div style="padding:24px 20px;color:#94a3b8;font-size:12px;line-height:1.5">Use the <strong style="color:#e2e8f0">bq_jobs</strong> explore. Add <strong>Job Id</strong> and measure <strong>Total Slot Hours</strong> (or dimension <strong>Total Slot Ms</strong>). Add <strong>Dbt Node Id</strong>, dimension <strong>Runtime Sec</strong> (wall seconds; SCRIPT-aware in PDT), and <strong>Avg Slots Job</strong> for correct per-job averages. Optional: <strong>BQ Job Console Url</strong> (or rely on Job Id link from LookML) for an <strong>Open</strong> button; <strong>Statement Type</strong>, <strong>User Email</strong>, <strong>State</strong>, <strong>Query</strong>. Click a slot bucket, node, or job to filter. Use <strong style="color:#94a3b8">Clear filter</strong> or click the same item again to reset.</div></div>';
         done();return;
       }
       var BQ_MAX_JOB_ROWS=800,BQ_MAX_NODE_ROWS=500;
@@ -4552,7 +4550,7 @@ looker.plugins.visualizations.add({
         if(shortN==='\u2014')return '<div class="lx-dbt-node-stack"><span class="lx-dbt-name" style="color:#64748b">\u2014</span></div>';
         return '<div class="lx-dbt-node-stack"><span class="lx-dbt-name">'+shortN.replace(/</g,'&lt;')+'</span></div>';
       }
-      function formatJobIdCell(fullJobId,consoleUrl){
+      function formatJobIdCell(fullJobId,openUrl){
         var raw=String(fullJobId==null?'':fullJobId);
         var stack;
         if(!raw)stack='<div class="lx-job-stack"><span style="color:#64748b;font-size:11px">\u2014</span></div>';
@@ -4564,10 +4562,32 @@ looker.plugins.visualizations.add({
           if(core.length>48)core=core.slice(0,16)+'\u2026'+core.slice(-12);
           stack='<div class="lx-job-stack" title="'+escAttr(raw)+'">'+(pref?'<div class="lx-job-prefix">'+pref.replace(/</g,'&lt;')+'</div>':'')+'<div class="lx-job-core">'+core.replace(/</g,'&lt;')+'</div></div>';
         }
-        if(consoleUrl){
-          return '<div style="display:flex;align-items:flex-start;gap:8px;min-width:0;flex-wrap:wrap"><div style="min-width:0;flex:1">'+stack+'</div><a class="lx-bq-job-link" href="'+escAttr(consoleUrl)+'" target="_blank" rel="noopener noreferrer" style="flex-shrink:0;display:inline-block;margin-top:1px;padding:3px 8px;border-radius:6px;font-size:9px;font-weight:700;letter-spacing:.04em;text-transform:uppercase;text-decoration:none;color:#e0f2fe;background:rgba(56,189,248,0.12);border:1px solid rgba(56,189,248,0.45)" title="Open this job in the BigQuery console (Google Cloud)">Open</a></div>';
+        if(openUrl&&String(openUrl).trim()!==''){
+          return '<div style="display:flex;align-items:flex-start;gap:6px;min-width:0;flex-wrap:wrap"><div style="min-width:0;flex:1">'+stack+'</div><a class="lx-bq-job-link" href="'+escAttr(String(openUrl).trim())+'" target="_blank" rel="noopener noreferrer" style="flex-shrink:0;display:inline-block;padding:3px 7px;border-radius:6px;font-size:9px;font-weight:700;letter-spacing:.03em;text-transform:uppercase;text-decoration:none;color:#e0f2fe;background:rgba(56,189,248,0.12);border:1px solid rgba(56,189,248,0.45)" title="Open in BigQuery (Jobs Explorer)">Open</a></div>';
         }
         return stack;
+      }
+      function bqJobOpenUrl(row){
+        var u,i,L,c;
+        if(kConsoleUrl){u=cellVal(row,kConsoleUrl);if(u!=null&&String(u).trim()!=='')return String(u).trim();}
+        if(!kJob)return '';
+        c=row[kJob];
+        if(c&&typeof c==='object'){
+          if(typeof c.link_url==='string'&&c.link_url)return String(c.link_url).trim();
+          if(typeof c.linkUrl==='string'&&c.linkUrl)return String(c.linkUrl).trim();
+          L=c.links;
+          if(Array.isArray(L))for(i=0;i<L.length;i++)if(L[i]&&L[i].url)return String(L[i].url).trim();
+        }
+        return '';
+      }
+      function formatBqRuntimeTitle(sec){
+        if(!isFinite(sec)||sec<=0)return '';
+        var s=Math.floor(sec);
+        if(s<60)return s+' s wall time';
+        var m=Math.floor(s/60),r=s%60;
+        if(s<3600)return m+' min '+r+' s wall time';
+        var h=Math.floor(s/3600);m=Math.floor((s%3600)/60);
+        return h+' h '+m+' min ('+s.toLocaleString()+' s)';
       }
       var firstRow=data[0];
       var kJob=resolveBqKey([F.bq_job_id],firstRow);
@@ -4580,17 +4600,29 @@ looker.plugins.visualizations.add({
       var kAvgDim=F.bq_avg_slots_dim?resolveBqKey([F.bq_avg_slots_dim],firstRow):null;
       var kStmt=F.bq_statement_dim?resolveBqKey([F.bq_statement_dim],firstRow):null;
       var kBytes=F.bq_bytes?resolveBqKey([F.bq_bytes],firstRow):null;
-      var kRuntimeMeas=null,kRuntimeMs=null,kJobStart=null,kJobEnd=null,kQuery=null,bqRuntimeMeasIsMs=false;
+      var kRuntimeMeas=null,kRuntimeMs=null,kJobStart=null,kJobEnd=null,kQuery=null,kConsoleUrl=null,bqRuntimeMeasIsMs=false;
       (function fixBqFieldKeys(){
         var keys=Object.keys(firstRow||{});
         var i,ll,t,mn,lnm;
+        kConsoleUrl=F.bq_console_url_dim?resolveBqKey([F.bq_console_url_dim],firstRow):null;
+        if(!kConsoleUrl){
+          for(i=0;i<keys.length;i++){
+            ll=keys[i].toLowerCase().replace(/[\s.]/g,'_');
+            if(ll.indexOf('bq_job_console_url')!==-1){kConsoleUrl=keys[i];break;}
+          }
+        }
         for(i=0;i<keys.length;i++){
           ll=keys[i].toLowerCase();
           if((ll.indexOf('dbt_node_id')!==-1||ll.indexOf('dbt_query_node_id')!==-1)&&ll.indexOf('creation')===-1&&ll.indexOf('hour')===-1){kNode=keys[i];break;}
         }
         if(kNode){t=String(cellVal(firstRow,kNode)||'');if(/^\d{4}-\d{2}-\d{2}/.test(t.trim())){kNode=null;for(i=0;i<keys.length;i++){ll=keys[i].toLowerCase();if(ll.indexOf('dbt_node_id')!==-1||ll.indexOf('dbt_query_node_id')!==-1){kNode=keys[i];break;}}}}
         if(!kNode){for(i=0;i<keys.length;i++){ll=keys[i].toLowerCase();if(ll.indexOf('node')!==-1&&ll.indexOf('dbt')!==-1&&ll.indexOf('creation')===-1&&ll.indexOf('hour')===-1&&ll.indexOf('date')===-1){kNode=keys[i];break;}}}
-        kRuntime=resolveBqKey([F.bq_runtime_sec],firstRow);
+        kRuntime=null;
+        for(i=0;i<keys.length;i++){
+          ll=keys[i].toLowerCase().replace(/[\s.]/g,'_');
+          if(ll==='runtime_sec'||ll.endsWith('_runtime_sec')){kRuntime=keys[i];break;}
+        }
+        if(!kRuntime)kRuntime=resolveBqKey([F.bq_runtime_sec],firstRow);
         if(kRuntime){t=parseFloat(cellVal(firstRow,kRuntime));if(!isFinite(t)||(t>=1900&&t<=2100))kRuntime=null;}
         if(!kRuntime){
           for(i=0;i<keys.length;i++){
@@ -4622,6 +4654,10 @@ looker.plugins.visualizations.add({
             }
           }
         }
+        if(kRuntimeMeas){
+          lnm=(kRuntimeMeas||'').toLowerCase().replace(/\s/g,'_');
+          if(lnm.indexOf('minute')!==-1||(lnm.indexOf('_min')!==-1&&lnm.indexOf('sec')===-1&&lnm.indexOf('second')===-1))kRuntimeMeas=null;
+        }
         for(i=0;i<keys.length;i++){
           ll=keys[i].toLowerCase().replace(/[\s.]/g,'_');
           if(ll==='end_time'||ll.endsWith('_end_time')){kJobEnd=keys[i];break;}
@@ -4644,85 +4680,13 @@ looker.plugins.visualizations.add({
             if(ll==='query'||ll.endsWith('.query')||ll.indexOf('query_text')!==-1||ll.indexOf('sql_text')!==-1||ll.indexOf('resolved_statement')!==-1||(ll.indexOf('statement')!==-1&&ll.indexOf('sql')!==-1)){kQuery=keys[i];break;}
           }
         }
-      })();
-      var kBqProject=null,kBqLocation=null;
-      (function detectBqProjectLocation(){
-        function nk(k){return (k||'').toLowerCase().replace(/[\s.]/g,'_');}
-        function looksLikeGcpProjectId(s){
-          var t=String(s==null?'':s).trim();
-          return /^[a-z][a-z0-9-]{4,61}[a-z0-9]$/.test(t);
-        }
-        function looksLikeBqRegion(s){
-          var t=String(s==null?'':s).trim();
-          if(t.length<2||t.length>64)return false;
-          if(/@/.test(t)||/\s/.test(t))return false;
-          if(/^[0-9.]+$/.test(t))return false;
-          return /^[A-Za-z][A-Za-z0-9_-]*[A-Za-z0-9]$/.test(t);
-        }
-        var keys=Object.keys(firstRow||{});
-        var i,ll,v;
-        for(i=0;i<keys.length;i++){
-          ll=nk(keys[i]);
-          if(ll==='project_id'||ll.endsWith('_project_id')||ll==='bq_project_id'||ll==='gcp_project_id'||ll.indexOf('destination_project_id')!==-1||ll.indexOf('gcp_project_id')!==-1){kBqProject=keys[i];break;}
-        }
-        if(!kBqProject){
+        if(!kAvgDim){
           for(i=0;i<keys.length;i++){
-            ll=nk(keys[i]);
-            if(ll.indexOf('looker')!==-1||ll.indexOf('dbt_project')!==-1)continue;
-            if((ll.indexOf('project_id')!==-1||ll==='gcp_project'||ll.endsWith('_gcp_project'))&&ll.indexOf('name')===-1){
-              v=cellVal(firstRow,keys[i]);
-              if(looksLikeGcpProjectId(v)){kBqProject=keys[i];break;}
-            }
-          }
-        }
-        if(!kBqProject){
-          for(i=0;i<keys.length;i++){
-            ll=nk(keys[i]);
-            if(ll==='project'||ll.endsWith('.project')){
-              v=cellVal(firstRow,keys[i]);
-              if(looksLikeGcpProjectId(v)){kBqProject=keys[i];break;}
-            }
-          }
-        }
-        for(i=0;i<keys.length;i++){
-          ll=nk(keys[i]);
-          if(ll.indexOf('job_location')!==-1||ll.indexOf('query_location')!==-1||ll.indexOf('processing_location')!==-1||ll.indexOf('bigquery_job_location')!==-1||ll==='bq_location'||ll.indexOf('execution_location')!==-1){kBqLocation=keys[i];break;}
-        }
-        if(!kBqLocation){
-          for(i=0;i<keys.length;i++){
-            ll=nk(keys[i]);
-            if(ll!=='location'&&ll.indexOf('_location')===-1)continue;
-            if(ll.indexOf('allocation')!==-1||ll.indexOf('geograph')!==-1||ll.indexOf('geo_')===0)continue;
-            v=cellVal(firstRow,keys[i]);
-            if(looksLikeBqRegion(v)){kBqLocation=keys[i];break;}
-          }
-        }
-        if(!kBqLocation){
-          for(i=0;i<keys.length;i++){
-            ll=nk(keys[i]);
-            if(ll!=='region'&&ll.indexOf('job_region')===-1&&ll.indexOf('bq_region')===-1)continue;
-            v=cellVal(firstRow,keys[i]);
-            if(looksLikeBqRegion(v)){kBqLocation=keys[i];break;}
+            ll=keys[i].toLowerCase().replace(/[\s.]/g,'_');
+            if(ll.indexOf('avg_slots')!==-1&&ll.indexOf('average')===-1){kAvgDim=keys[i];break;}
           }
         }
       })();
-      var bqCfgDefaultProj=(config.bq_console_default_project||'').trim();
-      var bqCfgDefaultLoc=(config.bq_console_default_location||'').trim();
-      function buildBqConsoleJobUrl(row){
-        if(!kJob||!row)return '';
-        var raw=String(cellVal(row,kJob)||'').trim();
-        if(!raw)return '';
-        var proj,loc,jid=raw;
-        var m=/^([^:]+):([^:]+):(.+)$/.exec(raw);
-        if(m){proj=m[1].trim();loc=m[2].trim();jid=m[3].trim();}
-        if(!proj&&kBqProject)proj=String(cellVal(row,kBqProject)||'').trim();
-        if(!loc&&kBqLocation)loc=String(cellVal(row,kBqLocation)||'').trim();
-        if(!proj&&bqCfgDefaultProj)proj=bqCfgDefaultProj;
-        if(!loc&&bqCfgDefaultLoc)loc=bqCfgDefaultLoc;
-        if(!proj||!loc||!jid)return '';
-        var jParam='bq:'+loc+':'+jid;
-        return 'https://console.cloud.google.com/bigquery?project='+encodeURIComponent(proj)+'&j='+encodeURIComponent(jParam)+'&page=jobs';
-      }
       function getSlot(row){if(kSlotM!=null){var v=cellVal(row,kSlotM);if(v!=null)return parseFloat(v)||0;}if(kSlotD!=null){var v=cellVal(row,kSlotD);if(v!=null)return (parseFloat(v)||0)/3600000;}return 0;}
       function getNode(row){if(!kNode)return '—';var v=cellVal(row,kNode);return v!=null&&String(v).trim()!==''?String(v):'—';}
       function parseTsCell(row,key){
@@ -4742,20 +4706,20 @@ looker.plugins.visualizations.add({
       }
       function getRuntime(row){
         var v,n,te,ts;
-        if(kRuntimeMeas){
-          v=cellVal(row,kRuntimeMeas);
-          n=v!=null?parseFloat(v):NaN;
-          if(isFinite(n)&&n>=0)return bqRuntimeMeasIsMs?n/1000:n;
-        }
         if(kRuntime){
           v=cellVal(row,kRuntime);
           n=v!=null?parseFloat(v):NaN;
-          if(isFinite(n)&&(n<1900||n>2100))return n;
+          if(isFinite(n)&&n>=0&&(n<1900||n>2100))return n;
         }
         if(kRuntimeMs){
           v=cellVal(row,kRuntimeMs);
           n=v!=null?parseFloat(v):NaN;
           if(isFinite(n)&&n>=0)return n/1000;
+        }
+        if(kRuntimeMeas){
+          v=cellVal(row,kRuntimeMeas);
+          n=v!=null?parseFloat(v):NaN;
+          if(isFinite(n)&&n>=0)return bqRuntimeMeasIsMs?n/1000:n;
         }
         if(kJobStart&&kJobEnd&&kJobStart!==kJobEnd){
           te=parseTsCell(row,kJobEnd);ts=parseTsCell(row,kJobStart);
@@ -4827,7 +4791,7 @@ looker.plugins.visualizations.add({
       h+='<div style="padding:12px 16px;border-bottom:1px solid #334155"><div style="color:#94a3b8;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.08em">2. DBT nodes</div></div>';
       h+='<div style="max-height:260px;overflow:auto">';
       h+='<div class="lx-hdr" style="grid-template-columns:minmax(120px,1fr) 90px 90px 56px 72px;padding:10px 14px;font-size:10px;font-weight:700;color:#64748b;text-transform:uppercase;letter-spacing:.04em;border-bottom:1px solid #334155;background:#1e293b;position:sticky;top:0;z-index:2">';
-      h+='<div>Node</div><div style="text-align:right">Slot hours</div><div style="text-align:right">Runtime (s)</div><div style="text-align:right">Jobs</div><div style="text-align:right">Avg slots</div></div>';
+      h+='<div>Node</div><div style="text-align:right" title="Sum of slot-hours">Slot hours</div><div style="text-align:right" title="Sum of wall seconds per job row">Runtime (s)</div><div style="text-align:right">Jobs</div><div style="text-align:right" title="Mean of avg slots per row">Avg slots</div></div>';
       modelRows.forEach(function(r,mi){
         h+='<div class="lx-row lx-bq-node" data-node-idx="'+mi+'" style="grid-template-columns:minmax(120px,1fr) 90px 90px 56px 72px;padding:10px 14px;font-size:11px;border-bottom:1px solid #283548;align-items:start;cursor:pointer" title="'+escAttr(r.node)+'">';
         h+='<div class="lx-cell" style="line-height:1.35;white-space:normal">'+formatDbtNodeCell(r.node)+'</div>';
@@ -4843,7 +4807,7 @@ looker.plugins.visualizations.add({
       h+='<div style="padding:12px 16px;border-bottom:1px solid #334155"><div style="color:#94a3b8;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.08em">3. Jobs</div></div>';
       h+='<div style="max-height:420px;overflow:auto">';
       h+='<div class="lx-hdr" style="grid-template-columns:minmax(160px,1.2fr) minmax(110px,1fr) 72px 72px minmax(140px,1fr) 72px 72px 72px 64px;padding:10px 12px;font-size:10px;font-weight:700;color:#64748b;text-transform:uppercase;letter-spacing:.03em;border-bottom:1px solid #334155;background:#1e293b;position:sticky;top:0;z-index:2;align-items:end">';
-      h+='<div>Job id</div><div>DBT node</div><div>Stmt</div><div>State</div><div>User email</div><div style="text-align:right">Slot h</div><div style="text-align:right">Run s</div><div style="text-align:right">Avg slots</div></div>';
+      h+='<div>Job id</div><div>DBT node</div><div>Stmt</div><div>State</div><div>User email</div><div style="text-align:right" title="Slot-hours (total_slot_ms / 3.6e6)">Slot h</div><div style="text-align:right" title="Wall-clock seconds; add PDT dimension Runtime Sec (SCRIPT uses child span)">Run (s)</div><div style="text-align:right" title="Avg concurrent slots (slot-ms / wall-ms); add Avg Slots Job from PDT">Avg slots</div></div>';
       displayIdx.forEach(function(rowIdx){
         var row=data[rowIdx];
         var slot=getSlot(row),node=getNode(row),runtime=getRuntime(row),jobId=kJob?String(cellVal(row,kJob)||''):'';
@@ -4853,16 +4817,16 @@ looker.plugins.visualizations.add({
         var stt=kState?String(cellVal(row,kState)||''):'';
         var ue=kUser?String(cellVal(row,kUser)||''):'';
         var avs=isFinite(av)?(av>=100?av.toFixed(0):(av>=10?av.toFixed(1):av.toFixed(2))):'\u2014';
-        var bqJobUrl=buildBqConsoleJobUrl(row);
+        var openU=bqJobOpenUrl(row);
         h+='<div class="lx-row lx-bq-job" data-row-idx="'+rowIdx+'" data-sh-bucket="'+shB+'" style="grid-template-columns:minmax(160px,1.2fr) minmax(110px,1fr) 72px 72px minmax(140px,1fr) 72px 72px 72px 64px;padding:10px 12px;font-size:10px;border-bottom:1px solid #283548;cursor:pointer">';
-        h+='<div class="lx-cell">'+formatJobIdCell(jobId,bqJobUrl)+'</div>';
+        h+='<div class="lx-cell">'+formatJobIdCell(jobId,openU)+'</div>';
         h+='<div class="lx-cell" style="line-height:1.35;white-space:normal">'+formatDbtNodeCell(node)+'</div>';
         h+='<div class="lx-cell" style="color:#94a3b8" title="'+escAttr(st)+'">'+(st.length>10?st.substring(0,8)+'\u2026':st||'\u2014').replace(/</g,'&lt;')+'</div>';
         h+='<div class="lx-cell" style="color:#64748b">'+(stt||'\u2014').replace(/</g,'&lt;')+'</div>';
         h+='<div class="lx-cell" style="color:#94a3b8;line-height:1.3;word-break:break-all" title="'+escAttr(ue)+'">'+(ue.length>32?ue.substring(0,30)+'\u2026':ue||'\u2014').replace(/</g,'&lt;')+'</div>';
         h+='<div style="text-align:right;color:#22d3ee;font-variant-numeric:tabular-nums;font-weight:600">'+(isFinite(slot)?slot.toFixed(2):'\u2014')+'</div>';
-        h+='<div style="text-align:right;color:#cbd5e1;font-variant-numeric:tabular-nums">'+(isFinite(runtime)&&runtime>0?(runtime>=10?Math.round(runtime).toLocaleString():runtime.toFixed(2)):'\u2014')+'</div>';
-        h+='<div style="text-align:right;color:#a5b4fc;font-variant-numeric:tabular-nums">'+avs+'</div></div>';
+        h+='<div style="text-align:right;color:#cbd5e1;font-variant-numeric:tabular-nums" title="'+escAttr(formatBqRuntimeTitle(runtime))+'">'+(isFinite(runtime)&&runtime>0?(runtime>=10?Math.round(runtime).toLocaleString():runtime.toFixed(2)):'\u2014')+'</div>';
+        h+='<div style="text-align:right;color:#a5b4fc;font-variant-numeric:tabular-nums" title="Average concurrent slots (not slot-hours)">'+avs+'</div></div>';
       });
       if(data.length>BQ_MAX_JOB_ROWS)h+='<div style="padding:10px 12px;font-size:10px;color:#f59e0b;border-top:1px solid #1e293b">Showing top '+BQ_MAX_JOB_ROWS+' jobs by slot hours of '+data.length.toLocaleString()+'. Narrow filters or time range to load fewer rows.</div>';
       h+='</div>';
