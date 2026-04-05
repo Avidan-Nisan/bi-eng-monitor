@@ -4529,6 +4529,7 @@ looker.plugins.visualizations.add({
         var rowKeys=Object.keys(row);
         for(var i=0;i<keys.length;i++){
           var want=(keys[i]||'').toLowerCase().replace(/[\s.]/g,'');
+          if(!want)continue;
           var found=rowKeys.find(function(k){return (k||'').toLowerCase().replace(/[\s.]/g,'').indexOf(want)!==-1||want.indexOf((k||'').toLowerCase().replace(/[\s.]/g,''))!==-1;});
           if(found)return found;
         }
@@ -4561,16 +4562,32 @@ looker.plugins.visualizations.add({
         return '<div class="lx-job-stack" style="min-width:0;max-width:100%" title="'+escAttr(raw)+'">'+(pref?'<div class="lx-job-prefix">'+pref.replace(/</g,'&lt;')+'</div>':'')+'<div class="lx-job-core" style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap;word-break:normal;max-width:100%">'+core.replace(/</g,'&lt;')+'</div></div>';
       }
       var bqOpenSvg='<svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M18 13v6a2 2 0 01-2 2H5a2 2 0 01-2-2V8a2 2 0 012-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg>';
+      function bqJobExplorerDeepLink(u,jobId){
+        var proj,mReg,reg,jid,q,base;
+        if(!u||!jobId||u.indexOf('jobs-explorer')===-1)return u;
+        if(u.indexOf('/details;sourceJobId=')!==-1)return u;
+        jid=String(jobId).replace(/^script_job_/,'').trim();
+        if(!jid)return u;
+        mReg=/[?&]project=([^&]+)/.exec(u);
+        proj=mReg?decodeURIComponent(mReg[1]):'';
+        if(!proj)return u;
+        reg=(/;region=([^;?]+)/.exec(u)||[])[1]||'us';
+        q=u.indexOf('?');
+        if(q===-1)return u;
+        base=u.slice(0,q);
+        return base+'/details;sourceJobId='+proj+':'+reg+'.'+jid+';tab=JOB_INFORMATION'+u.slice(q);
+      }
       function bqJobOpenUrl(row){
-        var u,i,L,c;
-        if(kConsoleUrl){u=cellVal(row,kConsoleUrl);if(u!=null&&String(u).trim()!=='')return String(u).trim();}
+        var u,i,L,c,jid;
+        if(kConsoleUrl){u=cellVal(row,kConsoleUrl);if(u!=null&&String(u).trim()!=='')return bqJobExplorerDeepLink(String(u).trim(),kJob?String(cellVal(row,kJob)||'').trim():'');}
         if(!kJob)return '';
+        jid=cellVal(row,kJob);
         c=row[kJob];
         if(c&&typeof c==='object'){
-          if(typeof c.link_url==='string'&&c.link_url)return String(c.link_url).trim();
-          if(typeof c.linkUrl==='string'&&c.linkUrl)return String(c.linkUrl).trim();
-          L=c.links;
-          if(Array.isArray(L))for(i=0;i<L.length;i++)if(L[i]&&L[i].url)return String(L[i].url).trim();
+          if(typeof c.link_url==='string'&&c.link_url)u=bqJobExplorerDeepLink(String(c.link_url).trim(),jid);
+          else if(typeof c.linkUrl==='string'&&c.linkUrl)u=bqJobExplorerDeepLink(String(c.linkUrl).trim(),jid);
+          else{u='';L=c.links;if(Array.isArray(L))for(i=0;i<L.length;i++)if(L[i]&&L[i].url){u=bqJobExplorerDeepLink(String(L[i].url).trim(),jid);break;}}
+          if(u)return u;
         }
         return '';
       }
@@ -4627,6 +4644,11 @@ looker.plugins.visualizations.add({
             t=parseFloat(cellVal(firstRow,keys[i]));
             if(isFinite(t)&&t>=0&&(t<1900||t>2100)&&t<=86400*365){kRuntime=keys[i];break;}
           }
+        }
+        if(kRuntime){
+          ll=String(kRuntime).toLowerCase().replace(/[\s.]/g,'_');
+          if(ll.indexOf('minute')!==-1||(ll.indexOf('_min')!==-1&&ll.indexOf('sec')===-1&&ll.indexOf('second')===-1))kRuntime=null;
+          else if((ll.indexOf('slot')!==-1||ll.indexOf('slot_hour')!==-1||ll.indexOf('slot_ms')!==-1)&&(ll.indexOf('runtime')===-1&&ll.indexOf('elapsed')===-1&&ll.indexOf('duration')===-1))kRuntime=null;
         }
         kRuntimeMs=resolveBqKey([F.bq_runtime_ms_dim],firstRow);
         if(kRuntimeMs){t=parseFloat(cellVal(firstRow,kRuntimeMs));if(!isFinite(t)||t<0||t>86400000*1000)kRuntimeMs=null;}
@@ -4745,15 +4767,16 @@ looker.plugins.visualizations.add({
       var rowShBucket=[];
       data.forEach(function(row,rowIdx){
         var slot=getSlot(row),node=getNode(row),runtime=getRuntime(row);
+        var nodeKey=dbtNodeShortName(node);
         var av=getAvgSlots(row);
         var bi=bucketIdx(av,runtime);
         bucketCounts[bi]=(bucketCounts[bi]||0)+1;
         var shB=slotHourBucket(slot);slotHrCounts[shB]=(slotHrCounts[shB]||0)+1;
         rowShBucket[rowIdx]=shB;
-        if(node&&node!=='—'){if(!byModel[node])byModel[node]={slot_hours:0,runtime_sec:0,count:0,avg_slots_sum:0};byModel[node].slot_hours+=slot;byModel[node].runtime_sec+=runtime;byModel[node].count+=1;byModel[node].avg_slots_sum+=av;}
+        if(nodeKey&&nodeKey!=='—'){if(!byModel[nodeKey])byModel[nodeKey]={slot_hours:0,runtime_sec:0,count:0,avg_slots_sum:0,fullLabel:node&&node!=='—'?node:nodeKey};byModel[nodeKey].slot_hours+=slot;byModel[nodeKey].runtime_sec+=runtime;byModel[nodeKey].count+=1;byModel[nodeKey].avg_slots_sum+=av;}
         rowSlots.push({i:rowIdx,s:isFinite(slot)?slot:0});
       });
-      var modelRows=Object.keys(byModel).map(function(n){var m=byModel[n];var wAvg=m.count?m.avg_slots_sum/m.count:0;return {node:n,slot_hours:m.slot_hours,runtime_sec:m.runtime_sec,count:m.count,avg_slots:isFinite(wAvg)?wAvg:0};});
+      var modelRows=Object.keys(byModel).map(function(n){var m=byModel[n];var wAvg=m.count?m.avg_slots_sum/m.count:0;return {node:n,slot_hours:m.slot_hours,runtime_sec:m.runtime_sec,count:m.count,avg_slots:isFinite(wAvg)?wAvg:0,fullLabel:m.fullLabel||n};});
       modelRows.sort(function(a,b){return b.slot_hours-a.slot_hours;});
       var modelRowsAll=modelRows;
       modelRows=modelRows.slice(0,BQ_MAX_NODE_ROWS);
@@ -4787,7 +4810,7 @@ looker.plugins.visualizations.add({
       h+='<div class="lx-hdr" style="grid-template-columns:minmax(120px,1fr) 90px 90px 56px 72px;padding:10px 14px;font-size:10px;font-weight:700;color:#64748b;text-transform:uppercase;letter-spacing:.04em;border-bottom:1px solid #334155;background:#1e293b;position:sticky;top:0;z-index:2">';
       h+='<div>Node</div><div style="text-align:right" title="Sum of slot-hours">Slot hours</div><div style="text-align:right" title="Sum of wall seconds per job row">Runtime (s)</div><div style="text-align:right">Jobs</div><div style="text-align:right" title="Mean of avg slots per row">Avg slots</div></div>';
       modelRows.forEach(function(r,mi){
-        h+='<div class="lx-row lx-bq-node" data-node-idx="'+mi+'" style="grid-template-columns:minmax(120px,1fr) 90px 90px 56px 72px;padding:10px 14px;font-size:11px;border-bottom:1px solid #283548;align-items:start;cursor:pointer" title="'+escAttr(r.node)+'">';
+        h+='<div class="lx-row lx-bq-node" data-node-idx="'+mi+'" style="grid-template-columns:minmax(120px,1fr) 90px 90px 56px 72px;padding:10px 14px;font-size:11px;border-bottom:1px solid #283548;align-items:start;cursor:pointer" title="'+escAttr(r.fullLabel||r.node)+'">';
         h+='<div class="lx-cell" style="line-height:1.35;white-space:normal">'+formatDbtNodeCell(r.node)+'</div>';
         h+='<div style="text-align:right;color:#22d3ee;font-variant-numeric:tabular-nums;font-weight:600;padding-top:2px">'+(r.slot_hours.toFixed(2))+'</div>';
         h+='<div style="text-align:right;color:#cbd5e1;font-variant-numeric:tabular-nums;padding-top:2px">'+(Math.round(r.runtime_sec)|0).toLocaleString()+'</div>';
@@ -4834,7 +4857,8 @@ looker.plugins.visualizations.add({
       R.innerHTML=h;
       var nodeToBucketSet={};
       for(var ri=0;ri<data.length;ri++){
-        var nKey=getNode(data[ri]);
+        var nKey=dbtNodeShortName(getNode(data[ri]));
+        if(!nKey||nKey==='\u2014'||nKey==='—')continue;
         var bKey=rowShBucket[ri];
         if(!nodeToBucketSet[nKey])nodeToBucketSet[nKey]={};
         nodeToBucketSet[nKey][bKey]=true;
@@ -4889,7 +4913,7 @@ looker.plugins.visualizations.add({
           });
           jobEls.forEach(function(el){
             var rj=parseInt(el.getAttribute('data-row-idx'),10);
-            if(getNode(data[rj])!==nSel)el.classList.add('lx-bq-filter-hide');
+            if(dbtNodeShortName(getNode(data[rj]))!==nSel)el.classList.add('lx-bq-filter-hide');
           });
           nodeEls.forEach(function(el){
             var ni=parseInt(el.getAttribute('data-node-idx'),10);
@@ -4897,7 +4921,7 @@ looker.plugins.visualizations.add({
           });
         }else if(bqFocus.type==='job'){
           var ji=bqFocus.idx;
-          var nJob=getNode(data[ji]);
+          var nJobShort=dbtNodeShortName(getNode(data[ji]));
           var sbJob=rowShBucket[ji];
           barGroups.forEach(function(g){
             var bi=parseInt(g.getAttribute('data-slot-b'),10);
@@ -4910,7 +4934,7 @@ looker.plugins.visualizations.add({
           });
           nodeEls.forEach(function(el){
             var ni=parseInt(el.getAttribute('data-node-idx'),10);
-            if(!modelRows[ni]||modelRows[ni].node!==nJob)el.classList.add('lx-bq-filter-hide');
+            if(!modelRows[ni]||modelRows[ni].node!==nJobShort)el.classList.add('lx-bq-filter-hide');
           });
         }
         syncBqQueryPanel();
