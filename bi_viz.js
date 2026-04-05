@@ -4634,6 +4634,42 @@ looker.plugins.visualizations.add({
           }
         }
       })();
+      var kBqProject=null,kBqLocation=null;
+      (function detectBqProjectLocation(){
+        var keys=Object.keys(firstRow||{});
+        var i,ll;
+        for(i=0;i<keys.length;i++){
+          ll=keys[i].toLowerCase().replace(/[\s.]/g,'_');
+          if(!kBqProject&&(ll==='project_id'||ll.endsWith('_project_id')||ll==='bq_project_id'||ll==='gcp_project_id'))kBqProject=keys[i];
+        }
+        for(i=0;i<keys.length;i++){
+          ll=keys[i].toLowerCase().replace(/[\s.]/g,'_');
+          if(ll.indexOf('job_location')!==-1||ll.indexOf('query_location')!==-1||ll.indexOf('bigquery_job_location')!==-1||ll==='bq_location'){kBqLocation=keys[i];break;}
+        }
+        if(!kBqLocation){
+          for(i=0;i<keys.length;i++){
+            ll=keys[i].toLowerCase().replace(/[\s.]/g,'_');
+            if(ll!=='location')continue;
+            var lv=cellVal(firstRow,keys[i]);
+            if(lv==null)continue;
+            var lvs=String(lv).trim();
+            if(/^[A-Za-z][A-Za-z0-9_-]{1,62}$/.test(lvs)){kBqLocation=keys[i];break;}
+          }
+        }
+      })();
+      function buildBqConsoleJobUrl(row){
+        if(!kJob||!row)return '';
+        var raw=String(cellVal(row,kJob)||'').trim();
+        if(!raw)return '';
+        var proj,loc,jid=raw;
+        var m=/^([^:]+):([^:]+):(.+)$/.exec(raw);
+        if(m){proj=m[1].trim();loc=m[2].trim();jid=m[3].trim();}
+        if(!proj&&kBqProject)proj=String(cellVal(row,kBqProject)||'').trim();
+        if(!loc&&kBqLocation)loc=String(cellVal(row,kBqLocation)||'').trim();
+        if(!proj||!loc||!jid)return '';
+        var jParam='bq:'+loc+':'+jid;
+        return 'https://console.cloud.google.com/bigquery?project='+encodeURIComponent(proj)+'&j='+encodeURIComponent(jParam)+'&page=jobs';
+      }
       function getSlot(row){if(kSlotM!=null){var v=cellVal(row,kSlotM);if(v!=null)return parseFloat(v)||0;}if(kSlotD!=null){var v=cellVal(row,kSlotD);if(v!=null)return (parseFloat(v)||0)/3600000;}return 0;}
       function getNode(row){if(!kNode)return '—';var v=cellVal(row,kNode);return v!=null&&String(v).trim()!==''?String(v):'—';}
       function parseTsCell(row,key){
@@ -4753,8 +4789,8 @@ looker.plugins.visualizations.add({
       h+='<div style="background:linear-gradient(145deg,#1a2332 0%,#131b28 100%);border:1px solid #334155;border-radius:12px;padding:0;overflow:hidden;box-shadow:0 4px 24px rgba(0,0,0,.2)">';
       h+='<div style="padding:12px 16px;border-bottom:1px solid #334155"><div style="color:#94a3b8;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.08em">3. Jobs</div></div>';
       h+='<div style="max-height:420px;overflow:auto">';
-      h+='<div class="lx-hdr" style="grid-template-columns:minmax(160px,1.2fr) minmax(110px,1fr) 72px 72px minmax(140px,1fr) 72px 72px 72px 64px;padding:10px 12px;font-size:10px;font-weight:700;color:#64748b;text-transform:uppercase;letter-spacing:.03em;border-bottom:1px solid #334155;background:#1e293b;position:sticky;top:0;z-index:2;align-items:end">';
-      h+='<div>Job id</div><div>DBT node</div><div>Stmt</div><div>State</div><div>User email</div><div style="text-align:right">Slot h</div><div style="text-align:right">Run s</div><div style="text-align:right">Avg slots</div></div>';
+      h+='<div class="lx-hdr" style="grid-template-columns:minmax(160px,1.2fr) minmax(110px,1fr) 72px 72px minmax(140px,1fr) 72px 72px 72px 40px;padding:10px 12px;font-size:10px;font-weight:700;color:#64748b;text-transform:uppercase;letter-spacing:.03em;border-bottom:1px solid #334155;background:#1e293b;position:sticky;top:0;z-index:2;align-items:end">';
+      h+='<div>Job id</div><div>DBT node</div><div>Stmt</div><div>State</div><div>User email</div><div style="text-align:right">Slot h</div><div style="text-align:right">Run s</div><div style="text-align:right">Avg slots</div><div style="text-align:center" title="Open in Google Cloud Console">GCP</div></div>';
       displayIdx.forEach(function(rowIdx){
         var row=data[rowIdx];
         var slot=getSlot(row),node=getNode(row),runtime=getRuntime(row),jobId=kJob?String(cellVal(row,kJob)||''):'';
@@ -4764,7 +4800,8 @@ looker.plugins.visualizations.add({
         var stt=kState?String(cellVal(row,kState)||''):'';
         var ue=kUser?String(cellVal(row,kUser)||''):'';
         var avs=isFinite(av)?(av>=100?av.toFixed(0):(av>=10?av.toFixed(1):av.toFixed(2))):'\u2014';
-        h+='<div class="lx-row lx-bq-job" data-row-idx="'+rowIdx+'" data-sh-bucket="'+shB+'" style="grid-template-columns:minmax(160px,1.2fr) minmax(110px,1fr) 72px 72px minmax(140px,1fr) 72px 72px 72px 64px;padding:10px 12px;font-size:10px;border-bottom:1px solid #283548;cursor:pointer">';
+        var bqJobUrl=buildBqConsoleJobUrl(row);
+        h+='<div class="lx-row lx-bq-job" data-row-idx="'+rowIdx+'" data-sh-bucket="'+shB+'" style="grid-template-columns:minmax(160px,1.2fr) minmax(110px,1fr) 72px 72px minmax(140px,1fr) 72px 72px 72px 40px;padding:10px 12px;font-size:10px;border-bottom:1px solid #283548;cursor:pointer">';
         h+='<div class="lx-cell">'+formatJobIdCell(jobId)+'</div>';
         h+='<div class="lx-cell" style="line-height:1.35;white-space:normal">'+formatDbtNodeCell(node)+'</div>';
         h+='<div class="lx-cell" style="color:#94a3b8" title="'+escAttr(st)+'">'+(st.length>10?st.substring(0,8)+'\u2026':st||'\u2014').replace(/</g,'&lt;')+'</div>';
@@ -4772,7 +4809,8 @@ looker.plugins.visualizations.add({
         h+='<div class="lx-cell" style="color:#94a3b8;line-height:1.3;word-break:break-all" title="'+escAttr(ue)+'">'+(ue.length>32?ue.substring(0,30)+'\u2026':ue||'\u2014').replace(/</g,'&lt;')+'</div>';
         h+='<div style="text-align:right;color:#22d3ee;font-variant-numeric:tabular-nums;font-weight:600">'+(isFinite(slot)?slot.toFixed(2):'\u2014')+'</div>';
         h+='<div style="text-align:right;color:#cbd5e1;font-variant-numeric:tabular-nums">'+(isFinite(runtime)&&runtime>0?(runtime>=10?Math.round(runtime).toLocaleString():runtime.toFixed(2)):'\u2014')+'</div>';
-        h+='<div style="text-align:right;color:#a5b4fc;font-variant-numeric:tabular-nums">'+avs+'</div></div>';
+        h+='<div style="text-align:right;color:#a5b4fc;font-variant-numeric:tabular-nums">'+avs+'</div>';
+        h+='<div style="display:flex;align-items:center;justify-content:center;padding-top:2px">'+(bqJobUrl?'<a class="lx-bq-job-link" href="'+escAttr(bqJobUrl)+'" target="_blank" rel="noopener noreferrer" style="color:#38bdf8;font-size:14px;line-height:1;text-decoration:none;font-weight:700" title="Open job in BigQuery (GCP Console)">\u2197</a>':'<span style="color:#475569;font-size:10px" title="Add Project Id and job location dimensions (or use project:location:job_id) for console link">\u2014</span>')+'</div></div>';
       });
       if(data.length>BQ_MAX_JOB_ROWS)h+='<div style="padding:10px 12px;font-size:10px;color:#f59e0b;border-top:1px solid #1e293b">Showing top '+BQ_MAX_JOB_ROWS+' jobs by slot hours of '+data.length.toLocaleString()+'. Narrow filters or time range to load fewer rows.</div>';
       h+='</div>';
@@ -4885,6 +4923,7 @@ looker.plugins.visualizations.add({
       });
       R.querySelectorAll('.lx-bq-job').forEach(function(el){
         el.addEventListener('click',function(e){
+          if(e.target&&e.target.closest&&e.target.closest('.lx-bq-job-link'))return;
           e.preventDefault();e.stopPropagation();
           var idx=parseInt(el.getAttribute('data-row-idx'),10);
           if(isNaN(idx)||!data[idx])return;
