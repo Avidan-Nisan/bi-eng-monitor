@@ -4794,7 +4794,7 @@ looker.plugins.visualizations.add({
         return 0;
       }
       function bucketIdx(av,rt){
-        if(kAvgDim&&av>=0){if(av<1)return 0;if(av<10)return 1;if(av<50)return 2;if(av<200)return 3;return 4;}
+        if((kAvgDim||kAvgSlotsMeas)&&isFinite(av)&&av>=0){if(av<1)return 0;if(av<10)return 1;if(av<50)return 2;if(av<200)return 3;return 4;}
         if(rt<=0||!(av>=0))return 5;
         if(av<1)return 0;if(av<10)return 1;if(av<50)return 2;if(av<200)return 3;return 4;
       }
@@ -4820,7 +4820,7 @@ looker.plugins.visualizations.add({
         if(nodeKey&&nodeKey!=='—'){if(!byModel[nodeKey])byModel[nodeKey]={slot_hours:0,runtime_sec:0,count:0,avg_slots_sum:0,fullLabel:node&&node!=='—'?node:nodeKey};byModel[nodeKey].slot_hours+=slot;byModel[nodeKey].runtime_sec+=runtime;byModel[nodeKey].count+=1;byModel[nodeKey].avg_slots_sum+=av;}
         rowSlots.push({i:rowIdx,s:isFinite(slot)?slot:0});
       });
-      var modelRows=Object.keys(byModel).map(function(n){var m=byModel[n];var wAvg=m.count?m.avg_slots_sum/m.count:0;return {node:n,slot_hours:m.slot_hours,runtime_sec:m.runtime_sec,count:m.count,avg_slots:isFinite(wAvg)?wAvg:0,fullLabel:m.fullLabel||n};});
+      var modelRows=Object.keys(byModel).map(function(n){var m=byModel[n];var wAvg=m.runtime_sec>0?(m.slot_hours*3600)/m.runtime_sec:(m.count?m.avg_slots_sum/m.count:0);return {node:n,slot_hours:m.slot_hours,runtime_sec:m.runtime_sec,count:m.count,avg_slots:isFinite(wAvg)?wAvg:0,fullLabel:m.fullLabel||n};});
       modelRows.sort(function(a,b){return b.slot_hours-a.slot_hours;});
       var modelRowsAll=modelRows;
       modelRows=modelRows.slice(0,BQ_MAX_NODE_ROWS);
@@ -4868,7 +4868,7 @@ looker.plugins.visualizations.add({
       h+='<div style="padding:12px 16px;border-bottom:1px solid #334155"><div style="color:#94a3b8;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.08em">3. Jobs</div></div>';
       h+='<div style="max-height:420px;overflow:auto">';
       h+='<div class="lx-hdr" style="grid-template-columns:minmax(140px,1.1fr) 40px minmax(100px,1fr) 72px 72px minmax(140px,1fr) 72px 72px 72px 64px;padding:10px 12px;font-size:10px;font-weight:700;color:#64748b;text-transform:uppercase;letter-spacing:.03em;border-bottom:1px solid #334155;background:#1e293b;position:sticky;top:0;z-index:2;align-items:end">';
-      h+='<div>Job id</div><div style="text-align:center;padding:0 2px" title="Open in BigQuery console">BQ</div><div>DBT node</div><div>Stmt</div><div>State</div><div>User email</div><div style="text-align:right" title="Slot-hours (total_slot_ms / 3.6e6)">Slot h</div><div style="text-align:right" title="Wall-clock seconds; add PDT dimension Runtime Sec (SCRIPT uses child span)">Run (s)</div><div style="text-align:right" title="Avg concurrent slots (slot-ms / wall-ms); add Avg Slots Job from PDT">Avg slots</div></div>';
+      h+='<div>Job id</div><div style="text-align:center;padding:0 2px" title="Open in BigQuery console">BQ</div><div>DBT node</div><div>Stmt</div><div>State</div><div>User email</div><div style="text-align:right" title="Slot-hours (total_slot_ms / 3.6e6)">Slot h</div><div style="text-align:right" title="Wall-clock seconds; add measure Total Runtime Sec (sum per job; SCRIPT uses child span)">Run (s)</div><div style="text-align:right" title="Concurrent slots; add measure Avg Slots Job (weighted)">Avg slots</div></div>';
       displayIdx.forEach(function(rowIdx){
         var row=data[rowIdx];
         var slot=getSlot(row),node=getNode(row),runtime=getRuntime(row),jobId=kJob?String(cellVal(row,kJob)||''):'';
