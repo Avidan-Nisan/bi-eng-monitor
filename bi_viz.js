@@ -3987,7 +3987,7 @@ looker.plugins.visualizations.add({
   
           {id:'lkml_audit',label:'Looker audit',icon:ic.audit,did:config.lkml_audit_dashboard_id},
   
-          {id:'airflow',label:'Airflow monitoring',icon:ic.aflow,did:config.airflow_dashboard_id}
+          {id:'airflow',label:'Airflow Monitoring',icon:ic.aflow,did:config.airflow_dashboard_id}
   
         ];
   
@@ -5645,13 +5645,13 @@ looker.plugins.visualizations.add({
         function pad2(x){return (x<10?'0':'')+x;}
 
         if(!F.af_dag_id){
-          R.innerHTML=navBar()+'<div class="lx-body"><div class="lx-bar" style="border-bottom:1px solid #1e293b"><span style="color:#e2e8f0;font-size:12px;font-weight:700">Airflow monitoring</span></div><div style="padding:24px 20px;color:#94a3b8;font-size:12px;line-height:1.55">Add the <strong style="color:#e2e8f0">Dag Id</strong> dimension to this query (from <code style="color:#64748b">airflow_dag_performance</code>).</div></div>';
+          R.innerHTML=navBar()+'<div class="lx-body"><div class="lx-bar" style="border-bottom:1px solid #1e293b"><span style="color:#e2e8f0;font-size:12px;font-weight:700">Airflow Monitoring</span></div><div style="padding:24px 20px;color:#94a3b8;font-size:12px;line-height:1.55">Add the <strong style="color:#e2e8f0">Dag Id</strong> dimension to this query (from <code style="color:#64748b">airflow_dag_performance</code>).</div></div>';
           try{done();}catch(e){}
           return;
         }
 
         if(!F.af_run_date){
-          R.innerHTML=navBar()+'<div class="lx-body"><div class="lx-bar" style="border-bottom:1px solid #1e293b"><span style="color:#e2e8f0;font-size:12px;font-weight:700">Airflow monitoring</span></div><div style="padding:24px 20px;color:#94a3b8;font-size:12px;line-height:1.55">Add a <strong style="color:#e2e8f0">date</strong> dimension to the query (not only a filter): <strong>Run Date</strong> from the Run group, or <strong>Start Date</strong> / <strong>Start Time</strong> from the Start group. Looker only sends fields that appear in the data table; a date filter alone does not.</div></div>';
+          R.innerHTML=navBar()+'<div class="lx-body"><div class="lx-bar" style="border-bottom:1px solid #1e293b"><span style="color:#e2e8f0;font-size:12px;font-weight:700">Airflow Monitoring</span></div><div style="padding:24px 20px;color:#94a3b8;font-size:12px;line-height:1.55">Add a <strong style="color:#e2e8f0">date</strong> dimension to the query (not only a filter): <strong>Run Date</strong> from the Run group, or <strong>Start Date</strong> / <strong>Start Time</strong> from the Start group. Looker only sends fields that appear in the data table; a date filter alone does not.</div></div>';
           try{done();}catch(e){}
           return;
         }
@@ -5692,7 +5692,7 @@ looker.plugins.visualizations.add({
         for(var dk in dedupeMap)if(Object.prototype.hasOwnProperty.call(dedupeMap,dk))runs.push(dedupeMap[dk]);
 
         if(runs.length===0){
-          R.innerHTML=navBar()+'<div class="lx-body"><div class="lx-bar"><span style="color:#e2e8f0;font-size:12px;font-weight:700">Airflow monitoring</span></div><div style="padding:40px;color:#64748b;text-align:center;font-size:12px">No rows with both Dag Id and a parseable date. Check field types and filters.</div></div>';
+          R.innerHTML=navBar()+'<div class="lx-body"><div class="lx-bar"><span style="color:#e2e8f0;font-size:12px;font-weight:700">Airflow Monitoring</span></div><div style="padding:40px;color:#64748b;text-align:center;font-size:12px">No rows with both Dag Id and a parseable date. Check field types and filters.</div></div>';
           try{done();}catch(e){}
           return;
         }
