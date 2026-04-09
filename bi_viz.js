@@ -232,16 +232,33 @@ looker.plugins.visualizations.add({
       var looksLikeLkmlAuditExplore=!!(F.audit_event_name&&F.audit_created&&(hasEventAttributeDim||queryExplore.indexOf('event')!==-1||queryExplore.indexOf('system')!==-1));
   
       function dimAf(suf){return dims.find(function(f){var n=nkAud(f);return n===suf||n.endsWith('.'+suf);});}
-      F.af_dag_id=dimAf('dag_id');
-      F.af_run_id=dimAf('run_id');
-      F.af_run_date=dimAf('run_date');
-      F.af_run_hour=dimAf('run_hour');
-      F.af_state=dimAf('state');
-      F.af_duration_sec=dimAf('duration_sec');
-      F.af_total_tasks=dimAf('total_tasks');
-      F.af_failed_tasks_count=dimAf('failed_tasks_count');
-      F.af_retry_count=dimAf('retry_count');
-      F.af_queue_delay_sec=dimAf('queue_delay_sec');
+      function dimAfUnderscore(suf){
+        var d=dimAf(suf);
+        if(d)return d;
+        return dims.find(function(f){var n=nkAud(f);return n.endsWith('_'+suf);});
+      }
+      F.af_dag_id=dimAfUnderscore('dag_id');
+      F.af_run_id=dimAfUnderscore('run_id');
+      F.af_run_date=dimAfUnderscore('run_date')||dimAfUnderscore('run_raw')
+        ||dimAfUnderscore('start_date')||dimAfUnderscore('start_raw')||dimAfUnderscore('start_time')
+        ||dims.find(function(f){
+          var n=nkAud(f);
+          if(n.indexOf('run_date')!==-1&&(n==='run_date'||n.endsWith('.run_date')||n.endsWith('_run_date')))return true;
+          if(n.indexOf('start_date')!==-1&&(n.endsWith('.start_date')||n.endsWith('_start_date')))return true;
+          if(n.indexOf('start_time')!==-1&&(n.endsWith('.start_time')||n.endsWith('_start_time')||n.endsWith('.start_raw')))return true;
+          return false;
+        });
+      F.af_run_hour=dimAfUnderscore('run_hour')||dimAfUnderscore('start_hour_of_day')
+        ||dims.find(function(f){var n=nkAud(f);return n.indexOf('hour_of_day')!==-1&&(n.indexOf('start')!==-1||n.indexOf('run')!==-1);});
+      F.af_state=dimAfUnderscore('state');
+      F.af_duration_sec=dimAfUnderscore('duration_sec');
+      F.af_total_tasks=dimAfUnderscore('total_tasks');
+      F.af_failed_tasks_count=dimAfUnderscore('failed_tasks_count');
+      F.af_retry_count=dimAfUnderscore('retry_count');
+      F.af_queue_delay_sec=dimAfUnderscore('queue_delay_sec');
+  
+      var exploreIsAirflowPerf=(queryExplore||'').indexOf('airflow_dag_performance')!==-1
+        ||((queryExplore||'').indexOf('airflow')!==-1&&((queryExplore||'').indexOf('dag')!==-1||(queryExplore||'').indexOf('performance')!==-1));
   
       var looksLikeDbtUsage=queryExplore.indexOf('dbt')!==-1&&queryExplore.indexOf('usage')!==-1;
   
@@ -257,7 +274,7 @@ looker.plugins.visualizations.add({
   
       else if(onLkmlAuditDashboard||F.audit_hila_context||looksLikeLkmlAuditExplore)mode='lkml_audit';
   
-      else if(onAirflowDashboard||(F.af_dag_id&&F.af_run_date))mode='airflow';
+      else if(onAirflowDashboard||(F.af_dag_id&&(F.af_run_date||exploreIsAirflowPerf)))mode='airflow';
   
       else if(F.table_name&&F.consumer_type&&hasNumJobsInQuery)mode='data_dyson';
   
@@ -275,9 +292,9 @@ looker.plugins.visualizations.add({
   
       else if(looksLikeDbtLineage)mode='dbt_lineage';
   
-      else if(F.dash&&F.exp&&F.view)mode='lineage';
+      else if(F.dash&&F.exp&&F.view&&!(exploreIsAirflowPerf&&F.af_dag_id))mode='lineage';
   
-      else if(F.view&&F.flds)mode='overlap';
+      else if(F.view&&F.flds&&!(exploreIsAirflowPerf&&F.af_dag_id))mode='overlap';
   
       else mode='lineage';
   
@@ -5627,22 +5644,38 @@ looker.plugins.visualizations.add({
 
         function pad2(x){return (x<10?'0':'')+x;}
 
-        if(!F.af_dag_id||!F.af_run_date){
-          R.innerHTML=navBar()+'<div class="lx-body"><div class="lx-bar" style="border-bottom:1px solid #1e293b"><span style="color:#e2e8f0;font-size:12px;font-weight:700">Airflow monitoring</span></div><div style="padding:24px 20px;color:#94a3b8;font-size:12px;line-height:1.55">Use an explore over <strong style="color:#e2e8f0">airflow_dag_performance</strong> (loaded by DAG <code style="color:#64748b">airflow_audit_log_to_bq</code>). Add <strong>Dag Id</strong> and <strong>Run Date</strong>; optional: <strong>Run Id</strong>, <strong>State</strong>, <strong>Run Hour</strong>, <strong>Duration Sec</strong>, <strong>Total Tasks</strong>, <strong>Failed Tasks Count</strong>, <strong>Retry Count</strong>, <strong>Queue Delay Sec</strong>.</div></div>';
+        if(!F.af_dag_id){
+          R.innerHTML=navBar()+'<div class="lx-body"><div class="lx-bar" style="border-bottom:1px solid #1e293b"><span style="color:#e2e8f0;font-size:12px;font-weight:700">Airflow monitoring</span></div><div style="padding:24px 20px;color:#94a3b8;font-size:12px;line-height:1.55">Add the <strong style="color:#e2e8f0">Dag Id</strong> dimension to this query (from <code style="color:#64748b">airflow_dag_performance</code>).</div></div>';
           try{done();}catch(e){}
           return;
+        }
+
+        if(!F.af_run_date){
+          R.innerHTML=navBar()+'<div class="lx-body"><div class="lx-bar" style="border-bottom:1px solid #1e293b"><span style="color:#e2e8f0;font-size:12px;font-weight:700">Airflow monitoring</span></div><div style="padding:24px 20px;color:#94a3b8;font-size:12px;line-height:1.55">Add a <strong style="color:#e2e8f0">date</strong> dimension to the query (not only a filter): <strong>Run Date</strong> from the Run group, or <strong>Start Date</strong> / <strong>Start Time</strong> from the Start group. Looker only sends fields that appear in the data table; a date filter alone does not.</div></div>';
+          try{done();}catch(e){}
+          return;
+        }
+
+        function afNormDate(v){
+          if(v==null)return '';
+          var s=String(v).trim();
+          if(!s)return '';
+          var m=s.match(/^(\d{4}-\d{2}-\d{2})/);
+          if(m)return m[1];
+          if(s.length>=10&&/^\d{4}-\d{2}-\d{2}/.test(s))return s.slice(0,10);
+          return s.slice(0,10);
         }
 
         var runs=[];
         for(var ari=0;ari<data.length;ari++){
           var row=data[ari];
           var dag=gv(row,F.af_dag_id);
-          var rd=gv(row,F.af_run_date);
-          if(!dag||rd==null||String(rd).trim()==='')continue;
+          var rd=afNormDate(gv(row,F.af_run_date));
+          if(!dag||!rd)continue;
           runs.push({
             dag_id:dag,
             run_id:F.af_run_id?gv(row,F.af_run_id):String(ari),
-            run_date:String(rd).slice(0,10),
+            run_date:rd,
             run_hour:F.af_run_hour!=null&&F.af_run_hour!==undefined&&!isNaN(gn(row,F.af_run_hour))?Math.round(gn(row,F.af_run_hour)):-1,
             state:F.af_state?String(gv(row,F.af_state)).toLowerCase().trim():'',
             duration_sec:F.af_duration_sec?cellNumber(row,F.af_duration_sec):NaN,
@@ -5659,7 +5692,7 @@ looker.plugins.visualizations.add({
         for(var dk in dedupeMap)if(Object.prototype.hasOwnProperty.call(dedupeMap,dk))runs.push(dedupeMap[dk]);
 
         if(runs.length===0){
-          R.innerHTML=navBar()+'<div class="lx-body"><div class="lx-bar"><span style="color:#e2e8f0;font-size:12px;font-weight:700">Airflow monitoring</span></div><div style="padding:40px;color:#64748b;text-align:center;font-size:12px">No rows with Dag Id and Run Date.</div></div>';
+          R.innerHTML=navBar()+'<div class="lx-body"><div class="lx-bar"><span style="color:#e2e8f0;font-size:12px;font-weight:700">Airflow monitoring</span></div><div style="padding:40px;color:#64748b;text-align:center;font-size:12px">No rows with both Dag Id and a parseable date. Check field types and filters.</div></div>';
           try{done();}catch(e){}
           return;
         }
