@@ -22,9 +22,7 @@ looker.plugins.visualizations.add({
   
       lkml_labels_dashboard_id: {type:"string",label:"LKML Labels Dashboard ID",default:"",section:"Navigation",order:8},
   
-      lkml_audit_dashboard_id: {type:"string",label:"Looker Audit Dashboard ID",default:"",section:"Navigation",order:9},
-  
-      airflow_dashboard_id: {type:"string",label:"Airflow Monitoring Dashboard ID",default:"",section:"Navigation",order:10}
+      airflow_dashboard_id: {type:"string",label:"Airflow Monitoring Dashboard ID",default:"",section:"Navigation",order:9}
   
     },
   
@@ -66,7 +64,7 @@ looker.plugins.visualizations.add({
   
       var s=document.createElement('style');
   
-      s.textContent='#lex *{box-sizing:border-box}.lx-nav{display:flex;align-items:center;gap:2px;padding:14px 20px 0;background:linear-gradient(180deg,#0f1629,#0a0e1a);border-bottom:1px solid #334155}.lx-nav-btn{padding:10px 22px;font-size:12px;font-weight:600;cursor:pointer;border:none;background:transparent;color:#94a3b8;border-radius:10px 10px 0 0;transition:all .2s;display:flex;align-items:center;gap:8px;letter-spacing:.3px;text-decoration:none;position:relative}.lx-nav-btn:hover{color:#cbd5e1;background:rgba(30,41,59,0.25)}.lx-nav-btn.active{color:#e2e8f0;background:#1e293b;cursor:default;border-bottom:2px solid transparent;font-weight:700}.lx-nav-btn.active::after{content:"";position:absolute;bottom:0;left:4px;right:4px;height:4px;border-radius:4px 4px 0 0;z-index:1}.lx-nav-btn.t-lineage.active{color:#10b981!important}.lx-nav-btn.t-lineage.active::after{background:#10b981;box-shadow:0 0 10px #10b981}.lx-nav-btn.t-overlap.active{color:#8b5cf6!important}.lx-nav-btn.t-overlap.active::after{background:#8b5cf6;box-shadow:0 0 10px #8b5cf6}.lx-nav-btn.t-bq_jobs.active{color:#06b6d4!important}.lx-nav-btn.t-bq_jobs.active::after{background:#06b6d4;box-shadow:0 0 10px #06b6d4}.lx-nav-btn.t-usage.active{color:#f59e0b!important}.lx-nav-btn.t-usage.active::after{background:#f59e0b;box-shadow:0 0 10px #f59e0b}.lx-nav-btn.t-dbt_lineage.active{color:#0ea5e9!important}.lx-nav-btn.t-dbt_lineage.active::after{background:#0ea5e9;box-shadow:0 0 10px #0ea5e9}.lx-nav-btn.t-data_dyson.active{color:#14b8a6!important}.lx-nav-btn.t-data_dyson.active::after{background:#14b8a6;box-shadow:0 0 10px #14b8a6}.lx-nav-btn.t-lkml_labels.active{color:#a78bfa!important}.lx-nav-btn.t-lkml_labels.active::after{background:#a78bfa;box-shadow:0 0 10px #a78bfa}.lx-nav-btn.t-lkml_audit.active{color:#fb7185!important}.lx-nav-btn.t-lkml_audit.active::after{background:#fb7185;box-shadow:0 0 10px #fb7185}.lx-nav-btn.t-airflow.active{color:#38bdf8!important}.lx-nav-btn.t-airflow.active::after{background:#38bdf8;box-shadow:0 0 10px #38bdf8}#lex .lx-af-kpis{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin:0 20px 16px}#lex .lx-af-2wide{display:grid;grid-template-columns:1.5fr 1fr;gap:12px;margin:0 20px 16px}#lex .lx-af-2eq{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin:0 20px 16px}#lex .lx-af-panel{margin:0 20px 16px}#lex .lx-af-panel-end{margin:0 20px 20px}@media (max-width:1000px){#lex .lx-af-kpis{grid-template-columns:repeat(2,1fr)}#lex .lx-af-2wide,#lex .lx-af-2eq{grid-template-columns:1fr}}@media (max-width:540px){#lex .lx-af-kpis{grid-template-columns:1fr}}.lx-body{flex:1;background:#131b2e;border-radius:12px 12px 0 0;overflow:hidden;display:flex;flex-direction:column;border:1px solid #1e293b;border-bottom:none;margin:0 12px}.lx-bar{padding:10px 16px;border-bottom:1px solid rgba(30,41,59,0.25);display:flex;align-items:center;justify-content:space-between;font-size:11px;min-height:42px}.lx-scroll{flex:1;overflow:auto}.lx-pill{display:inline-flex;align-items:center;gap:4px;padding:3px 10px;border-radius:6px;font-size:10px;font-weight:500}.lx-node{cursor:pointer;transition:opacity .15s}.lx-node:hover{opacity:.85}.lx-row{display:grid;border-bottom:1px solid rgba(30,41,59,0.1);transition:background .15s}.lx-row:hover{background:rgba(30,41,59,0.3)}.lx-hdr{display:grid;border-bottom:1px solid #1e293b;position:sticky;top:0;background:#131b2e;z-index:1}.lx-hdr>div{padding:10px 12px;font-size:10px;font-weight:600;color:#475569;cursor:pointer;user-select:none;text-transform:uppercase;letter-spacing:.5px;transition:color .15s}.lx-hdr>div:hover{color:#94a3b8}.lx-hdr>div.on{color:#e2e8f0}.lx-cell{padding:8px 12px;font-size:11px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.lx-ebtn{padding:7px 16px;border:1px solid #1e293b;cursor:pointer;font-size:11px;font-weight:500;transition:all .15s;background:transparent;color:#64748b;letter-spacing:.3px}.lx-ebtn:hover{background:#1e293b;color:#94a3b8}.lx-ebtn.on{background:#1e293b;border-color:#334155}.lx-link{color:#475569;text-decoration:none;transition:color .15s;display:inline-flex}.lx-link:hover{color:#e2e8f0}.dp-card{border-bottom:1px solid rgba(30,41,59,0.12)}.dp-head{display:flex;align-items:center;gap:12px;padding:12px 16px;cursor:pointer;transition:background .15s}.dp-head:hover{background:rgba(30,41,59,0.2)}#lex .lx-bq-filter-hide{display:none!important}#lex .lx-bq-slot-bar{cursor:pointer;transition:filter .15s,stroke-width .15s,stroke .15s}#lex .lx-bq-slot-bar:hover{filter:brightness(1.15)}#lex .lx-bq-node,#lex .lx-bq-job{cursor:pointer}#lex a.lx-bq-job-link{cursor:pointer;transition:filter .15s,border-color .15s,color .15s}#lex a.lx-bq-job-link:hover{filter:brightness(1.12);border-color:#0ea5e9!important;color:#7dd3fc!important}#lex .lx-dbt-node-stack{display:flex;flex-direction:column;align-items:flex-start;gap:3px;line-height:1.25;text-align:left}#lex .lx-dbt-line{display:flex;flex-wrap:wrap;align-items:center;gap:6px 8px}#lex .lx-dbt-kind{font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:.05em;color:#94a3b8;background:#0f172a;border:1px solid #334155;border-radius:4px;padding:2px 6px;font-family:Inter,system-ui,sans-serif}#lex .lx-dbt-proj{font-size:10px;color:#64748b;font-family:ui-monospace,monospace}#lex .lx-dbt-name{font-size:11px;font-weight:600;color:#e2e8f0;font-family:ui-monospace,monospace;word-break:break-word;max-width:100%}#lex .lx-job-stack{display:flex;flex-direction:column;gap:2px;align-items:flex-start;line-height:1.25;text-align:left;max-width:100%}#lex .lx-job-prefix{font-size:9px;color:#64748b;font-family:ui-monospace,monospace;line-height:1.2}#lex .lx-job-core{font-size:10px;font-weight:600;color:#22d3ee;font-family:ui-monospace,monospace;word-break:break-all;letter-spacing:.02em}#lex .lx-bq-clear{font:inherit;font-size:10px;font-weight:600;color:#64748b;background:transparent;border:1px solid #334155;border-radius:6px;padding:4px 10px;cursor:pointer;margin-left:auto}#lex .lx-bq-clear:hover{color:#e2e8f0;border-color:#475569}#lex .lx-audit-sort{cursor:pointer;user-select:none}#lex .lx-audit-hdr .lx-audit-sort{color:#64748b}#lex .lx-audit-hdr .lx-audit-sort:hover{color:#94a3b8}#lex .lx-audit-hdr .lx-audit-sort.on{color:#cbd5e1;font-weight:700}';
+      s.textContent='#lex *{box-sizing:border-box}.lx-nav{display:flex;align-items:center;gap:2px;padding:14px 20px 0;background:linear-gradient(180deg,#0f1629,#0a0e1a);border-bottom:1px solid #334155}.lx-nav-btn{padding:10px 22px;font-size:12px;font-weight:600;cursor:pointer;border:none;background:transparent;color:#94a3b8;border-radius:10px 10px 0 0;transition:all .2s;display:flex;align-items:center;gap:8px;letter-spacing:.3px;text-decoration:none;position:relative}.lx-nav-btn:hover{color:#cbd5e1;background:rgba(30,41,59,0.25)}.lx-nav-btn.active{color:#e2e8f0;background:#1e293b;cursor:default;border-bottom:2px solid transparent;font-weight:700}.lx-nav-btn.active::after{content:"";position:absolute;bottom:0;left:4px;right:4px;height:4px;border-radius:4px 4px 0 0;z-index:1}.lx-nav-btn.t-lineage.active{color:#10b981!important}.lx-nav-btn.t-lineage.active::after{background:#10b981;box-shadow:0 0 10px #10b981}.lx-nav-btn.t-overlap.active{color:#8b5cf6!important}.lx-nav-btn.t-overlap.active::after{background:#8b5cf6;box-shadow:0 0 10px #8b5cf6}.lx-nav-btn.t-bq_jobs.active{color:#06b6d4!important}.lx-nav-btn.t-bq_jobs.active::after{background:#06b6d4;box-shadow:0 0 10px #06b6d4}.lx-nav-btn.t-usage.active{color:#f59e0b!important}.lx-nav-btn.t-usage.active::after{background:#f59e0b;box-shadow:0 0 10px #f59e0b}.lx-nav-btn.t-dbt_lineage.active{color:#0ea5e9!important}.lx-nav-btn.t-dbt_lineage.active::after{background:#0ea5e9;box-shadow:0 0 10px #0ea5e9}.lx-nav-btn.t-data_dyson.active{color:#14b8a6!important}.lx-nav-btn.t-data_dyson.active::after{background:#14b8a6;box-shadow:0 0 10px #14b8a6}.lx-nav-btn.t-lkml_labels.active{color:#a78bfa!important}.lx-nav-btn.t-lkml_labels.active::after{background:#a78bfa;box-shadow:0 0 10px #a78bfa}.lx-nav-btn.t-airflow.active{color:#38bdf8!important}.lx-nav-btn.t-airflow.active::after{background:#38bdf8;box-shadow:0 0 10px #38bdf8}#lex .lx-af-kpis{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin:0 20px 16px}#lex .lx-af-2wide{display:grid;grid-template-columns:1.5fr 1fr;gap:12px;margin:0 20px 16px}#lex .lx-af-2eq{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin:0 20px 16px}#lex .lx-af-panel{margin:0 20px 16px}#lex .lx-af-panel-end{margin:0 20px 20px}@media (max-width:1000px){#lex .lx-af-kpis{grid-template-columns:repeat(2,1fr)}#lex .lx-af-2wide,#lex .lx-af-2eq{grid-template-columns:1fr}}@media (max-width:540px){#lex .lx-af-kpis{grid-template-columns:1fr}}.lx-body{flex:1;background:#131b2e;border-radius:12px 12px 0 0;overflow:hidden;display:flex;flex-direction:column;border:1px solid #1e293b;border-bottom:none;margin:0 12px}.lx-bar{padding:10px 16px;border-bottom:1px solid rgba(30,41,59,0.25);display:flex;align-items:center;justify-content:space-between;font-size:11px;min-height:42px}.lx-scroll{flex:1;overflow:auto}.lx-pill{display:inline-flex;align-items:center;gap:4px;padding:3px 10px;border-radius:6px;font-size:10px;font-weight:500}.lx-node{cursor:pointer;transition:opacity .15s}.lx-node:hover{opacity:.85}.lx-row{display:grid;border-bottom:1px solid rgba(30,41,59,0.1);transition:background .15s}.lx-row:hover{background:rgba(30,41,59,0.3)}.lx-hdr{display:grid;border-bottom:1px solid #1e293b;position:sticky;top:0;background:#131b2e;z-index:1}.lx-hdr>div{padding:10px 12px;font-size:10px;font-weight:600;color:#475569;cursor:pointer;user-select:none;text-transform:uppercase;letter-spacing:.5px;transition:color .15s}.lx-hdr>div:hover{color:#94a3b8}.lx-hdr>div.on{color:#e2e8f0}.lx-cell{padding:8px 12px;font-size:11px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.lx-ebtn{padding:7px 16px;border:1px solid #1e293b;cursor:pointer;font-size:11px;font-weight:500;transition:all .15s;background:transparent;color:#64748b;letter-spacing:.3px}.lx-ebtn:hover{background:#1e293b;color:#94a3b8}.lx-ebtn.on{background:#1e293b;border-color:#334155}.lx-link{color:#475569;text-decoration:none;transition:color .15s;display:inline-flex}.lx-link:hover{color:#e2e8f0}.dp-card{border-bottom:1px solid rgba(30,41,59,0.12)}.dp-head{display:flex;align-items:center;gap:12px;padding:12px 16px;cursor:pointer;transition:background .15s}.dp-head:hover{background:rgba(30,41,59,0.2)}#lex .lx-bq-filter-hide{display:none!important}#lex .lx-bq-slot-bar{cursor:pointer;transition:filter .15s,stroke-width .15s,stroke .15s}#lex .lx-bq-slot-bar:hover{filter:brightness(1.15)}#lex .lx-bq-node,#lex .lx-bq-job{cursor:pointer}#lex a.lx-bq-job-link{cursor:pointer;transition:filter .15s,border-color .15s,color .15s}#lex a.lx-bq-job-link:hover{filter:brightness(1.12);border-color:#0ea5e9!important;color:#7dd3fc!important}#lex .lx-dbt-node-stack{display:flex;flex-direction:column;align-items:flex-start;gap:3px;line-height:1.25;text-align:left}#lex .lx-dbt-line{display:flex;flex-wrap:wrap;align-items:center;gap:6px 8px}#lex .lx-dbt-kind{font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:.05em;color:#94a3b8;background:#0f172a;border:1px solid #334155;border-radius:4px;padding:2px 6px;font-family:Inter,system-ui,sans-serif}#lex .lx-dbt-proj{font-size:10px;color:#64748b;font-family:ui-monospace,monospace}#lex .lx-dbt-name{font-size:11px;font-weight:600;color:#e2e8f0;font-family:ui-monospace,monospace;word-break:break-word;max-width:100%}#lex .lx-job-stack{display:flex;flex-direction:column;gap:2px;align-items:flex-start;line-height:1.25;text-align:left;max-width:100%}#lex .lx-job-prefix{font-size:9px;color:#64748b;font-family:ui-monospace,monospace;line-height:1.2}#lex .lx-job-core{font-size:10px;font-weight:600;color:#22d3ee;font-family:ui-monospace,monospace;word-break:break-all;letter-spacing:.02em}#lex .lx-bq-clear{font:inherit;font-size:10px;font-weight:600;color:#64748b;background:transparent;border:1px solid #334155;border-radius:6px;padding:4px 10px;cursor:pointer;margin-left:auto}#lex .lx-bq-clear:hover{color:#e2e8f0;border-color:#475569}';
   
       element.appendChild(s);
   
@@ -132,6 +130,10 @@ looker.plugins.visualizations.add({
   
       F.num_jobs=meas.find(function(f){return f.toLowerCase().indexOf('num_jobs')!==-1;});
   
+      F.usage_date=dims.find(function(f){var l=f.toLowerCase().replace(/\s/g,'_');return l.indexOf('stats_date')!==-1;})
+        ||dims.find(function(f){var l=f.toLowerCase().replace(/\s/g,'_');return l.indexOf('usage_date')!==-1||l.indexOf('job_date')!==-1;})
+        ||F.date;
+  
       function matchDbtLineageDim(name,canon){var l=(name||'').toLowerCase().replace(/\s/g,'_');return l===canon||l==='parent'+canon.replace('_','')||l.endsWith('_'+canon)||l.endsWith('.'+canon);}
       F.dbt_model=dims.find(function(f){var l=(f||'').toLowerCase().replace(/\s/g,'_');return l==='model'||l.endsWith('_model')||l.endsWith('.model')||(l.indexOf('model')!==-1&&l.indexOf('parent')===-1);});
       F.parent_1=dims.find(function(f){return matchDbtLineageDim(f,'parent_1');});
@@ -183,8 +185,6 @@ looker.plugins.visualizations.add({
   
       var onLkmlLabelsDashboard=!(config.lkml_labels_dashboard_id==null||config.lkml_labels_dashboard_id==='')&&details&&details.dashboard_id&&String(details.dashboard_id).trim()===String(config.lkml_labels_dashboard_id).trim();
   
-      var onLkmlAuditDashboard=!(config.lkml_audit_dashboard_id==null||config.lkml_audit_dashboard_id==='')&&details&&details.dashboard_id&&String(details.dashboard_id).trim()===String(config.lkml_audit_dashboard_id).trim();
-  
       var onAirflowDashboard=!(config.airflow_dashboard_id==null||config.airflow_dashboard_id==='')&&details&&details.dashboard_id&&String(details.dashboard_id).trim()===String(config.airflow_dashboard_id).trim();
   
       var onBqJobsDashboard=!(config.bq_jobs_dashboard_id==null||config.bq_jobs_dashboard_id==='')&&details&&details.dashboard_id&&String(details.dashboard_id).trim()===String(config.bq_jobs_dashboard_id).trim();
@@ -192,44 +192,6 @@ looker.plugins.visualizations.add({
       var queryExplore=(queryResponse.meta&&(queryResponse.meta.explore||queryResponse.meta.model))?String(queryResponse.meta.explore||queryResponse.meta.model||'').toLowerCase():'';
   
       function nkAud(f){return (f||'').toLowerCase().replace(/\s/g,'_');}
-      function dimBySuffix(suf){
-        return dims.find(function(f){var n=nkAud(f);return n===suf||n.endsWith('.'+suf);});
-      }
-      F.hila_audit_when=dimBySuffix('hila_audit_time')||dimBySuffix('hila_audit_date')||dimBySuffix('hila_audit_time_of_day')||dimBySuffix('hila_audit_raw')||dimBySuffix('hila_audit_week')||dimBySuffix('hila_audit_month')||dimBySuffix('hila_audit_quarter')||dimBySuffix('hila_audit_year')||dimBySuffix('hila_stats_date')||dimBySuffix('hila_stats_week')||dimBySuffix('hila_stats_month')||dimBySuffix('hila_stats_quarter')||dimBySuffix('hila_stats_year');
-      F.hila_log_type=dimBySuffix('hila_log_type');
-      F.hila_entity_type=dimBySuffix('hila_entity_type');
-      F.hila_entity_name=dimBySuffix('hila_entity_name');
-      F.hila_change=dimBySuffix('hila_change');
-      F.hila_user_name=dimBySuffix('hila_user_name');
-      var hasAnyHilaDim=dims.some(function(f){return nkAud(f).indexOf('hila_')!==-1;});
-      var exploreIsLookerAuditEvents=(queryExplore||'').indexOf('looker_audit_event')!==-1;
-      F.audit_hila_context=exploreIsLookerAuditEvents||hasAnyHilaDim;
-      var looksLikeHilaAuditExplore=!!F.audit_hila_context&&!!F.hila_audit_when;
-      F.audit_use_hila=looksLikeHilaAuditExplore;
-      F.audit_event_name=dims.find(function(f){return nkAud(f)==='event.name';});
-      F.audit_created=dims.find(function(f){var n=nkAud(f);return n==='event.created_time'||n==='event.created_date'||n==='event.created_raw'||(n.indexOf('event.')===0&&(n.indexOf('created_time')!==-1||n.indexOf('created_date')!==-1||n.indexOf('created_raw')!==-1));});
-      F.audit_category=dims.find(function(f){return nkAud(f)==='event.category';});
-      F.audit_user_email=dims.find(function(f){var n=nkAud(f);return n==='user.email'||n==='users.email'||(n.indexOf('user.')===0&&n.indexOf('email')!==-1);});
-      F.audit_user_name=dims.find(function(f){var n=nkAud(f);return n==='user.name'||n==='user.display_name'||n==='users.name'||n==='users.display_name';});
-      F.audit_user_id=dims.find(function(f){var n=nkAud(f);return n==='event.user_id'||n==='user.id'||n==='users.id';});
-      if(!F.audit_user_email)F.audit_user_email=dims.find(function(f){var n=nkAud(f);return n.indexOf('hila_')===-1&&n.indexOf('email')!==-1&&n.indexOf('user')!==-1&&n.indexOf('event')===-1&&n.indexOf('attribute')===-1;});
-      if(!F.audit_user_name)F.audit_user_name=dims.find(function(f){var n=nkAud(f);return n.indexOf('hila_')===-1&&n.indexOf('user')!==-1&&n.indexOf('name')!==-1&&n.indexOf('email')===-1&&n.indexOf('event')===-1&&n.indexOf('attribute')===-1&&n.indexOf('group')===-1;});
-      F.audit_user_dims=dims.filter(function(f){
-        var n=nkAud(f);
-        if(n.indexOf('hila_')!==-1)return false;
-        if(n.indexOf('event_attribute')===0)return false;
-        if(n.indexOf('event.name')===0||n.indexOf('event.category')===0||(n.indexOf('event.')===0&&n.indexOf('created')!==-1))return false;
-        var u=n.indexOf('user')!==-1||n.indexOf('users')===0||n.indexOf('user_facts')===0;
-        if(!u)return false;
-        if(n.indexOf('email')!==-1||n.indexOf('mail')!==-1)return true;
-        if((n.indexOf('name')!==-1||n.indexOf('display_name')!==-1||n.indexOf('first_name')!==-1||n.indexOf('last_name')!==-1)&&n.indexOf('attribute')===-1&&n.indexOf('filename')===-1&&n.indexOf('username')===-1)return true;
-        if(n==='user.id'||n==='users.id'||n==='event.user_id')return true;
-        return false;
-      });
-      F.audit_attr_name=dims.find(function(f){return nkAud(f)==='event_attribute.name';})||dims.find(function(f){var n=nkAud(f);return n.indexOf('event_attribute')===0&&n.indexOf('name')!==-1&&n.indexOf('value')===-1;});
-      F.audit_attr_value=dims.find(function(f){return nkAud(f)==='event_attribute.value';})||dims.find(function(f){var n=nkAud(f);return n.indexOf('event_attribute')===0&&n.indexOf('value')!==-1;});
-      var hasEventAttributeDim=dims.some(function(f){return nkAud(f).indexOf('event_attribute')===0;});
-      var looksLikeLkmlAuditExplore=!!(F.audit_event_name&&F.audit_created&&(hasEventAttributeDim||queryExplore.indexOf('event')!==-1||queryExplore.indexOf('system')!==-1));
   
       function dimAf(suf){return dims.find(function(f){var n=nkAud(f);return n===suf||n.endsWith('.'+suf);});}
       function dimAfUnderscore(suf){
@@ -271,8 +233,6 @@ looker.plugins.visualizations.add({
       var exploreNameBqJobs=(queryExplore||'').indexOf('bq_job')!==-1||(queryExplore||'').indexOf('bigquery')!==-1&&((queryExplore||'').indexOf('job')!==-1);
   
       if(onLkmlLabelsDashboard||looksLikeLkmlLabelsExplore)mode='lkml_labels';
-  
-      else if(onLkmlAuditDashboard||F.audit_hila_context||looksLikeLkmlAuditExplore)mode='lkml_audit';
   
       else if(onAirflowDashboard||(F.af_dag_id&&(F.af_run_date||exploreIsAirflowPerf)))mode='airflow';
   
@@ -336,8 +296,6 @@ looker.plugins.visualizations.add({
         dyson:'<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 6h18"/><path d="M4 6v12a2 2 0 002 2h12a2 2 0 002-2V6"/><path d="M12 10v6"/><path d="M9 13h6"/></svg>',
   
         lkml:'<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><polyline points="10 9 9 9 8 9"/></svg>',
-  
-        audit:'<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/><path d="M9 12l2 2 4-4"/></svg>',
   
         bqjobs:'<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 3v18h18"/><path d="M18 17V9"/><path d="M13 17V5"/><path d="M8 17v-3"/></svg>',
   
@@ -3985,8 +3943,6 @@ looker.plugins.visualizations.add({
   
           {id:'lkml_labels',label:'LKML Labels Generator',icon:ic.lkml,did:config.lkml_labels_dashboard_id},
   
-          {id:'lkml_audit',label:'Looker audit',icon:ic.audit,did:config.lkml_audit_dashboard_id},
-  
           {id:'airflow',label:'Airflow Monitoring',icon:ic.aflow,did:config.airflow_dashboard_id}
   
         ];
@@ -5076,12 +5032,12 @@ looker.plugins.visualizations.add({
         done();return;
       }
   
-      // ========== DATA DYSON: tables cleanup (0 jobs) / columns cleanup (0 jobs) ==========
+      // ========== DATA DYSON: table / column job usage with trend ==========
   
       if(mode==='data_dyson'){
   
         if(!F.table_name||!F.consumer_type){
-          R.innerHTML=navBar()+'<div class="lx-body"><div class="lx-bar" style="border-bottom:1px solid #1e293b"><span style="color:#e2e8f0;font-size:12px;font-weight:700">Data Dyson</span></div><div style="padding:24px 20px;color:#94a3b8;font-size:12px;line-height:1.5">This tile is on the Data Dyson dashboard but the query does not include the required fields.<br/><br/>Use the <strong style="color:#e2e8f0">DBT Usage</strong> explore and add dimensions: <strong>Table Schema</strong>, <strong>Table Name</strong>, <strong>Consumer Type</strong>, and a measure such as <strong>Num Jobs</strong>.</div></div>';
+          R.innerHTML=navBar()+'<div class="lx-body"><div class="lx-bar" style="border-bottom:1px solid #1e293b"><span style="color:#e2e8f0;font-size:12px;font-weight:700">Data Dyson</span></div><div style="padding:24px 20px;color:#94a3b8;font-size:12px;line-height:1.5">This tile is on the Data Dyson dashboard but the query does not include the required fields.<br/><br/>Use the <strong style="color:#e2e8f0">DBT Usage</strong> explore and add dimensions: <strong>Table Schema</strong>, <strong>Table Name</strong>, <strong>Consumer Type</strong>, a date such as <strong>Stats Date</strong>, and a measure such as <strong>Num Jobs</strong>.</div></div>';
           done();return;
         }
   
@@ -5101,95 +5057,112 @@ looker.plugins.visualizations.add({
         var schemaKey=resolveKey([F.table_schema],firstRow);
         var colKey=resolveKey([F.column_name],firstRow);
         var jobsKey=resolveKey([F.num_jobs],firstRow);
+        var dateKey=resolveKey([F.usage_date,F.date],firstRow);
         function getTbl(r){return tblKey?String(cellVal(r,tblKey)||''):'';}
         function getSchema(r){return schemaKey?String(cellVal(r,schemaKey)||''):'';}
         function getCol(r){return colKey?String(cellVal(r,colKey)||'—'):'—';}
         function getJobsVal(r){return jobsKey?gn(r,jobsKey):0;}
+        function getDateVal(r){return dateKey?String(cellVal(r,dateKey)||'').trim():'';}
   
-        var tableJobs={};
-        var columnJobs={};
+        var tableJobs={}, tableTrend={}, columnJobs={}, columnTrend={}, overallTrend={};
         data.forEach(function(row){
           var schema=getSchema(row),tbl=getTbl(row),col=getCol(row);
           if(!tbl)return;
           var modelKey=(schema?schema+'.':'')+tbl;
           var jobs=getJobsVal(row);
+          var dt=getDateVal(row);
           tableJobs[modelKey]=(tableJobs[modelKey]||0)+jobs;
+          if(dt){
+            if(!tableTrend[modelKey])tableTrend[modelKey]={};
+            tableTrend[modelKey][dt]=(tableTrend[modelKey][dt]||0)+jobs;
+            overallTrend[dt]=(overallTrend[dt]||0)+jobs;
+          }
           if(colKey||F.column_name){
             var c=colKey?getCol(row):(gv(row,F.column_name)||'—');
             var colKeyStr=modelKey+'|'+(c||'—');
             if(!columnJobs[colKeyStr])columnJobs[colKeyStr]={modelKey:modelKey,column:c||'—',jobs:0};
             columnJobs[colKeyStr].jobs+=jobs;
+            if(dt){
+              if(!columnTrend[colKeyStr])columnTrend[colKeyStr]={};
+              columnTrend[colKeyStr][dt]=(columnTrend[colKeyStr][dt]||0)+jobs;
+            }
           }
         });
         function parseModelKey(k){var i=(k||'').indexOf('.');return i!==-1?{schema:k.substring(0,i),table:k.substring(i+1)}:{schema:'',table:k||''};}
         function sortTablesAbc(a,b){return (a.schema||'').localeCompare(b.schema||'')||(a.table||'').localeCompare(b.table||'');}
         function sortColumnsAbc(a,b){return (a.schema||'').localeCompare(b.schema||'')||(a.table||'').localeCompare(b.table||'')||(a.column||'').localeCompare(b.column||'');}
-        var tablesCleanupList=Object.keys(tableJobs).filter(function(k){return tableJobs[k]===0;}).map(function(k){var p=parseModelKey(k);return {schema:p.schema,table:p.table};});
-        tablesCleanupList.sort(sortTablesAbc);
-        var tablesAllList=Object.keys(tableJobs).map(function(k){var p=parseModelKey(k);return {schema:p.schema,table:p.table,total:tableJobs[k]};});
-        tablesAllList.sort(sortTablesAbc);
-        var columnsCleanupList=[];
-        if(F.column_name||colKey){
-          Object.keys(columnJobs).forEach(function(k){
-            if(columnJobs[k].jobs!==0)return;
-            var mk=columnJobs[k].modelKey;
-            if(!(tableJobs[mk]>0))return;
-            columnsCleanupList.push({table:mk,column:columnJobs[k].column});
-          });
+        var trendDates=Object.keys(overallTrend).sort().slice(-14);
+        if(!trendDates.length&&dateKey){
+          var dateSet={};
+          data.forEach(function(row){var d=getDateVal(row);if(d)dateSet[d]=true;});
+          trendDates=Object.keys(dateSet).sort().slice(-14);
         }
+        function dysonSparkSvg(trendMap){
+          var w=72,h=28;
+          if(!trendDates.length)return '<svg width="'+w+'" height="'+h+'" viewBox="0 0 '+w+' '+h+'" style="display:block;opacity:0.35"><line x1="2" y1="'+(h/2)+'" x2="'+(w-2)+'" y2="'+(h/2)+'" stroke="#334155" stroke-width="1.5"/></svg>';
+          var vals=trendDates.map(function(d){return trendMap&&trendMap[d]?trendMap[d]:0;});
+          var max=Math.max.apply(null,vals.concat([1]));
+          var pts=[];
+          for(var si=0;si<vals.length;si++){
+            var x=(vals.length<=1?w/2:si/(vals.length-1)*(w-4)+2);
+            var y=h-3-(vals[si]/max)*(h-6);
+            pts.push(Math.round(x)+','+Math.round(y));
+          }
+          return '<svg width="'+w+'" height="'+h+'" viewBox="0 0 '+w+' '+h+'" style="display:block"><polyline fill="none" stroke="#40c463" stroke-width="1.5" stroke-linejoin="round" stroke-linecap="round" points="'+pts.join(' ')+'"/></svg>';
+        }
+        var tablesAllList=Object.keys(tableJobs).map(function(k){var p=parseModelKey(k);return {schema:p.schema,table:p.table,total:tableJobs[k],trend:tableTrend[k]||{}};});
+        tablesAllList.sort(sortTablesAbc);
         var columnsAllList=Object.keys(columnJobs).map(function(k){
           var p=parseModelKey(columnJobs[k].modelKey),mk=columnJobs[k].modelKey;
-          return {schema:p.schema,table:p.table,column:columnJobs[k].column,total:columnJobs[k].jobs,modelKey:mk};
-        }).filter(function(r){return tableJobs[r.modelKey]>0;}).map(function(r){return {schema:r.schema,table:r.table,column:r.column,total:r.total};});
+          return {schema:p.schema,table:p.table,column:columnJobs[k].column,total:columnJobs[k].jobs,modelKey:mk,trend:columnTrend[k]||{}};
+        }).filter(function(r){return tableJobs[r.modelKey]>0;}).map(function(r){return {schema:r.schema,table:r.table,column:r.column,total:r.total,trend:r.trend};});
         columnsAllList.sort(sortColumnsAbc);
-        var columnsCleanupListWithSchema=columnsCleanupList.map(function(r){var p=parseModelKey(r.table);return {schema:p.schema,table:p.table,column:r.column};});
-        columnsCleanupListWithSchema.sort(sortColumnsAbc);
-  
-        var measureLabel='num jobs';
-        var tabTablesLabel='Tables cleanup ('+tablesAllList.length+')';
-        var tabColumnsLabel='Columns cleanup ('+columnsAllList.length+')';
+        var grandTotalJobs=0;
+        Object.keys(tableJobs).forEach(function(k){grandTotalJobs+=tableJobs[k];});
+        var tabTablesLabel='Tables ('+tablesAllList.length+')';
+        var tabColumnsLabel='Columns ('+columnsAllList.length+')';
         var h=navBar()+'<div class="lx-body" style="background:#0f172a;display:flex;flex-direction:column;min-height:0">';
-        h+='<div class="lx-bar" style="border-bottom:1px solid #334155;padding:16px 20px"><span style="color:#e2e8f0;font-size:14px;font-weight:700;letter-spacing:0.02em">Data Dyson</span><span style="color:#64748b;font-size:11px;margin-left:12px">Tables: unused tables vs all. Columns: unused columns on <strong style="color:#94a3b8">tables that still have jobs</strong> (excludes tables in Tables cleanup).</span></div>';
+        h+='<div class="lx-bar" style="border-bottom:1px solid #334155;padding:16px 20px;display:flex;align-items:center;justify-content:space-between;gap:16px;flex-wrap:wrap">';
+        h+='<div><span style="color:#e2e8f0;font-size:14px;font-weight:700;letter-spacing:0.02em">Data Dyson</span><span style="color:#64748b;font-size:11px;margin-left:12px">Table and column job usage over time</span></div>';
+        h+='<div style="display:flex;align-items:center;gap:14px">';
+        h+='<div style="text-align:right"><div style="font-size:22px;font-weight:700;color:#e2e8f0;font-variant-numeric:tabular-nums">'+(grandTotalJobs|0).toLocaleString()+'</div><div style="font-size:10px;color:#64748b;text-transform:uppercase;letter-spacing:0.05em">Total jobs</div></div>';
+        h+=dysonSparkSvg(overallTrend);
+        h+='</div></div>';
         h+='<div class="lx-bar" style="border-bottom:1px solid #1e293b;padding:12px 20px;display:flex;flex-wrap:nowrap;gap:0;align-items:center">';
         h+='<button type="button" id="lx-tab-tables" class="lx-subtab lx-tab-active" style="padding:8px 16px;font-size:12px;color:#e2e8f0;background:transparent;border:none;border-bottom:2px solid #14b8a6;cursor:pointer;font-weight:600;border-radius:6px 6px 0 0" data-dyson-tab="tables">'+tabTablesLabel+'</button>';
         h+='<button type="button" id="lx-tab-columns" class="lx-subtab" style="padding:8px 16px;font-size:12px;color:#94a3b8;background:transparent;border:none;border-bottom:2px solid transparent;cursor:pointer;border-radius:6px 6px 0 0" data-dyson-tab="columns">'+tabColumnsLabel+'</button>';
         h+='</div>';
         h+='<div id="lx-tables-content" class="lx-zero-tab-panel" style="border-top:1px solid #1e293b;flex:1;display:flex;flex-direction:column;min-height:0">';
         h+='<div class="lx-scroll" style="flex:1;min-height:200px;overflow:auto;padding:0">';
-        var tableCols='220px 1fr 80px';
-        if(tablesCleanupList.length>0){
-          h+='<div style="padding:12px 20px 8px;color:#94a3b8;font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:0.05em">Tables with 0 total '+measureLabel+'</div>';
-        }
+        var tableCols='180px 1fr 88px 80px';
         h+='<div class="lx-hdr" style="grid-template-columns:'+tableCols+';padding:4px 20px;font-size:10px;color:#64748b;border-bottom:1px solid #1e293b">';
-        h+='<div>Schema</div><div>Table</div><div style="text-align:right">Total '+measureLabel+'</div></div>';
-        tablesCleanupList.forEach(function(r){
-          h+='<div class="lx-row" style="grid-template-columns:'+tableCols+';padding:10px 20px;font-size:12px;border-bottom:1px solid rgba(30,41,59,0.5)">';
-          h+='<div class="lx-cell" style="font-family:ui-monospace,monospace;color:#f87171">'+(r.schema||'').replace(/</g,'&lt;')+'</div><div class="lx-cell" style="font-family:ui-monospace,monospace;color:#f87171">'+(r.table||'').replace(/</g,'&lt;')+'</div><div style="text-align:right;color:#94a3b8">0</div></div>';
-        });
+        h+='<div>Schema</div><div>Table</div><div style="text-align:right">Total jobs</div><div style="text-align:right">Trend</div></div>';
         tablesAllList.forEach(function(r){
           var isZero=r.total===0;
-          h+='<div class="lx-row" style="grid-template-columns:'+tableCols+';padding:10px 20px;font-size:12px;border-bottom:1px solid rgba(30,41,59,0.3)">';
-          h+='<div class="lx-cell" style="font-family:ui-monospace,monospace;color:'+(isZero?'#f87171':'#94a3b8')+'">'+(r.schema||'').replace(/</g,'&lt;')+'</div><div class="lx-cell" style="font-family:ui-monospace,monospace;color:'+(isZero?'#f87171':'#e2e8f0')+'">'+(r.table||'').replace(/</g,'&lt;')+'</div><div style="text-align:right;color:'+(isZero?'#f87171':'#94a3b8')+';font-variant-numeric:tabular-nums">'+(r.total|0).toLocaleString()+'</div></div>';
+          h+='<div class="lx-row" style="grid-template-columns:'+tableCols+';padding:10px 20px;font-size:12px;border-bottom:1px solid rgba(30,41,59,0.3);align-items:center">';
+          h+='<div class="lx-cell" style="font-family:ui-monospace,monospace;color:'+(isZero?'#64748b':'#94a3b8')+'">'+(r.schema||'').replace(/</g,'&lt;')+'</div>';
+          h+='<div class="lx-cell" style="font-family:ui-monospace,monospace;color:'+(isZero?'#64748b':'#e2e8f0')+'">'+(r.table||'').replace(/</g,'&lt;')+'</div>';
+          h+='<div style="text-align:right;color:'+(isZero?'#64748b':'#cbd5e1')+';font-variant-numeric:tabular-nums;font-weight:600">'+(r.total|0).toLocaleString()+'</div>';
+          h+='<div style="display:flex;justify-content:flex-end">'+dysonSparkSvg(r.trend)+'</div></div>';
         });
-        if(tablesAllList.length===0) h+='<div style="padding:24px 20px;color:#64748b;font-size:12px;text-align:center">No table data read. Add <strong>Table Name</strong> and <strong>Num Jobs</strong> to your query. If you use a tile or dashboard filter, ensure it doesn’t exclude the tables you want to see.</div>';
+        if(tablesAllList.length===0) h+='<div style="padding:24px 20px;color:#64748b;font-size:12px;text-align:center">No table data read. Add <strong>Table Name</strong>, <strong>Num Jobs</strong>, and a date field to your query.</div>';
+        if(!dateKey&&tablesAllList.length>0) h+='<div style="padding:8px 20px 16px;color:#64748b;font-size:11px">Add a date dimension (e.g. <strong>Stats Date</strong>) to show job trends over time.</div>';
         h+='</div></div>';
         h+='<div id="lx-columns-content" class="lx-zero-tab-panel" style="display:none;border-top:1px solid #1e293b;flex:1;flex-direction:column;min-height:0">';
         h+='<div class="lx-scroll" style="flex:1;min-height:200px;overflow:auto;padding:0">';
-        if(columnsCleanupListWithSchema.length>0){
-          h+='<div style="padding:12px 20px 8px;color:#94a3b8;font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:0.05em">Columns with 0 total '+measureLabel+'</div>';
-        }
-        h+='<div class="lx-hdr" style="grid-template-columns:100px 1fr 1fr 80px;padding:4px 20px;font-size:10px;color:#64748b;border-bottom:1px solid #1e293b">';
-        h+='<div>Schema</div><div>Table</div><div>Column</div><div style="text-align:right">Num jobs</div></div>';
-        columnsCleanupListWithSchema.forEach(function(r){
-          h+='<div class="lx-row" style="grid-template-columns:100px 1fr 1fr 80px;padding:10px 20px;font-size:12px;border-bottom:1px solid rgba(30,41,59,0.5)">';
-          h+='<div class="lx-cell" style="font-family:ui-monospace,monospace;color:#f87171">'+(r.schema||'').replace(/</g,'&lt;')+'</div><div class="lx-cell" style="font-family:ui-monospace,monospace;color:#f87171">'+(r.table||'').replace(/</g,'&lt;')+'</div><div class="lx-cell">'+(r.column||'—').replace(/</g,'&lt;')+'</div><div style="text-align:right;color:#94a3b8">0</div></div>';
-        });
+        var colCols='100px 1fr 1fr 88px 80px';
+        h+='<div class="lx-hdr" style="grid-template-columns:'+colCols+';padding:4px 20px;font-size:10px;color:#64748b;border-bottom:1px solid #1e293b">';
+        h+='<div>Schema</div><div>Table</div><div>Column</div><div style="text-align:right">Total jobs</div><div style="text-align:right">Trend</div></div>';
         columnsAllList.forEach(function(r){
           var isZero=r.total===0;
-          h+='<div class="lx-row" style="grid-template-columns:100px 1fr 1fr 80px;padding:10px 20px;font-size:12px;border-bottom:1px solid rgba(30,41,59,0.3)">';
-          h+='<div class="lx-cell" style="font-family:ui-monospace,monospace;color:'+(isZero?'#f87171':'#94a3b8')+'">'+(r.schema||'').replace(/</g,'&lt;')+'</div><div class="lx-cell" style="font-family:ui-monospace,monospace;color:'+(isZero?'#f87171':'#e2e8f0')+'">'+(r.table||'').replace(/</g,'&lt;')+'</div><div class="lx-cell">'+(r.column||'—').replace(/</g,'&lt;')+'</div><div style="text-align:right;color:'+(isZero?'#f87171':'#94a3b8')+';font-variant-numeric:tabular-nums">'+(r.total|0).toLocaleString()+'</div></div>';
+          h+='<div class="lx-row" style="grid-template-columns:'+colCols+';padding:10px 20px;font-size:12px;border-bottom:1px solid rgba(30,41,59,0.3);align-items:center">';
+          h+='<div class="lx-cell" style="font-family:ui-monospace,monospace;color:'+(isZero?'#64748b':'#94a3b8')+'">'+(r.schema||'').replace(/</g,'&lt;')+'</div>';
+          h+='<div class="lx-cell" style="font-family:ui-monospace,monospace;color:'+(isZero?'#64748b':'#e2e8f0')+'">'+(r.table||'').replace(/</g,'&lt;')+'</div>';
+          h+='<div class="lx-cell">'+(r.column||'—').replace(/</g,'&lt;')+'</div>';
+          h+='<div style="text-align:right;color:'+(isZero?'#64748b':'#cbd5e1')+';font-variant-numeric:tabular-nums;font-weight:600">'+(r.total|0).toLocaleString()+'</div>';
+          h+='<div style="display:flex;justify-content:flex-end">'+dysonSparkSvg(r.trend)+'</div></div>';
         });
-        if(columnsAllList.length===0) h+='<div style="padding:24px 20px;color:#64748b;font-size:12px;text-align:center">'+(F.column_name||colKey?'No column data in result. If you use a tile or dashboard filter, check it doesn’t exclude the columns you need.':'Add <strong>Column Name</strong> and <strong>Num Jobs</strong> to the query for column-level cleanup.')+'</div>';
+        if(columnsAllList.length===0) h+='<div style="padding:24px 20px;color:#64748b;font-size:12px;text-align:center">'+(F.column_name||colKey?'No column data in result. If you use a tile or dashboard filter, check it doesn’t exclude the columns you need.':'Add <strong>Column Name</strong> and <strong>Num Jobs</strong> to the query for column-level usage.')+'</div>';
         h+='</div></div></div>';
   
         R.innerHTML=h;
@@ -5214,424 +5187,6 @@ looker.plugins.visualizations.add({
           bc.addEventListener('click',showColumns);
         })();
         done();return;
-      }
-  
-      // ========== LOOKER AUDIT: looker_audit_events (hila_*) or System Activity (event / event_attribute) ==========
-  
-      if(mode==='lkml_audit'){
-  
-        function escAudit(s){return String(s==null?'':s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');}
-  
-        function auditCellDeep(row,key){
-          if(!row||!key)return '';
-          var k=String(key);
-          var direct=cellVal(row,k);
-          if(direct!=null&&String(direct).trim()!=='')return String(direct);
-          var parts=k.split('.');
-          if(parts.length<2)return '';
-          var o=row;
-          for(var pi=0;pi<parts.length&&o!=null;pi++){
-            var seg=parts[pi];
-            o=o[seg];
-            if(o!=null&&typeof o==='object'){
-              if('value' in o&&o.value!=null&&String(o.value).trim()!=='')return String(o.value);
-              if('rendered' in o&&o.rendered!=null&&String(o.rendered).trim()!=='')return String(o.rendered);
-            }
-          }
-          if(o!=null&&typeof o!=='object')return String(o);
-          return '';
-        }
-  
-        if(F.audit_hila_context&&!F.audit_use_hila){
-  
-          R.innerHTML=navBar()+'<div class="lx-body"><div class="lx-bar" style="border-bottom:1px solid #1e293b"><span style="color:#e2e8f0;font-size:12px;font-weight:700">Looker audit</span></div><div style="padding:24px 20px;color:#94a3b8;font-size:12px;line-height:1.6">Add a <strong style="color:#cbd5e1">time</strong> field from <code style="color:#fb7185">looker_audit_events</code>: <code style="color:#fb7185">hila_audit_time</code>, <code style="color:#fb7185">hila_audit_date</code>, <code style="color:#fb7185">hila_audit_raw</code>, or partition <code style="color:#fb7185">hila_stats_date</code>. Other useful dimensions: <code style="color:#fb7185">hila_user_name</code>, <code style="color:#fb7185">hila_entity_type</code>, <code style="color:#fb7185">hila_log_type</code>, <code style="color:#fb7185">hila_entity_name</code>, <code style="color:#fb7185">hila_change</code>.</div></div>';
-  
-          try{done();}catch(e){}
-  
-          return;
-  
-        }
-  
-        if(F.audit_use_hila){
-  
-          function hilaLogTypeLabel(lt){
-            var s=(lt||'').toLowerCase().replace(/^\s+|\s+$/g,'');
-            if(s==='add'||s==='create')return 'Added';
-            if(s==='edit'||s==='update')return 'Updated';
-            if(s==='delete'||s==='removed')return 'Deleted';
-            return lt&&String(lt).trim()!==''?String(lt):'\u2014';
-          }
-  
-          var auditRowsHila=[];
-  
-          data.forEach(function(row){
-  
-            auditRowsHila.push({
-  
-              t:auditCellDeep(row,F.hila_audit_when),
-  
-              user:F.hila_user_name?auditCellDeep(row,F.hila_user_name):'',
-  
-              obj:F.hila_entity_type?auditCellDeep(row,F.hila_entity_type):'',
-  
-              act:hilaLogTypeLabel(F.hila_log_type?auditCellDeep(row,F.hila_log_type):''),
-  
-              ev:F.hila_entity_name?auditCellDeep(row,F.hila_entity_name):'',
-  
-              det:F.hila_change?auditCellDeep(row,F.hila_change):''
-  
-            });
-  
-          });
-  
-          var masterHila=auditRowsHila;
-  
-          var gridColsHila='minmax(128px,1fr) minmax(72px,0.55fr) minmax(92px,0.8fr) minmax(160px,1.15fr) minmax(140px,1.1fr) minmax(140px,1.2fr)';
-  
-          var hilaHdrSpec=[['t','Audit time'],['act','Log type'],['obj','Entity type'],['ev','Entity name'],['user','User name'],['det','Change']];
-  
-          function auditLocaleCmp(a,b,key){
-  
-            var va=String(a[key]==null?'':a[key]), vb=String(b[key]==null?'':b[key]);
-  
-            return va.localeCompare(vb,undefined,{numeric:true,sensitivity:'base'});
-  
-          }
-  
-          function hilaHdrHtml(sk,sd){
-  
-            var h='<div class="lx-hdr lx-audit-hdr" style="grid-template-columns:'+gridColsHila+';padding:6px 16px;font-size:9px">';
-  
-            for(var hi=0;hi<hilaHdrSpec.length;hi++){
-  
-              var kk=hilaHdrSpec[hi][0], lbl=hilaHdrSpec[hi][1];
-  
-              h+='<div class="lx-audit-sort'+(kk===sk?' on':'')+'" data-audit-sort="'+kk+'">'+lbl+(kk===sk?(sd<0?' \u25BC':' \u25B2'):'')+'</div>';
-  
-            }
-  
-            h+='</div>';
-  
-            return h;
-  
-          }
-  
-          function oneHilaRowHtml(r){
-  
-            var det=r.det||'\u2014';
-  
-            var detDisp=det.length>220?det.substring(0,217)+'\u2026':det;
-  
-            var x='<div class="lx-row lx-audit-row" style="grid-template-columns:'+gridColsHila+';padding:8px 16px;font-size:11px;border-bottom:1px solid rgba(30,41,59,0.35)">';
-  
-            x+='<div class="lx-cell" style="color:#cbd5e1;font-variant-numeric:tabular-nums">'+escAudit(r.t||'\u2014')+'</div>';
-  
-            x+='<div class="lx-cell" style="color:#34d399;font-size:10px;font-weight:600">'+escAudit(r.act)+'</div>';
-  
-            x+='<div class="lx-cell" style="color:#a5b4fc;font-weight:600;font-size:10px">'+escAudit(r.obj||'\u2014')+'</div>';
-  
-            x+='<div class="lx-cell" style="color:#fb7185;font-family:ui-monospace,monospace;font-size:10px">'+escAudit(r.ev||'\u2014')+'</div>';
-  
-            x+='<div class="lx-cell" style="color:#e2e8f0">'+escAudit(r.user||'\u2014')+'</div>';
-  
-            x+='<div class="lx-cell" style="color:#94a3b8;white-space:normal;word-break:break-word;font-size:10px" title="'+escAudit(det)+'">'+escAudit(detDisp)+'</div>';
-  
-            x+='</div>';
-  
-            return x;
-  
-          }
-  
-          var hilaSortKey='t', hilaSortDir=-1;
-  
-          function paintHilaAudit(){
-  
-            var rows=masterHila.slice();
-  
-            rows.sort(function(a,b){return hilaSortDir*auditLocaleCmp(a,b,hilaSortKey);});
-  
-            var body='';
-  
-            for(var ri=0;ri<rows.length;ri++)body+=oneHilaRowHtml(rows[ri]);
-  
-            var sc=R.querySelector('#lx-audit-hila-scroll');
-  
-            if(sc)sc.innerHTML=hilaHdrHtml(hilaSortKey,hilaSortDir)+body;
-  
-          }
-  
-          var hh=navBar()+'<div class="lx-body" style="display:flex;flex-direction:column;min-height:0">';
-  
-          hh+='<div class="lx-bar" style="border-bottom:1px solid #1e293b;flex-wrap:wrap;gap:8px;align-items:center"><span style="color:#e2e8f0;font-size:12px;font-weight:700">Looker audit</span><span style="color:#64748b;font-size:10px">'+masterHila.length+' rows</span></div>';
-  
-          hh+='<div class="lx-scroll" style="flex:1;min-height:0" id="lx-audit-hila-scroll"></div></div>';
-  
-          R.innerHTML=hh;
-  
-          paintHilaAudit();
-  
-          (function(){
-  
-            var sc=R.querySelector('#lx-audit-hila-scroll');
-  
-            if(!sc)return;
-  
-            sc.addEventListener('click',function(ev){
-  
-              var el=ev.target&&ev.target.closest&&ev.target.closest('.lx-audit-sort');
-  
-              if(!el||!sc.contains(el))return;
-  
-              var k=el.getAttribute('data-audit-sort');
-  
-              if(!k)return;
-  
-              if(k===hilaSortKey)hilaSortDir=-hilaSortDir;
-  
-              else {hilaSortKey=k; hilaSortDir=1;}
-  
-              paintHilaAudit();
-  
-            });
-  
-          })();
-  
-          try{done();}catch(e){}
-  
-          return;
-  
-        }
-  
-        function auditUserCell(row){
-          var tried={}, order=[];
-          if(F.audit_user_email)order.push(F.audit_user_email);
-          if(F.audit_user_name)order.push(F.audit_user_name);
-          if(F.audit_user_id)order.push(F.audit_user_id);
-          if(F.audit_user_dims&&F.audit_user_dims.length)order=order.concat(F.audit_user_dims);
-          for(var ui=0;ui<order.length;ui++){
-            var uk=order[ui];
-            if(!uk||tried[uk])continue;
-            tried[uk]=true;
-            var s=auditCellDeep(row,uk);
-            if(s&&String(s).trim()!=='')return s;
-          }
-          return '';
-        }
-  
-        function isLookmlContentAuditEvent(ev,attrName,attrValue){
-          var e=(ev||'').toLowerCase().replace(/^\s+|\s+$/g,'');
-          var an=(attrName||'').toLowerCase();
-          var avs=String(attrValue==null?'':attrValue).toLowerCase();
-          if(!e)return false;
-          if(/^(create_dashboard|update_dashboard|delete_dashboard)$/.test(e))return true;
-          if(/^(create_look|save_look|delete_look)$/.test(e))return true;
-          if(/^(create_lookml_model|update_lookml_model|delete_lookml_model)$/.test(e))return true;
-          if(/^(create_project_file|save_project_file|delete_project_file)$/.test(e)){
-            return avs.indexOf('.view.lkml')!==-1||avs.indexOf('.explore.lkml')!==-1||avs.indexOf('.model.lkml')!==-1||
-              /\.view\.lkml\b/.test(avs)||/\.explore\.lkml\b/.test(avs)||/\.model\.lkml\b/.test(avs)||
-              (an.indexOf('path')!==-1||an.indexOf('file')!==-1)&&(avs.indexOf('.view.lkml')!==-1||avs.indexOf('.explore.lkml')!==-1||avs.indexOf('.model.lkml')!==-1);
-          }
-          return false;
-        }
-  
-        function auditActionLabel(ev){
-          var e=(ev||'').toLowerCase();
-          if(e.indexOf('create_')===0)return 'Added';
-          if(e.indexOf('delete_')===0)return 'Deleted';
-          if(e.indexOf('update_')===0)return 'Updated';
-          if(e==='save_look'||e.indexOf('save_')===0)return 'Updated';
-          return '\u2014';
-        }
-  
-        function auditObjectType(ev,attrValue){
-          var e=(ev||'').toLowerCase();
-          var avs=String(attrValue==null?'':attrValue).toLowerCase();
-          if(e.indexOf('dashboard')!==-1)return 'Dashboard';
-          if(/_look$/.test(e)||e==='save_look'||e.indexOf('look')===0&&e.indexOf('lookml')===-1)return 'Look';
-          if(e.indexOf('lookml_model')!==-1)return 'Model';
-          if(/project_file$/.test(e)){
-            if(avs.indexOf('.view.lkml')!==-1)return 'View';
-            if(avs.indexOf('.explore.lkml')!==-1)return 'Explore';
-            if(avs.indexOf('.model.lkml')!==-1)return 'Model';
-            return 'Project file';
-          }
-          return 'Content';
-        }
-  
-        if(!F.audit_event_name||!F.audit_created){
-  
-          R.innerHTML=navBar()+'<div class="lx-body"><div class="lx-bar" style="border-bottom:1px solid #1e293b"><span style="color:#e2e8f0;font-size:12px;font-weight:700">Looker audit</span></div><div style="padding:24px 20px;color:#94a3b8;font-size:12px;line-height:1.6"><strong style="color:#e2e8f0">Recommended:</strong> the <code style="color:#fb7185">looker_audit_events</code> explore. Add <code style="color:#fb7185">hila_audit_time</code> or <code style="color:#fb7185">hila_audit_date</code> (or partition <code style="color:#fb7185">hila_stats_date</code>), plus optional <code style="color:#fb7185">hila_user_name</code>, <code style="color:#fb7185">hila_entity_type</code>, <code style="color:#fb7185">hila_log_type</code>, <code style="color:#fb7185">hila_entity_name</code>, and <code style="color:#fb7185">hila_change</code>. This viz lists every query row with no extra filtering.<br/><br/><strong style="color:#e2e8f0">Alternative (System Activity):</strong> Event / Event Attribute explore with <code style="color:#fb7185">event.name</code>, created time, user fields, and <code style="color:#fb7185">event_attribute.name</code> / <code style="color:#fb7185">event_attribute.value</code>. That mode only shows add/update/delete for dashboards, Looks, models, and <code>.view.lkml</code> / <code>.explore.lkml</code> / <code>.model.lkml</code> files.</div></div>';
-  
-          try{done();}catch(e){}
-  
-          return;
-  
-        }
-  
-        var auditRows=[];
-  
-        data.forEach(function(row){
-  
-          var ev=gv(row,F.audit_event_name);
-  
-          var an=F.audit_attr_name?gv(row,F.audit_attr_name):'';
-  
-          var av=F.audit_attr_value?gv(row,F.audit_attr_value):'';
-  
-          if(!isLookmlContentAuditEvent(ev,an,av))return;
-  
-          var detRow=(an&&av)?an+': '+av:(av||an||'');
-  
-          auditRows.push({
-  
-            t:gv(row,F.audit_created),
-  
-            user:auditUserCell(row),
-  
-            obj:auditObjectType(ev,av),
-  
-            act:auditActionLabel(ev),
-  
-            ev:ev,
-  
-            an:an,
-  
-            av:av,
-  
-            det:detRow
-  
-          });
-  
-        });
-  
-        var gridCols='minmax(128px,1fr) minmax(72px,0.55fr) minmax(92px,0.8fr) minmax(160px,1.15fr) minmax(140px,1.1fr) minmax(140px,1.2fr)';
-  
-        var h=navBar()+'<div class="lx-body" style="display:flex;flex-direction:column;min-height:0">';
-  
-        h+='<div class="lx-bar" style="border-bottom:1px solid #1e293b;flex-wrap:wrap;gap:8px;align-items:center"><span style="color:#e2e8f0;font-size:12px;font-weight:700">Looker audit</span><span style="color:#64748b;font-size:10px">'+auditRows.length+' content changes (System Activity only) \u00B7 use Explore / dashboard filters to narrow</span></div>';
-  
-        if(auditRows.length===0){
-  
-          h+='<div style="padding:32px 20px;color:#64748b;font-size:12px;line-height:1.55">No rows matched the <strong style="color:#94a3b8">content-change</strong> rules (dashboard / Look / model / <code>.view.lkml</code> / <code>.explore.lkml</code> / <code>.model.lkml</code> files only). Increase the Look row limit or time range so those events are included.</div></div>';
-  
-          R.innerHTML=h;
-  
-          try{done();}catch(e){}
-  
-          return;
-  
-        }
-  
-        var masterSa=auditRows;
-  
-        var saHdrSpec=[['t','Event time'],['act','Action'],['obj','Object type'],['ev','Event name'],['user','User name'],['det','Detail']];
-  
-        function saLocaleCmp(a,b,key){
-  
-          var va=String(a[key]==null?'':a[key]), vb=String(b[key]==null?'':b[key]);
-  
-          return va.localeCompare(vb,undefined,{numeric:true,sensitivity:'base'});
-  
-        }
-  
-        function saHdrHtml(sk,sd){
-  
-          var hx='<div class="lx-hdr lx-audit-hdr" style="grid-template-columns:'+gridCols+';padding:6px 16px;font-size:9px">';
-  
-          for(var si=0;si<saHdrSpec.length;si++){
-  
-            var skk=saHdrSpec[si][0], slbl=saHdrSpec[si][1];
-  
-            hx+='<div class="lx-audit-sort'+(skk===sk?' on':'')+'" data-audit-sort-sa="'+skk+'">'+slbl+(skk===sk?(sd<0?' \u25BC':' \u25B2'):'')+'</div>';
-  
-          }
-  
-          hx+='</div>';
-  
-          return hx;
-  
-        }
-  
-        function oneSaRowHtml(r){
-  
-          var detf=r.det||'\u2014';
-  
-          var detDisp=detf.length>220?detf.substring(0,217)+'\u2026':detf;
-  
-          var y='<div class="lx-row lx-audit-row" style="grid-template-columns:'+gridCols+';padding:8px 16px;font-size:11px;border-bottom:1px solid rgba(30,41,59,0.35)">';
-  
-          y+='<div class="lx-cell" style="color:#cbd5e1;font-variant-numeric:tabular-nums">'+escAudit(r.t)+'</div>';
-  
-          y+='<div class="lx-cell" style="color:#34d399;font-size:10px;font-weight:600">'+escAudit(r.act)+'</div>';
-  
-          y+='<div class="lx-cell" style="color:#a5b4fc;font-weight:600;font-size:10px">'+escAudit(r.obj)+'</div>';
-  
-          y+='<div class="lx-cell" style="color:#fb7185;font-family:ui-monospace,monospace;font-size:10px">'+escAudit(r.ev)+'</div>';
-  
-          y+='<div class="lx-cell" style="color:#e2e8f0">'+escAudit(r.user||'\u2014')+'</div>';
-  
-          y+='<div class="lx-cell" style="color:#94a3b8;white-space:normal;word-break:break-word;font-size:10px" title="'+escAudit(detf)+'">'+escAudit(detDisp)+'</div>';
-  
-          y+='</div>';
-  
-          return y;
-  
-        }
-  
-        var saSortKey='t', saSortDir=-1;
-  
-        function paintSaAudit(){
-  
-          var rows=masterSa.slice();
-  
-          rows.sort(function(a,b){return saSortDir*saLocaleCmp(a,b,saSortKey);});
-  
-          var bodySa='';
-  
-          for(var sj=0;sj<rows.length;sj++)bodySa+=oneSaRowHtml(rows[sj]);
-  
-          var scc=R.querySelector('#lx-audit-sa-scroll');
-  
-          if(scc)scc.innerHTML=saHdrHtml(saSortKey,saSortDir)+bodySa;
-  
-        }
-  
-        h+='<div class="lx-scroll" style="flex:1;min-height:0" id="lx-audit-sa-scroll"></div></div>';
-  
-        R.innerHTML=h;
-  
-        paintSaAudit();
-  
-        (function(){
-  
-          var scc=R.querySelector('#lx-audit-sa-scroll');
-  
-          if(!scc)return;
-  
-          scc.addEventListener('click',function(ev){
-  
-            var el=ev.target&&ev.target.closest&&ev.target.closest('.lx-audit-sort');
-  
-            if(!el||!scc.contains(el))return;
-  
-            var k=el.getAttribute('data-audit-sort-sa');
-  
-            if(!k)return;
-  
-            if(k===saSortKey)saSortDir=-saSortDir;
-  
-            else {saSortKey=k; saSortDir=1;}
-  
-            paintSaAudit();
-  
-          });
-  
-        })();
-  
-        try{done();}catch(e){}
-  
-        return;
-  
       }
   
       // ========== AIRFLOW DAG PERFORMANCE (bie_monitoring.airflow_dag_performance) ==========
