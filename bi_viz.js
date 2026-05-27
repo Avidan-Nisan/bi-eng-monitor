@@ -248,7 +248,7 @@ looker.plugins.visualizations.add({
   
       else if(onAirflowDashboard||(F.af_dag_id&&(F.af_run_date||exploreIsAirflowPerf)))mode='airflow';
   
-      else if(F.table_name&&F.consumer_type&&hasNumJobsInQuery)mode='data_dyson';
+      else if(F.table_name&&hasNumJobsInQuery)mode='data_dyson';
   
       else if(onBqJobsDashboard||looksLikeBqJobs||exploreNameBqJobs)mode='bq_jobs';
   
@@ -5047,12 +5047,20 @@ looker.plugins.visualizations.add({
       // ========== DATA DYSON: table / column job usage with trend ==========
   
       if(mode==='data_dyson'){
-  
-        if(!F.table_name||!F.consumer_type){
-          R.innerHTML=navBar()+'<div class="lx-body"><div class="lx-bar" style="border-bottom:1px solid #1e293b"><span style="color:#e2e8f0;font-size:12px;font-weight:700">Data Dyson</span></div><div style="padding:24px 20px;color:#94a3b8;font-size:12px;line-height:1.5">This tile is on the Data Dyson dashboard but the query does not include the required fields.<br/><br/>Use the <strong style="color:#e2e8f0">bie_dbt_usage</strong> explore and add dimensions: <strong>Stats Date</strong>, <strong>Table Schema</strong>, <strong>Table Name</strong>, <strong>Column Name</strong>, <strong>Consumer Type</strong>, <strong>Executed By</strong>, and measures <strong>Table Num Jobs</strong> and <strong>Column Num Jobs</strong>.</div></div>';
+
+        function dimInQuery(fieldName){return !!(fieldName&&dims&&dims.indexOf(fieldName)!==-1);}
+
+        if(!F.table_name||!hasNumJobsInQuery){
+          R.innerHTML=navBar()+'<div class="lx-body"><div class="lx-bar" style="border-bottom:1px solid #1e293b"><span style="color:#e2e8f0;font-size:12px;font-weight:700">Data Dyson</span></div><div style="padding:24px 20px;color:#94a3b8;font-size:12px;line-height:1.5">This tile is on the Data Dyson dashboard but the query does not include the required fields.<br/><br/>Use the <strong style="color:#e2e8f0">bie_dbt_usage</strong> explore. Add dimensions <strong>Table Schema</strong>, <strong>Table Name</strong>, and optionally <strong>Column Name</strong> (Columns tab) and <strong>Stats Date</strong> (trend sparklines; filter to last 14 days). Measures: <strong>Table Num Jobs</strong> and <strong>Column Num Jobs</strong>. Leave out <strong>Consumer Type</strong> and <strong>Executed By</strong> unless you need row drill-down — they push the query past Looker\u2019s 5,000-row limit.</div></div>';
           done();return;
         }
-  
+
+        var hasDateInQuery=dimInQuery(F.usage_date)||dimInQuery(F.date);
+        var hasColumnInQuery=dimInQuery(F.column_name);
+        var hasConsumerInQuery=dimInQuery(F.consumer_type);
+        var hasUserInQuery=dimInQuery(F.executed_by);
+        var hasDetailInQuery=hasConsumerInQuery&&hasUserInQuery;
+
         var firstRow=data[0];
         function resolveKey(keys,row){
           if(!row)return null;
@@ -5078,10 +5086,24 @@ looker.plugins.visualizations.add({
         function getCol(r){return colKey?String(cellVal(r,colKey)||'—'):'—';}
         function getTableJobsVal(r){return tableJobsKey?gn(r,tableJobsKey):0;}
         function getColumnJobsVal(r){return columnJobsKey?gn(r,columnJobsKey):0;}
-        function getDateVal(r){return dateKey?String(cellVal(r,dateKey)||'').trim():'';}
-        function getConsumer(r){var c=consumerKey?String(cellVal(r,consumerKey)||'').trim():'';return c||'Unknown';}
-        function getUser(r){return userKey?String(cellVal(r,userKey)||'').trim():'';}
+        function normalizeDay(v){
+          if(v==null||v==='')return '';
+          var s=(typeof v==='object'&&v!==null&&'value' in v)?v.value:v;
+          s=String(s).trim();
+          if(!s)return '';
+          var d=new Date(s.length>=10?s.substring(0,10)+'T00:00:00':s);
+          return isNaN(d.getTime())?s:d.toISOString().substring(0,10);
+        }
+        function getDateVal(r){return dateKey?normalizeDay(cellVal(r,dateKey)):'';}
+        function getConsumer(r){if(!hasConsumerInQuery)return '';var c=consumerKey?String(cellVal(r,consumerKey)||'').trim():'';return c||'Unknown';}
+        function getUser(r){if(!hasUserInQuery)return '';return userKey?String(cellVal(r,userKey)||'').trim():'';}
         function isNoUsage(consumer,user){return (consumer||'').toUpperCase()==='NO_USAGE'||(user||'').toUpperCase()==='NO_USAGE';}
+        function tableDedupeKey(modelKey,dt,consumer,user){
+          var k=modelKey+'|'+(dt||'');
+          if(hasConsumerInQuery)k+='|'+consumer;
+          if(hasUserInQuery)k+='|'+user;
+          return k;
+        }
         function escDyson(s){return String(s==null?'':s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/"/g,'&quot;');}
         function modelKeyOf(schema,tbl){return (schema?schema+'.':'')+tbl;}
         function bumpDetail(map,key,consumer,user,jobs){
@@ -5103,23 +5125,23 @@ looker.plugins.visualizations.add({
           var dt=getDateVal(row);
           var consumer=getConsumer(row);
           var user=getUser(row);
-          var tableSliceKey=modelKey+'|'+dt+'|'+consumer+'|'+user;
+          var tableSliceKey=tableDedupeKey(modelKey,dt,consumer,user);
           if(!tableJobSeen[tableSliceKey]){
             tableJobSeen[tableSliceKey]=true;
             tableJobs[modelKey]=(tableJobs[modelKey]||0)+tableJobsVal;
-            if(!isNoUsage(consumer,user))bumpDetail(tableDetails,modelKey,consumer,user,tableJobsVal);
+            if(hasDetailInQuery&&!isNoUsage(consumer,user))bumpDetail(tableDetails,modelKey,consumer,user,tableJobsVal);
             if(dt){
               if(!tableTrend[modelKey])tableTrend[modelKey]={};
               tableTrend[modelKey][dt]=(tableTrend[modelKey][dt]||0)+tableJobsVal;
               overallTrend[dt]=(overallTrend[dt]||0)+tableJobsVal;
             }
           }
-          if(colKey||F.column_name){
+          if(hasColumnInQuery&&(colKey||F.column_name)){
             var c=colKey?getCol(row):(gv(row,F.column_name)||'—');
             var colKeyStr=modelKey+'|'+(c||'—');
             if(!columnJobs[colKeyStr])columnJobs[colKeyStr]={modelKey:modelKey,column:c||'—',jobs:0};
             columnJobs[colKeyStr].jobs+=columnJobsVal;
-            if(!isNoUsage(consumer,user))bumpDetail(columnDetails,colKeyStr,consumer,user,columnJobsVal);
+            if(hasDetailInQuery&&!isNoUsage(consumer,user))bumpDetail(columnDetails,colKeyStr,consumer,user,columnJobsVal);
             if(dt){
               if(!columnTrend[colKeyStr])columnTrend[colKeyStr]={};
               columnTrend[colKeyStr][dt]=(columnTrend[colKeyStr][dt]||0)+columnJobsVal;
@@ -5139,11 +5161,13 @@ looker.plugins.visualizations.add({
           var w=72,h=28;
           if(!trendDates.length)return '<svg width="'+w+'" height="'+h+'" viewBox="0 0 '+w+' '+h+'" style="display:block;opacity:0.35"><line x1="2" y1="'+(h/2)+'" x2="'+(w-2)+'" y2="'+(h/2)+'" stroke="#334155" stroke-width="1.5"/></svg>';
           var vals=trendDates.map(function(d){return trendMap&&trendMap[d]?trendMap[d]:0;});
-          var max=Math.max.apply(null,vals.concat([1]));
+          var min=Math.min.apply(null,vals);
+          var max=Math.max.apply(null,vals);
+          var range=max-min;
           var pts=[];
           for(var si=0;si<vals.length;si++){
             var x=(vals.length<=1?w/2:si/(vals.length-1)*(w-4)+2);
-            var y=h-3-(vals[si]/max)*(h-6);
+            var y=range<=0?(h/2):h-3-((vals[si]-min)/range)*(h-6);
             pts.push(Math.round(x)+','+Math.round(y));
           }
           return '<svg width="'+w+'" height="'+h+'" viewBox="0 0 '+w+' '+h+'" style="display:block"><polyline fill="none" stroke="#40c463" stroke-width="1.5" stroke-linejoin="round" stroke-linecap="round" points="'+pts.join(' ')+'"/></svg>';
@@ -5175,7 +5199,23 @@ looker.plugins.visualizations.add({
           });
           return h;
         }
+        var dysonLim=null;
+        try{
+          if(queryResponse){
+            if(queryResponse.limit!=null&&queryResponse.limit!=='')dysonLim=Number(queryResponse.limit);
+            if((!isFinite(dysonLim)||dysonLim<=0)&&queryResponse.query&&queryResponse.query.limit!=null)dysonLim=Number(queryResponse.query.limit);
+          }
+        }catch(eDysonLim){dysonLim=null;}
+        var dysonTruncated=isFinite(dysonLim)&&dysonLim>0&&data.length>=dysonLim;
+        var dysonLimitBanner='';
+        if(dysonTruncated)dysonLimitBanner='<div style="margin:0 20px 12px;padding:9px 12px;background:rgba(245,158,11,0.08);border:1px solid rgba(180,83,9,0.35);border-radius:8px;font-size:11px;color:#fbbf24;line-height:1.45">Results are incomplete: received <strong style="color:#fde68a">'+data.length.toLocaleString()+'</strong> rows at the query\u2019s row limit (<strong style="color:#fde68a">'+dysonLim.toLocaleString()+'</strong>), so totals may be wrong. Remove <strong style="color:#fde68a">Consumer Type</strong> and <strong style="color:#fde68a">Executed By</strong> from the query, or narrow filters. For trends, add <strong style="color:#fde68a">Stats Date</strong> with a last-14-days filter.</div>';
+        else if(data.length>=5000)dysonLimitBanner='<div style="margin:0 20px 12px;padding:9px 12px;background:rgba(245,158,11,0.06);border:1px solid rgba(180,83,9,0.28);border-radius:8px;font-size:11px;color:#fcd34d;line-height:1.45">Large result set (<strong>'+data.length.toLocaleString()+'</strong> rows). Remove <strong>Consumer Type</strong> / <strong>Executed By</strong> unless needed for drill-down.</div>';
+        else if(hasConsumerInQuery||hasUserInQuery)dysonLimitBanner='<div style="margin:0 20px 12px;padding:9px 12px;background:rgba(59,130,246,0.06);border:1px solid rgba(59,130,246,0.2);border-radius:8px;font-size:11px;color:#93c5fd;line-height:1.45">For accurate totals, drop <strong>Consumer Type</strong> and <strong>Executed By</strong> from the query. Add them only when you need the row drill-down.</div>';
+
         function dysonDetailHtml(kind,key){
+          if(!hasDetailInQuery){
+            return '<div class="lx-dyson-detail-inner"><div style="display:flex;justify-content:flex-end;margin-bottom:8px"><button type="button" class="lx-dyson-close" aria-label="Close details">\u2715 Close</button></div><div style="color:#94a3b8;font-size:12px;line-height:1.55">Add <strong style="color:#e2e8f0">Consumer Type</strong> and <strong style="color:#e2e8f0">Executed By</strong> to the query to see this breakdown. Expect a much larger row count — narrow date or table filters if you hit the 5,000-row limit.</div></div>';
+          }
           var det=kind==='table'?tableDetails[key]:columnDetails[key];
           if(!det)return '';
           var total=kind==='table'?(tableJobs[key]||0):(columnJobs[key]?columnJobs[key].jobs:0);
@@ -5196,11 +5236,12 @@ looker.plugins.visualizations.add({
         h+='<div style="text-align:right"><div style="font-size:22px;font-weight:700;color:#e2e8f0;font-variant-numeric:tabular-nums">'+(grandTotalJobs|0).toLocaleString()+'</div><div style="font-size:10px;color:#64748b;text-transform:uppercase;letter-spacing:0.05em">Total jobs</div></div>';
         h+=dysonSparkSvg(overallTrend);
         h+='</div></div>';
+        h+=dysonLimitBanner;
         h+='<div class="lx-dyson-tabbar"><div class="lx-dyson-tabs" role="tablist" aria-label="Data Dyson views">';
         h+='<button type="button" id="lx-tab-tables" class="lx-dyson-tab on" role="tab" aria-selected="true" data-dyson-tab="tables">'+tabTablesLabel+'</button>';
         h+='<button type="button" id="lx-tab-columns" class="lx-dyson-tab" role="tab" aria-selected="false" data-dyson-tab="columns">'+tabColumnsLabel+'</button>';
         h+='</div></div>';
-        h+='<div style="padding:8px 20px 10px;color:#64748b;font-size:11px;border-bottom:1px solid #1e293b;background:#131b2e">Click a row to see consumer type and executed-by breakdown.</div>';
+        h+='<div style="padding:8px 20px 10px;color:#64748b;font-size:11px;border-bottom:1px solid #1e293b;background:#131b2e">'+(hasDetailInQuery?'Click a row to see consumer type and executed-by breakdown.':'Totals use Looker aggregates — add Stats Date (last 14 days) for trend sparklines.')+'</div>';
         h+='<div id="lx-dyson-main" style="flex:1;display:flex;flex-direction:column;min-height:0">';
         h+='<div id="lx-tables-content" class="lx-zero-tab-panel" style="border-top:1px solid #1e293b;flex:1;display:flex;flex-direction:column;min-height:0">';
         h+='<div class="lx-scroll" style="flex:1;min-height:200px;overflow:auto;padding:0">';
@@ -5216,7 +5257,7 @@ looker.plugins.visualizations.add({
           h+='<div style="display:flex;justify-content:flex-end">'+dysonSparkSvg(r.trend)+'</div></div>';
         });
         if(tablesAllList.length===0) h+='<div style="padding:24px 20px;color:#64748b;font-size:12px;text-align:center">No table data read. Add <strong>Table Name</strong>, <strong>Table Num Jobs</strong>, and <strong>Stats Date</strong> to your query.</div>';
-        if(!dateKey&&tablesAllList.length>0) h+='<div style="padding:8px 20px 16px;color:#64748b;font-size:11px">Add a date dimension (e.g. <strong>Stats Date</strong>) to show job trends over time.</div>';
+        if(!hasDateInQuery&&tablesAllList.length>0) h+='<div style="padding:8px 20px 16px;color:#64748b;font-size:11px">Add <strong>Stats Date</strong> to the query (filter to last 14 days) to show daily trend sparklines.</div>';
         h+='</div></div>';
         h+='<div id="lx-columns-content" class="lx-zero-tab-panel" style="display:none;border-top:1px solid #1e293b;flex:1;flex-direction:column;min-height:0">';
         h+='<div class="lx-scroll" style="flex:1;min-height:200px;overflow:auto;padding:0">';
