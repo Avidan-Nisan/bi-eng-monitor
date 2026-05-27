@@ -5037,7 +5037,7 @@ looker.plugins.visualizations.add({
       if(mode==='data_dyson'){
   
         if(!F.table_name||!F.consumer_type){
-          R.innerHTML=navBar()+'<div class="lx-body"><div class="lx-bar" style="border-bottom:1px solid #1e293b"><span style="color:#e2e8f0;font-size:12px;font-weight:700">Data Dyson</span></div><div style="padding:24px 20px;color:#94a3b8;font-size:12px;line-height:1.5">This tile is on the Data Dyson dashboard but the query does not include the required fields.<br/><br/>Use the <strong style="color:#e2e8f0">DBT Usage</strong> explore and add dimensions: <strong>Table Schema</strong>, <strong>Table Name</strong>, <strong>Column Name</strong>, <strong>Consumer Type</strong>, a date such as <strong>Stats Date</strong>, and a measure such as <strong>Num Jobs</strong>.</div></div>';
+          R.innerHTML=navBar()+'<div class="lx-body"><div class="lx-bar" style="border-bottom:1px solid #1e293b"><span style="color:#e2e8f0;font-size:12px;font-weight:700">Data Dyson</span></div><div style="padding:24px 20px;color:#94a3b8;font-size:12px;line-height:1.5">This tile is on the Data Dyson dashboard but the query does not include the required fields.<br/><br/>Use the <strong style="color:#e2e8f0">DBT Usage</strong> explore and add dimensions: <strong>Table Schema</strong>, <strong>Table Name</strong>, <strong>Consumer Type</strong>, <strong>Executed By</strong>, a date such as <strong>Stats Date</strong>, and a measure such as <strong>Num Jobs</strong>.</div></div>';
           done();return;
         }
   
@@ -5059,23 +5059,26 @@ looker.plugins.visualizations.add({
         var jobsKey=resolveKey([F.num_jobs],firstRow);
         var dateKey=resolveKey([F.usage_date,F.date],firstRow);
         var consumerKey=resolveKey([F.consumer_type],firstRow);
+        var userKey=resolveKey([F.executed_by],firstRow);
         function getTbl(r){return tblKey?String(cellVal(r,tblKey)||''):'';}
         function getSchema(r){return schemaKey?String(cellVal(r,schemaKey)||''):'';}
         function getCol(r){return colKey?String(cellVal(r,colKey)||'—'):'—';}
         function getJobsVal(r){return jobsKey?gn(r,jobsKey):0;}
         function getDateVal(r){return dateKey?String(cellVal(r,dateKey)||'').trim():'';}
         function getConsumer(r){var c=consumerKey?String(cellVal(r,consumerKey)||'').trim():'';return c||'Unknown';}
+        function getUser(r){return userKey?String(cellVal(r,userKey)||'').trim():'';}
         function escDyson(s){return String(s==null?'':s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/"/g,'&quot;');}
         function modelKeyOf(schema,tbl){return (schema?schema+'.':'')+tbl;}
-        function bumpConsumer(map,key,consumer,jobs){
-          if(!map[key])map[key]={consumers:{}};
+        function bumpDetail(map,key,consumer,user,jobs){
+          if(!map[key])map[key]={consumers:{},users:{}};
           if(consumer)map[key].consumers[consumer]=(map[key].consumers[consumer]||0)+jobs;
+          if(user)map[key].users[user]=(map[key].users[user]||0)+jobs;
         }
         function topEntries(obj){
           return Object.keys(obj||{}).map(function(k){return {label:k,value:obj[k]};}).sort(function(a,b){return b.value-a.value||a.label.localeCompare(b.label);});
         }
   
-        var tableJobs={}, tableTrend={}, columnJobs={}, columnTrend={}, overallTrend={}, tableDetails={}, columnDetails={}, tableColumns={};
+        var tableJobs={}, tableTrend={}, columnJobs={}, columnTrend={}, overallTrend={}, tableDetails={}, columnDetails={};
         data.forEach(function(row){
           var schema=getSchema(row),tbl=getTbl(row),col=getCol(row);
           if(!tbl)return;
@@ -5083,8 +5086,9 @@ looker.plugins.visualizations.add({
           var jobs=getJobsVal(row);
           var dt=getDateVal(row);
           var consumer=getConsumer(row);
+          var user=getUser(row);
           tableJobs[modelKey]=(tableJobs[modelKey]||0)+jobs;
-          bumpConsumer(tableDetails,modelKey,consumer,jobs);
+          bumpDetail(tableDetails,modelKey,consumer,user,jobs);
           if(dt){
             if(!tableTrend[modelKey])tableTrend[modelKey]={};
             tableTrend[modelKey][dt]=(tableTrend[modelKey][dt]||0)+jobs;
@@ -5093,11 +5097,9 @@ looker.plugins.visualizations.add({
           if(colKey||F.column_name){
             var c=colKey?getCol(row):(gv(row,F.column_name)||'—');
             var colKeyStr=modelKey+'|'+(c||'—');
-            if(!tableColumns[modelKey])tableColumns[modelKey]={};
-            tableColumns[modelKey][c||'—']=(tableColumns[modelKey][c||'—']||0)+jobs;
             if(!columnJobs[colKeyStr])columnJobs[colKeyStr]={modelKey:modelKey,column:c||'—',jobs:0};
             columnJobs[colKeyStr].jobs+=jobs;
-            bumpConsumer(columnDetails,colKeyStr,consumer,jobs);
+            bumpDetail(columnDetails,colKeyStr,consumer,user,jobs);
             if(dt){
               if(!columnTrend[colKeyStr])columnTrend[colKeyStr]={};
               columnTrend[colKeyStr][dt]=(columnTrend[colKeyStr][dt]||0)+jobs;
@@ -5144,38 +5146,23 @@ looker.plugins.visualizations.add({
           });
           return h;
         }
-        function dysonColumnsHtml(modelKey){
-          if(!colKey&&!F.column_name)return '<div style="color:#64748b;font-size:11px">Add <strong style="color:#94a3b8">Column Name</strong> to the query to list columns.</div>';
-          var cols=tableColumns[modelKey]||{};
-          var entries=topEntries(cols);
-          if(!entries.length)return '<div style="color:#64748b;font-size:11px">No columns in query rows for this table.</div>';
+        function dysonUsersHtml(entries){
+          if(!userKey)return '<div style="color:#64748b;font-size:11px">Add <strong style="color:#94a3b8">Executed By</strong> to the query to list users.</div>';
+          if(!entries.length)return '<div style="color:#64748b;font-size:11px">No users in query rows for this selection.</div>';
           var h='';
           entries.forEach(function(e){
-            h+='<div class="lx-dyson-list-row"><span style="color:#e2e8f0;font-family:ui-monospace,monospace;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="'+escDyson(e.label)+'">'+escDyson(e.label||'—')+'</span><span style="color:#94a3b8;font-variant-numeric:tabular-nums;flex-shrink:0">'+(e.value|0).toLocaleString()+' jobs</span></div>';
+            h+='<div class="lx-dyson-list-row"><span style="color:#e2e8f0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="'+escDyson(e.label)+'">'+escDyson(e.label||'Unknown')+'</span><span style="color:#94a3b8;font-variant-numeric:tabular-nums;flex-shrink:0">'+(e.value|0).toLocaleString()+' jobs</span></div>';
           });
           return h;
         }
         function dysonDetailHtml(kind,key){
           var det=kind==='table'?tableDetails[key]:columnDetails[key];
           if(!det)return '';
-          var total=0,title='';
-          if(kind==='table'){
-            total=tableJobs[key]||0;
-            var p=parseModelKey(key);
-            title=(p.schema?p.schema+'.':'')+p.table;
-          }else{
-            total=columnJobs[key]?columnJobs[key].jobs:0;
-            var parts=(key||'').split('|');
-            title=parts.length>1?parts[0]+' · '+parts.slice(1).join('|'):key;
-          }
+          var total=kind==='table'?(tableJobs[key]||0):(columnJobs[key]?columnJobs[key].jobs:0);
           var consumers=topEntries(det.consumers);
-          var html='<div class="lx-dyson-detail-inner"><div style="display:flex;align-items:flex-start;justify-content:space-between;gap:12px;margin-bottom:12px"><div><div style="font-size:13px;font-weight:700;color:#e2e8f0;font-family:ui-monospace,monospace">'+escDyson(title)+'</div><div style="font-size:11px;color:#64748b;margin-top:4px">'+(total|0).toLocaleString()+' total jobs</div></div><button type="button" class="lx-dyson-close" aria-label="Close details">\u2715 Close</button></div>';
-          if(kind==='table'){
-            html+='<div class="lx-dyson-detail-grid"><div><div class="lx-dyson-detail-sec">Consumer type</div>'+dysonDistHtml(consumers,total)+'</div><div><div class="lx-dyson-detail-sec">Columns</div>'+dysonColumnsHtml(key)+'</div></div>';
-          }else{
-            html+='<div><div class="lx-dyson-detail-sec">Consumer type</div>'+dysonDistHtml(consumers,total)+'</div>';
-          }
-          html+='</div>';
+          var users=topEntries(det.users);
+          var html='<div class="lx-dyson-detail-inner"><div style="display:flex;justify-content:flex-end;margin-bottom:8px"><button type="button" class="lx-dyson-close" aria-label="Close details">\u2715 Close</button></div>';
+          html+='<div class="lx-dyson-detail-grid"><div><div class="lx-dyson-detail-sec">Consumer type</div>'+dysonDistHtml(consumers,total)+'</div><div><div class="lx-dyson-detail-sec">Executed by</div>'+dysonUsersHtml(users)+'</div></div></div>';
           return html;
         }
         var grandTotalJobs=0;
@@ -5193,6 +5180,7 @@ looker.plugins.visualizations.add({
         h+='<button type="button" id="lx-tab-tables" class="lx-dyson-tab on" role="tab" aria-selected="true" data-dyson-tab="tables">'+tabTablesLabel+'</button>';
         h+='<button type="button" id="lx-tab-columns" class="lx-dyson-tab" role="tab" aria-selected="false" data-dyson-tab="columns">'+tabColumnsLabel+'</button>';
         h+='</div></div>';
+        h+='<div style="padding:8px 20px 10px;color:#64748b;font-size:11px;border-bottom:1px solid #1e293b;background:#131b2e">Click a row to see consumer type and executed-by breakdown.</div>';
         h+='<div id="lx-dyson-main" style="flex:1;display:flex;flex-direction:column;min-height:0">';
         h+='<div id="lx-tables-content" class="lx-zero-tab-panel" style="border-top:1px solid #1e293b;flex:1;display:flex;flex-direction:column;min-height:0">';
         h+='<div class="lx-scroll" style="flex:1;min-height:200px;overflow:auto;padding:0">';
@@ -5201,7 +5189,7 @@ looker.plugins.visualizations.add({
         h+='<div>Schema</div><div>Table</div><div style="text-align:right">Total jobs</div><div style="text-align:right">Trend</div></div>';
         tablesAllList.forEach(function(r){
           var isZero=r.total===0;
-          h+='<div class="lx-row lx-dyson-row" data-dyson-kind="table" data-dyson-key="'+escDyson(r.key)+'" style="grid-template-columns:'+tableCols+';padding:10px 20px;font-size:12px;border-bottom:1px solid rgba(30,41,59,0.3);align-items:center" title="Click for consumer and column breakdown">';
+          h+='<div class="lx-row lx-dyson-row" data-dyson-kind="table" data-dyson-key="'+escDyson(r.key)+'" style="grid-template-columns:'+tableCols+';padding:10px 20px;font-size:12px;border-bottom:1px solid rgba(30,41,59,0.3);align-items:center">';
           h+='<div class="lx-cell" style="font-family:ui-monospace,monospace;color:'+(isZero?'#64748b':'#94a3b8')+'">'+escDyson(r.schema)+'</div>';
           h+='<div class="lx-cell" style="font-family:ui-monospace,monospace;color:'+(isZero?'#64748b':'#e2e8f0')+'">'+escDyson(r.table)+'</div>';
           h+='<div style="text-align:right;color:'+(isZero?'#64748b':'#cbd5e1')+';font-variant-numeric:tabular-nums;font-weight:600">'+(r.total|0).toLocaleString()+'</div>';
@@ -5217,7 +5205,7 @@ looker.plugins.visualizations.add({
         h+='<div>Schema</div><div>Table</div><div>Column</div><div style="text-align:right">Total jobs</div><div style="text-align:right">Trend</div></div>';
         columnsAllList.forEach(function(r){
           var isZero=r.total===0;
-          h+='<div class="lx-row lx-dyson-row" data-dyson-kind="column" data-dyson-key="'+escDyson(r.key)+'" style="grid-template-columns:'+colCols+';padding:10px 20px;font-size:12px;border-bottom:1px solid rgba(30,41,59,0.3);align-items:center" title="Click for consumer breakdown">';
+          h+='<div class="lx-row lx-dyson-row" data-dyson-kind="column" data-dyson-key="'+escDyson(r.key)+'" style="grid-template-columns:'+colCols+';padding:10px 20px;font-size:12px;border-bottom:1px solid rgba(30,41,59,0.3);align-items:center">';
           h+='<div class="lx-cell" style="font-family:ui-monospace,monospace;color:'+(isZero?'#64748b':'#94a3b8')+'">'+escDyson(r.schema)+'</div>';
           h+='<div class="lx-cell" style="font-family:ui-monospace,monospace;color:'+(isZero?'#64748b':'#e2e8f0')+'">'+escDyson(r.table)+'</div>';
           h+='<div class="lx-cell">'+escDyson(r.column)+'</div>';
