@@ -64,7 +64,7 @@ looker.plugins.visualizations.add({
   
       var s=document.createElement('style');
   
-      s.textContent='#lex *{box-sizing:border-box}.lx-nav{display:flex;align-items:center;gap:2px;padding:14px 20px 0;background:linear-gradient(180deg,#0f1629,#0a0e1a);border-bottom:1px solid #334155}.lx-nav-btn{padding:10px 22px;font-size:12px;font-weight:600;cursor:pointer;border:none;background:transparent;color:#94a3b8;border-radius:10px 10px 0 0;transition:all .2s;display:flex;align-items:center;gap:8px;letter-spacing:.3px;text-decoration:none;position:relative}.lx-nav-btn:hover{color:#cbd5e1;background:rgba(30,41,59,0.25)}.lx-nav-btn.active{color:#e2e8f0;background:#1e293b;cursor:default;border-bottom:2px solid transparent;font-weight:700}.lx-nav-btn.active::after{content:"";position:absolute;bottom:0;left:4px;right:4px;height:4px;border-radius:4px 4px 0 0;z-index:1}.lx-nav-btn.t-lineage.active{color:#10b981!important}.lx-nav-btn.t-lineage.active::after{background:#10b981;box-shadow:0 0 10px #10b981}.lx-nav-btn.t-overlap.active{color:#8b5cf6!important}.lx-nav-btn.t-overlap.active::after{background:#8b5cf6;box-shadow:0 0 10px #8b5cf6}.lx-nav-btn.t-bq_jobs.active{color:#06b6d4!important}.lx-nav-btn.t-bq_jobs.active::after{background:#06b6d4;box-shadow:0 0 10px #06b6d4}.lx-nav-btn.t-usage.active{color:#f59e0b!important}.lx-nav-btn.t-usage.active::after{background:#f59e0b;box-shadow:0 0 10px #f59e0b}.lx-nav-btn.t-dbt_lineage.active{color:#0ea5e9!important}.lx-nav-btn.t-dbt_lineage.active::after{background:#0ea5e9;box-shadow:0 0 10px #0ea5e9}.lx-nav-btn.t-data_dyson.active{color:#14b8a6!important}.lx-nav-btn.t-data_dyson.active::after{background:#14b8a6;box-shadow:0 0 10px #14b8a6}.lx-nav-btn.t-lkml_labels.active{color:#a78bfa!important}.lx-nav-btn.t-lkml_labels.active::after{background:#a78bfa;box-shadow:0 0 10px #a78bfa}.lx-nav-btn.t-airflow.active{color:#38bdf8!important}.lx-nav-btn.t-airflow.active::after{background:#38bdf8;box-shadow:0 0 10px #38bdf8}#lex .lx-af-kpis{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin:0 20px 16px}#lex .lx-af-2wide{display:grid;grid-template-columns:1.5fr 1fr;gap:12px;margin:0 20px 16px}#lex .lx-af-2eq{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin:0 20px 16px}#lex .lx-af-panel{margin:0 20px 16px}#lex .lx-af-panel-end{margin:0 20px 20px}@media (max-width:1000px){#lex .lx-af-kpis{grid-template-columns:repeat(2,1fr)}#lex .lx-af-2wide,#lex .lx-af-2eq{grid-template-columns:1fr}}@media (max-width:540px){#lex .lx-af-kpis{grid-template-columns:1fr}}.lx-body{flex:1;background:#131b2e;border-radius:12px 12px 0 0;overflow:hidden;display:flex;flex-direction:column;border:1px solid #1e293b;border-bottom:none;margin:0 12px}.lx-bar{padding:10px 16px;border-bottom:1px solid rgba(30,41,59,0.25);display:flex;align-items:center;justify-content:space-between;font-size:11px;min-height:42px}.lx-scroll{flex:1;overflow:auto}.lx-pill{display:inline-flex;align-items:center;gap:4px;padding:3px 10px;border-radius:6px;font-size:10px;font-weight:500}.lx-node{cursor:pointer;transition:opacity .15s}.lx-node:hover{opacity:.85}.lx-row{display:grid;border-bottom:1px solid rgba(30,41,59,0.1);transition:background .15s}.lx-row:hover{background:rgba(30,41,59,0.3)}.lx-hdr{display:grid;border-bottom:1px solid #1e293b;position:sticky;top:0;background:#131b2e;z-index:1}.lx-hdr>div{padding:10px 12px;font-size:10px;font-weight:600;color:#475569;cursor:pointer;user-select:none;text-transform:uppercase;letter-spacing:.5px;transition:color .15s}.lx-hdr>div:hover{color:#94a3b8}.lx-hdr>div.on{color:#e2e8f0}.lx-cell{padding:8px 12px;font-size:11px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.lx-ebtn{padding:7px 16px;border:1px solid #1e293b;cursor:pointer;font-size:11px;font-weight:500;transition:all .15s;background:transparent;color:#64748b;letter-spacing:.3px}.lx-ebtn:hover{background:#1e293b;color:#94a3b8}.lx-ebtn.on{background:#1e293b;border-color:#334155}.lx-link{color:#475569;text-decoration:none;transition:color .15s;display:inline-flex}.lx-link:hover{color:#e2e8f0}.dp-card{border-bottom:1px solid rgba(30,41,59,0.12)}.dp-head{display:flex;align-items:center;gap:12px;padding:12px 16px;cursor:pointer;transition:background .15s}.dp-head:hover{background:rgba(30,41,59,0.2)}#lex .lx-bq-filter-hide{display:none!important}#lex .lx-bq-slot-bar{cursor:pointer;transition:filter .15s,stroke-width .15s,stroke .15s}#lex .lx-bq-slot-bar:hover{filter:brightness(1.15)}#lex .lx-bq-node,#lex .lx-bq-job{cursor:pointer}#lex a.lx-bq-job-link{cursor:pointer;transition:filter .15s,border-color .15s,color .15s}#lex a.lx-bq-job-link:hover{filter:brightness(1.12);border-color:#0ea5e9!important;color:#7dd3fc!important}#lex .lx-dbt-node-stack{display:flex;flex-direction:column;align-items:flex-start;gap:3px;line-height:1.25;text-align:left}#lex .lx-dbt-line{display:flex;flex-wrap:wrap;align-items:center;gap:6px 8px}#lex .lx-dbt-kind{font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:.05em;color:#94a3b8;background:#0f172a;border:1px solid #334155;border-radius:4px;padding:2px 6px;font-family:Inter,system-ui,sans-serif}#lex .lx-dbt-proj{font-size:10px;color:#64748b;font-family:ui-monospace,monospace}#lex .lx-dbt-name{font-size:11px;font-weight:600;color:#e2e8f0;font-family:ui-monospace,monospace;word-break:break-word;max-width:100%}#lex .lx-job-stack{display:flex;flex-direction:column;gap:2px;align-items:flex-start;line-height:1.25;text-align:left;max-width:100%}#lex .lx-job-prefix{font-size:9px;color:#64748b;font-family:ui-monospace,monospace;line-height:1.2}#lex .lx-job-core{font-size:10px;font-weight:600;color:#22d3ee;font-family:ui-monospace,monospace;word-break:break-all;letter-spacing:.02em}#lex .lx-bq-clear{font:inherit;font-size:10px;font-weight:600;color:#64748b;background:transparent;border:1px solid #334155;border-radius:6px;padding:4px 10px;cursor:pointer;margin-left:auto}#lex .lx-bq-clear:hover{color:#e2e8f0;border-color:#475569}#lex .lx-dyson-tabbar{display:flex;align-items:center;justify-content:flex-start;padding:10px 20px;border-bottom:1px solid #1e293b;background:#131b2e}#lex .lx-dyson-tabs{display:inline-flex;align-items:stretch;gap:2px;background:#0f172a;border:1px solid #334155;border-radius:8px;padding:3px;box-shadow:inset 0 1px 0 rgba(255,255,255,0.03)}#lex .lx-dyson-tab{font:inherit;padding:8px 20px;font-size:12px;font-weight:600;color:#94a3b8;background:transparent;border:none;border-radius:6px;cursor:pointer;transition:background .15s,color .15s,box-shadow .15s;white-space:nowrap;line-height:1.2}#lex .lx-dyson-tab:hover{color:#e2e8f0;background:rgba(30,41,59,0.75)}#lex .lx-dyson-tab.on{color:#f0fdfa;background:#115e59;box-shadow:0 0 0 1px rgba(20,184,166,0.45),0 1px 2px rgba(0,0,0,0.2)}#lex .lx-dyson-row{cursor:pointer}#lex .lx-dyson-row:hover{background:rgba(20,184,166,0.07)}#lex .lx-dyson-row.on{background:rgba(20,184,166,0.11);box-shadow:inset 3px 0 0 #14b8a6}#lex .lx-dyson-detail{border-top:1px solid #334155;background:#131b2e;max-height:min(42vh,360px);overflow:auto;flex-shrink:0}#lex .lx-dyson-detail-inner{padding:14px 20px 16px}#lex .lx-dyson-detail-grid{display:grid;grid-template-columns:1fr 1fr;gap:16px 24px}@media (max-width:760px){#lex .lx-dyson-detail-grid{grid-template-columns:1fr}}#lex .lx-dyson-detail-sec{font-size:10px;font-weight:700;color:#64748b;text-transform:uppercase;letter-spacing:0.06em;margin-bottom:10px}#lex .lx-dyson-dist-row{display:flex;align-items:center;gap:10px;margin-bottom:7px;font-size:11px}#lex .lx-dyson-dist-label{min-width:88px;color:#cbd5e1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}#lex .lx-dyson-dist-bar{flex:1;height:7px;background:#1e293b;border-radius:4px;overflow:hidden}#lex .lx-dyson-dist-fill{height:100%;background:linear-gradient(90deg,#0d9488,#14b8a6);border-radius:4px}#lex .lx-dyson-dist-val{min-width:72px;text-align:right;color:#94a3b8;font-variant-numeric:tabular-nums}#lex .lx-dyson-user-row{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:6px 0;border-bottom:1px solid rgba(30,41,59,0.45);font-size:11px}#lex .lx-dyson-user-row:last-child{border-bottom:none}#lex .lx-dyson-close{font:inherit;font-size:10px;font-weight:600;color:#64748b;background:transparent;border:1px solid #334155;border-radius:6px;padding:4px 10px;cursor:pointer}#lex .lx-dyson-close:hover{color:#e2e8f0;border-color:#475569}';
+      s.textContent='#lex *{box-sizing:border-box}.lx-nav{display:flex;align-items:center;gap:2px;padding:14px 20px 0;background:linear-gradient(180deg,#0f1629,#0a0e1a);border-bottom:1px solid #334155}.lx-nav-btn{padding:10px 22px;font-size:12px;font-weight:600;cursor:pointer;border:none;background:transparent;color:#94a3b8;border-radius:10px 10px 0 0;transition:all .2s;display:flex;align-items:center;gap:8px;letter-spacing:.3px;text-decoration:none;position:relative}.lx-nav-btn:hover{color:#cbd5e1;background:rgba(30,41,59,0.25)}.lx-nav-btn.active{color:#e2e8f0;background:#1e293b;cursor:default;border-bottom:2px solid transparent;font-weight:700}.lx-nav-btn.active::after{content:"";position:absolute;bottom:0;left:4px;right:4px;height:4px;border-radius:4px 4px 0 0;z-index:1}.lx-nav-btn.t-lineage.active{color:#10b981!important}.lx-nav-btn.t-lineage.active::after{background:#10b981;box-shadow:0 0 10px #10b981}.lx-nav-btn.t-overlap.active{color:#8b5cf6!important}.lx-nav-btn.t-overlap.active::after{background:#8b5cf6;box-shadow:0 0 10px #8b5cf6}.lx-nav-btn.t-bq_jobs.active{color:#06b6d4!important}.lx-nav-btn.t-bq_jobs.active::after{background:#06b6d4;box-shadow:0 0 10px #06b6d4}.lx-nav-btn.t-usage.active{color:#f59e0b!important}.lx-nav-btn.t-usage.active::after{background:#f59e0b;box-shadow:0 0 10px #f59e0b}.lx-nav-btn.t-dbt_lineage.active{color:#0ea5e9!important}.lx-nav-btn.t-dbt_lineage.active::after{background:#0ea5e9;box-shadow:0 0 10px #0ea5e9}.lx-nav-btn.t-data_dyson.active{color:#14b8a6!important}.lx-nav-btn.t-data_dyson.active::after{background:#14b8a6;box-shadow:0 0 10px #14b8a6}.lx-nav-btn.t-lkml_labels.active{color:#a78bfa!important}.lx-nav-btn.t-lkml_labels.active::after{background:#a78bfa;box-shadow:0 0 10px #a78bfa}.lx-nav-btn.t-airflow.active{color:#38bdf8!important}.lx-nav-btn.t-airflow.active::after{background:#38bdf8;box-shadow:0 0 10px #38bdf8}#lex .lx-af-kpis{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin:0 20px 16px}#lex .lx-af-2wide{display:grid;grid-template-columns:1.5fr 1fr;gap:12px;margin:0 20px 16px}#lex .lx-af-2eq{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin:0 20px 16px}#lex .lx-af-panel{margin:0 20px 16px}#lex .lx-af-panel-end{margin:0 20px 20px}@media (max-width:1000px){#lex .lx-af-kpis{grid-template-columns:repeat(2,1fr)}#lex .lx-af-2wide,#lex .lx-af-2eq{grid-template-columns:1fr}}@media (max-width:540px){#lex .lx-af-kpis{grid-template-columns:1fr}}.lx-body{flex:1;background:#131b2e;border-radius:12px 12px 0 0;overflow:hidden;display:flex;flex-direction:column;border:1px solid #1e293b;border-bottom:none;margin:0 12px}.lx-bar{padding:10px 16px;border-bottom:1px solid rgba(30,41,59,0.25);display:flex;align-items:center;justify-content:space-between;font-size:11px;min-height:42px}.lx-scroll{flex:1;overflow:auto}.lx-pill{display:inline-flex;align-items:center;gap:4px;padding:3px 10px;border-radius:6px;font-size:10px;font-weight:500}.lx-node{cursor:pointer;transition:opacity .15s}.lx-node:hover{opacity:.85}.lx-row{display:grid;border-bottom:1px solid rgba(30,41,59,0.1);transition:background .15s}.lx-row:hover{background:rgba(30,41,59,0.3)}.lx-hdr{display:grid;border-bottom:1px solid #1e293b;position:sticky;top:0;background:#131b2e;z-index:1}.lx-hdr>div{padding:10px 12px;font-size:10px;font-weight:600;color:#475569;cursor:pointer;user-select:none;text-transform:uppercase;letter-spacing:.5px;transition:color .15s}.lx-hdr>div:hover{color:#94a3b8}.lx-hdr>div.on{color:#e2e8f0}.lx-cell{padding:8px 12px;font-size:11px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.lx-ebtn{padding:7px 16px;border:1px solid #1e293b;cursor:pointer;font-size:11px;font-weight:500;transition:all .15s;background:transparent;color:#64748b;letter-spacing:.3px}.lx-ebtn:hover{background:#1e293b;color:#94a3b8}.lx-ebtn.on{background:#1e293b;border-color:#334155}.lx-link{color:#475569;text-decoration:none;transition:color .15s;display:inline-flex}.lx-link:hover{color:#e2e8f0}.dp-card{border-bottom:1px solid rgba(30,41,59,0.12)}.dp-head{display:flex;align-items:center;gap:12px;padding:12px 16px;cursor:pointer;transition:background .15s}.dp-head:hover{background:rgba(30,41,59,0.2)}#lex .lx-bq-filter-hide{display:none!important}#lex .lx-bq-slot-bar{cursor:pointer;transition:filter .15s,stroke-width .15s,stroke .15s}#lex .lx-bq-slot-bar:hover{filter:brightness(1.15)}#lex .lx-bq-node,#lex .lx-bq-job{cursor:pointer}#lex a.lx-bq-job-link{cursor:pointer;transition:filter .15s,border-color .15s,color .15s}#lex a.lx-bq-job-link:hover{filter:brightness(1.12);border-color:#0ea5e9!important;color:#7dd3fc!important}#lex .lx-dbt-node-stack{display:flex;flex-direction:column;align-items:flex-start;gap:3px;line-height:1.25;text-align:left}#lex .lx-dbt-line{display:flex;flex-wrap:wrap;align-items:center;gap:6px 8px}#lex .lx-dbt-kind{font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:.05em;color:#94a3b8;background:#0f172a;border:1px solid #334155;border-radius:4px;padding:2px 6px;font-family:Inter,system-ui,sans-serif}#lex .lx-dbt-proj{font-size:10px;color:#64748b;font-family:ui-monospace,monospace}#lex .lx-dbt-name{font-size:11px;font-weight:600;color:#e2e8f0;font-family:ui-monospace,monospace;word-break:break-word;max-width:100%}#lex .lx-job-stack{display:flex;flex-direction:column;gap:2px;align-items:flex-start;line-height:1.25;text-align:left;max-width:100%}#lex .lx-job-prefix{font-size:9px;color:#64748b;font-family:ui-monospace,monospace;line-height:1.2}#lex .lx-job-core{font-size:10px;font-weight:600;color:#22d3ee;font-family:ui-monospace,monospace;word-break:break-all;letter-spacing:.02em}#lex .lx-bq-clear{font:inherit;font-size:10px;font-weight:600;color:#64748b;background:transparent;border:1px solid #334155;border-radius:6px;padding:4px 10px;cursor:pointer;margin-left:auto}#lex .lx-bq-clear:hover{color:#e2e8f0;border-color:#475569}#lex .lx-dyson-tabbar{display:flex;align-items:center;justify-content:flex-start;padding:10px 20px;border-bottom:1px solid #1e293b;background:#131b2e}#lex .lx-dyson-tabs{display:inline-flex;align-items:stretch;gap:2px;background:#0f172a;border:1px solid #334155;border-radius:8px;padding:3px;box-shadow:inset 0 1px 0 rgba(255,255,255,0.03)}#lex .lx-dyson-tab{font:inherit;padding:8px 20px;font-size:12px;font-weight:600;color:#94a3b8;background:transparent;border:none;border-radius:6px;cursor:pointer;transition:background .15s,color .15s,box-shadow .15s;white-space:nowrap;line-height:1.2}#lex .lx-dyson-tab:hover{color:#e2e8f0;background:rgba(30,41,59,0.75)}#lex .lx-dyson-tab.on{color:#f0fdfa;background:#115e59;box-shadow:0 0 0 1px rgba(20,184,166,0.45),0 1px 2px rgba(0,0,0,0.2)}#lex .lx-dyson-row{cursor:pointer}#lex .lx-dyson-row:hover{background:rgba(20,184,166,0.07)}#lex .lx-dyson-row.on{background:rgba(20,184,166,0.11);box-shadow:inset 3px 0 0 #14b8a6}#lex .lx-dyson-detail-row{background:#131b2e;border-bottom:1px solid #334155;box-shadow:inset 3px 0 0 #14b8a6}#lex .lx-dyson-detail-inner{padding:12px 20px 14px}#lex .lx-dyson-detail-grid{display:grid;grid-template-columns:1fr 1fr;gap:16px 24px}@media (max-width:760px){#lex .lx-dyson-detail-grid{grid-template-columns:1fr}}#lex .lx-dyson-detail-sec{font-size:10px;font-weight:700;color:#64748b;text-transform:uppercase;letter-spacing:0.06em;margin-bottom:10px}#lex .lx-dyson-dist-row{display:flex;align-items:center;gap:10px;margin-bottom:7px;font-size:11px}#lex .lx-dyson-dist-label{min-width:88px;color:#cbd5e1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}#lex .lx-dyson-dist-bar{flex:1;height:7px;background:#1e293b;border-radius:4px;overflow:hidden}#lex .lx-dyson-dist-fill{height:100%;background:linear-gradient(90deg,#0d9488,#14b8a6);border-radius:4px}#lex .lx-dyson-dist-val{min-width:72px;text-align:right;color:#94a3b8;font-variant-numeric:tabular-nums}#lex .lx-dyson-list-row{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:6px 0;border-bottom:1px solid rgba(30,41,59,0.45);font-size:11px}#lex .lx-dyson-list-row:last-child{border-bottom:none}#lex .lx-dyson-close{font:inherit;font-size:10px;font-weight:600;color:#64748b;background:transparent;border:1px solid #334155;border-radius:6px;padding:4px 10px;cursor:pointer}#lex .lx-dyson-close:hover{color:#e2e8f0;border-color:#475569}';
   
       element.appendChild(s);
   
@@ -5037,7 +5037,7 @@ looker.plugins.visualizations.add({
       if(mode==='data_dyson'){
   
         if(!F.table_name||!F.consumer_type){
-          R.innerHTML=navBar()+'<div class="lx-body"><div class="lx-bar" style="border-bottom:1px solid #1e293b"><span style="color:#e2e8f0;font-size:12px;font-weight:700">Data Dyson</span></div><div style="padding:24px 20px;color:#94a3b8;font-size:12px;line-height:1.5">This tile is on the Data Dyson dashboard but the query does not include the required fields.<br/><br/>Use the <strong style="color:#e2e8f0">DBT Usage</strong> explore and add dimensions: <strong>Table Schema</strong>, <strong>Table Name</strong>, <strong>Consumer Type</strong>, <strong>Executed By</strong> (for user breakdown on row click), a date such as <strong>Stats Date</strong>, and a measure such as <strong>Num Jobs</strong>.</div></div>';
+          R.innerHTML=navBar()+'<div class="lx-body"><div class="lx-bar" style="border-bottom:1px solid #1e293b"><span style="color:#e2e8f0;font-size:12px;font-weight:700">Data Dyson</span></div><div style="padding:24px 20px;color:#94a3b8;font-size:12px;line-height:1.5">This tile is on the Data Dyson dashboard but the query does not include the required fields.<br/><br/>Use the <strong style="color:#e2e8f0">DBT Usage</strong> explore and add dimensions: <strong>Table Schema</strong>, <strong>Table Name</strong>, <strong>Column Name</strong>, <strong>Consumer Type</strong>, a date such as <strong>Stats Date</strong>, and a measure such as <strong>Num Jobs</strong>.</div></div>';
           done();return;
         }
   
@@ -5059,26 +5059,23 @@ looker.plugins.visualizations.add({
         var jobsKey=resolveKey([F.num_jobs],firstRow);
         var dateKey=resolveKey([F.usage_date,F.date],firstRow);
         var consumerKey=resolveKey([F.consumer_type],firstRow);
-        var userKey=resolveKey([F.executed_by],firstRow);
         function getTbl(r){return tblKey?String(cellVal(r,tblKey)||''):'';}
         function getSchema(r){return schemaKey?String(cellVal(r,schemaKey)||''):'';}
         function getCol(r){return colKey?String(cellVal(r,colKey)||'—'):'—';}
         function getJobsVal(r){return jobsKey?gn(r,jobsKey):0;}
         function getDateVal(r){return dateKey?String(cellVal(r,dateKey)||'').trim():'';}
         function getConsumer(r){var c=consumerKey?String(cellVal(r,consumerKey)||'').trim():'';return c||'Unknown';}
-        function getUser(r){return userKey?String(cellVal(r,userKey)||'').trim():'';}
         function escDyson(s){return String(s==null?'':s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/"/g,'&quot;');}
         function modelKeyOf(schema,tbl){return (schema?schema+'.':'')+tbl;}
-        function bumpDetail(map,key,consumer,user,jobs){
-          if(!map[key])map[key]={consumers:{},users:{}};
+        function bumpConsumer(map,key,consumer,jobs){
+          if(!map[key])map[key]={consumers:{}};
           if(consumer)map[key].consumers[consumer]=(map[key].consumers[consumer]||0)+jobs;
-          if(user)map[key].users[user]=(map[key].users[user]||0)+jobs;
         }
         function topEntries(obj){
           return Object.keys(obj||{}).map(function(k){return {label:k,value:obj[k]};}).sort(function(a,b){return b.value-a.value||a.label.localeCompare(b.label);});
         }
   
-        var tableJobs={}, tableTrend={}, columnJobs={}, columnTrend={}, overallTrend={}, tableDetails={}, columnDetails={};
+        var tableJobs={}, tableTrend={}, columnJobs={}, columnTrend={}, overallTrend={}, tableDetails={}, columnDetails={}, tableColumns={};
         data.forEach(function(row){
           var schema=getSchema(row),tbl=getTbl(row),col=getCol(row);
           if(!tbl)return;
@@ -5086,9 +5083,8 @@ looker.plugins.visualizations.add({
           var jobs=getJobsVal(row);
           var dt=getDateVal(row);
           var consumer=getConsumer(row);
-          var user=getUser(row);
           tableJobs[modelKey]=(tableJobs[modelKey]||0)+jobs;
-          bumpDetail(tableDetails,modelKey,consumer,user,jobs);
+          bumpConsumer(tableDetails,modelKey,consumer,jobs);
           if(dt){
             if(!tableTrend[modelKey])tableTrend[modelKey]={};
             tableTrend[modelKey][dt]=(tableTrend[modelKey][dt]||0)+jobs;
@@ -5097,9 +5093,11 @@ looker.plugins.visualizations.add({
           if(colKey||F.column_name){
             var c=colKey?getCol(row):(gv(row,F.column_name)||'—');
             var colKeyStr=modelKey+'|'+(c||'—');
+            if(!tableColumns[modelKey])tableColumns[modelKey]={};
+            tableColumns[modelKey][c||'—']=(tableColumns[modelKey][c||'—']||0)+jobs;
             if(!columnJobs[colKeyStr])columnJobs[colKeyStr]={modelKey:modelKey,column:c||'—',jobs:0};
             columnJobs[colKeyStr].jobs+=jobs;
-            bumpDetail(columnDetails,colKeyStr,consumer,user,jobs);
+            bumpConsumer(columnDetails,colKeyStr,consumer,jobs);
             if(dt){
               if(!columnTrend[colKeyStr])columnTrend[colKeyStr]={};
               columnTrend[colKeyStr][dt]=(columnTrend[colKeyStr][dt]||0)+jobs;
@@ -5146,12 +5144,14 @@ looker.plugins.visualizations.add({
           });
           return h;
         }
-        function dysonUsersHtml(entries){
-          if(!userKey)return '<div style="color:#64748b;font-size:11px">Add <strong style="color:#94a3b8">Executed By</strong> to the query to list users.</div>';
-          if(!entries.length)return '<div style="color:#64748b;font-size:11px">No users in query rows for this selection.</div>';
+        function dysonColumnsHtml(modelKey){
+          if(!colKey&&!F.column_name)return '<div style="color:#64748b;font-size:11px">Add <strong style="color:#94a3b8">Column Name</strong> to the query to list columns.</div>';
+          var cols=tableColumns[modelKey]||{};
+          var entries=topEntries(cols);
+          if(!entries.length)return '<div style="color:#64748b;font-size:11px">No columns in query rows for this table.</div>';
           var h='';
           entries.forEach(function(e){
-            h+='<div class="lx-dyson-user-row"><span style="color:#e2e8f0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="'+escDyson(e.label)+'">'+escDyson(e.label||'Unknown')+'</span><span style="color:#94a3b8;font-variant-numeric:tabular-nums;flex-shrink:0">'+(e.value|0).toLocaleString()+' jobs</span></div>';
+            h+='<div class="lx-dyson-list-row"><span style="color:#e2e8f0;font-family:ui-monospace,monospace;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="'+escDyson(e.label)+'">'+escDyson(e.label||'—')+'</span><span style="color:#94a3b8;font-variant-numeric:tabular-nums;flex-shrink:0">'+(e.value|0).toLocaleString()+' jobs</span></div>';
           });
           return h;
         }
@@ -5169,9 +5169,13 @@ looker.plugins.visualizations.add({
             title=parts.length>1?parts[0]+' · '+parts.slice(1).join('|'):key;
           }
           var consumers=topEntries(det.consumers);
-          var users=topEntries(det.users);
           var html='<div class="lx-dyson-detail-inner"><div style="display:flex;align-items:flex-start;justify-content:space-between;gap:12px;margin-bottom:12px"><div><div style="font-size:13px;font-weight:700;color:#e2e8f0;font-family:ui-monospace,monospace">'+escDyson(title)+'</div><div style="font-size:11px;color:#64748b;margin-top:4px">'+(total|0).toLocaleString()+' total jobs</div></div><button type="button" class="lx-dyson-close" aria-label="Close details">\u2715 Close</button></div>';
-          html+='<div class="lx-dyson-detail-grid"><div><div class="lx-dyson-detail-sec">Consumer type</div>'+dysonDistHtml(consumers,total)+'</div><div><div class="lx-dyson-detail-sec">Users</div>'+dysonUsersHtml(users)+'</div></div></div>';
+          if(kind==='table'){
+            html+='<div class="lx-dyson-detail-grid"><div><div class="lx-dyson-detail-sec">Consumer type</div>'+dysonDistHtml(consumers,total)+'</div><div><div class="lx-dyson-detail-sec">Columns</div>'+dysonColumnsHtml(key)+'</div></div>';
+          }else{
+            html+='<div><div class="lx-dyson-detail-sec">Consumer type</div>'+dysonDistHtml(consumers,total)+'</div>';
+          }
+          html+='</div>';
           return html;
         }
         var grandTotalJobs=0;
@@ -5197,7 +5201,7 @@ looker.plugins.visualizations.add({
         h+='<div>Schema</div><div>Table</div><div style="text-align:right">Total jobs</div><div style="text-align:right">Trend</div></div>';
         tablesAllList.forEach(function(r){
           var isZero=r.total===0;
-          h+='<div class="lx-row lx-dyson-row" data-dyson-kind="table" data-dyson-key="'+escDyson(r.key)+'" style="grid-template-columns:'+tableCols+';padding:10px 20px;font-size:12px;border-bottom:1px solid rgba(30,41,59,0.3);align-items:center" title="Click for consumer and user breakdown">';
+          h+='<div class="lx-row lx-dyson-row" data-dyson-kind="table" data-dyson-key="'+escDyson(r.key)+'" style="grid-template-columns:'+tableCols+';padding:10px 20px;font-size:12px;border-bottom:1px solid rgba(30,41,59,0.3);align-items:center" title="Click for consumer and column breakdown">';
           h+='<div class="lx-cell" style="font-family:ui-monospace,monospace;color:'+(isZero?'#64748b':'#94a3b8')+'">'+escDyson(r.schema)+'</div>';
           h+='<div class="lx-cell" style="font-family:ui-monospace,monospace;color:'+(isZero?'#64748b':'#e2e8f0')+'">'+escDyson(r.table)+'</div>';
           h+='<div style="text-align:right;color:'+(isZero?'#64748b':'#cbd5e1')+';font-variant-numeric:tabular-nums;font-weight:600">'+(r.total|0).toLocaleString()+'</div>';
@@ -5213,7 +5217,7 @@ looker.plugins.visualizations.add({
         h+='<div>Schema</div><div>Table</div><div>Column</div><div style="text-align:right">Total jobs</div><div style="text-align:right">Trend</div></div>';
         columnsAllList.forEach(function(r){
           var isZero=r.total===0;
-          h+='<div class="lx-row lx-dyson-row" data-dyson-kind="column" data-dyson-key="'+escDyson(r.key)+'" style="grid-template-columns:'+colCols+';padding:10px 20px;font-size:12px;border-bottom:1px solid rgba(30,41,59,0.3);align-items:center" title="Click for consumer and user breakdown">';
+          h+='<div class="lx-row lx-dyson-row" data-dyson-kind="column" data-dyson-key="'+escDyson(r.key)+'" style="grid-template-columns:'+colCols+';padding:10px 20px;font-size:12px;border-bottom:1px solid rgba(30,41,59,0.3);align-items:center" title="Click for consumer breakdown">';
           h+='<div class="lx-cell" style="font-family:ui-monospace,monospace;color:'+(isZero?'#64748b':'#94a3b8')+'">'+escDyson(r.schema)+'</div>';
           h+='<div class="lx-cell" style="font-family:ui-monospace,monospace;color:'+(isZero?'#64748b':'#e2e8f0')+'">'+escDyson(r.table)+'</div>';
           h+='<div class="lx-cell">'+escDyson(r.column)+'</div>';
@@ -5221,9 +5225,7 @@ looker.plugins.visualizations.add({
           h+='<div style="display:flex;justify-content:flex-end">'+dysonSparkSvg(r.trend)+'</div></div>';
         });
         if(columnsAllList.length===0) h+='<div style="padding:24px 20px;color:#64748b;font-size:12px;text-align:center">'+(F.column_name||colKey?'No column data in result. If you use a tile or dashboard filter, check it doesn’t exclude the columns you need.':'Add <strong>Column Name</strong> and <strong>Num Jobs</strong> to the query for column-level usage.')+'</div>';
-        h+='</div></div>';
-        h+='<div id="lx-dyson-detail" class="lx-dyson-detail" style="display:none"></div>';
-        h+='</div></div>';
+        h+='</div></div></div></div>';
   
         R.innerHTML=h;
         (function(){
@@ -5232,25 +5234,25 @@ looker.plugins.visualizations.add({
           var c=root.querySelector('#lx-columns-content');
           var bt=root.querySelector('#lx-tab-tables');
           var bc=root.querySelector('#lx-tab-columns');
-          var detailEl=root.querySelector('#lx-dyson-detail');
           var dysonSel=null;
           if(!t||!c||!bt||!bc)return;
           function clearDysonDetail(){
             dysonSel=null;
             root.querySelectorAll('.lx-dyson-row.on').forEach(function(el){el.classList.remove('on');});
-            if(detailEl){detailEl.style.display='none';detailEl.innerHTML='';}
+            root.querySelectorAll('.lx-dyson-detail-row').forEach(function(el){el.remove();});
           }
           function showDysonDetail(kind,key,rowEl){
             if(dysonSel&&dysonSel.kind===kind&&dysonSel.key===key){clearDysonDetail();return;}
-            root.querySelectorAll('.lx-dyson-row.on').forEach(function(el){el.classList.remove('on');});
+            clearDysonDetail();
             if(rowEl)rowEl.classList.add('on');
             dysonSel={kind:kind,key:key};
-            if(detailEl){
-              detailEl.innerHTML=dysonDetailHtml(kind,key);
-              detailEl.style.display='block';
-              var closeBtn=detailEl.querySelector('.lx-dyson-close');
-              if(closeBtn)closeBtn.addEventListener('click',function(ev){ev.stopPropagation();clearDysonDetail();});
-            }
+            var detailRow=document.createElement('div');
+            detailRow.className='lx-dyson-detail-row';
+            detailRow.innerHTML=dysonDetailHtml(kind,key);
+            rowEl.parentNode.insertBefore(detailRow,rowEl.nextSibling);
+            var closeBtn=detailRow.querySelector('.lx-dyson-close');
+            if(closeBtn)closeBtn.addEventListener('click',function(ev){ev.stopPropagation();clearDysonDetail();});
+            try{rowEl.scrollIntoView({block:'nearest',behavior:'smooth'});}catch(e){}
           }
           function showTables(){
             t.style.display='flex'; c.style.display='none';
