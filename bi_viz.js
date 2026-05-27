@@ -5127,8 +5127,8 @@ looker.plugins.visualizations.add({
           }
         });
         function parseModelKey(k){var i=(k||'').indexOf('.');return i!==-1?{schema:k.substring(0,i),table:k.substring(i+1)}:{schema:'',table:k||''};}
-        function sortTablesAbc(a,b){return (a.schema||'').localeCompare(b.schema||'')||(a.table||'').localeCompare(b.table||'');}
-        function sortColumnsAbc(a,b){return (a.schema||'').localeCompare(b.schema||'')||(a.table||'').localeCompare(b.table||'')||(a.column||'').localeCompare(b.column||'');}
+        function sortByTotalJobs(a,b){return (b.total||0)-(a.total||0)||(a.schema||'').localeCompare(b.schema||'')||(a.table||'').localeCompare(b.table||'');}
+        function sortColumnsByTotalJobs(a,b){return (b.total||0)-(a.total||0)||(a.schema||'').localeCompare(b.schema||'')||(a.table||'').localeCompare(b.table||'')||(a.column||'').localeCompare(b.column||'');}
         var trendDates=Object.keys(overallTrend).sort().slice(-14);
         if(!trendDates.length&&dateKey){
           var dateSet={};
@@ -5149,12 +5149,12 @@ looker.plugins.visualizations.add({
           return '<svg width="'+w+'" height="'+h+'" viewBox="0 0 '+w+' '+h+'" style="display:block"><polyline fill="none" stroke="#40c463" stroke-width="1.5" stroke-linejoin="round" stroke-linecap="round" points="'+pts.join(' ')+'"/></svg>';
         }
         var tablesAllList=Object.keys(tableJobs).map(function(k){var p=parseModelKey(k);return {schema:p.schema,table:p.table,key:k,total:tableJobs[k],trend:tableTrend[k]||{}};});
-        tablesAllList.sort(sortTablesAbc);
+        tablesAllList.sort(sortByTotalJobs);
         var columnsAllList=Object.keys(columnJobs).map(function(k){
           var p=parseModelKey(columnJobs[k].modelKey),mk=columnJobs[k].modelKey;
           return {schema:p.schema,table:p.table,column:columnJobs[k].column,total:columnJobs[k].jobs,modelKey:mk,key:k,trend:columnTrend[k]||{}};
         }).filter(function(r){return tableJobs[r.modelKey]>0;});
-        columnsAllList.sort(sortColumnsAbc);
+        columnsAllList.sort(sortColumnsByTotalJobs);
         function dysonDistHtml(entries,total){
           if(!entries.length)return '<div style="color:#64748b;font-size:11px">No breakdown in query rows.</div>';
           var max=Math.max.apply(null,entries.map(function(e){return e.value;}).concat([1]));
