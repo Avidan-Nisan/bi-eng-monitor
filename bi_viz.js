@@ -128,7 +128,13 @@ looker.plugins.visualizations.add({
   
       F.num_queries=meas.find(function(f){return f.toLowerCase().indexOf('num_queries')!==-1;});
   
-      F.num_jobs=meas.find(function(f){return f.toLowerCase().indexOf('num_jobs')!==-1;});
+      F.table_num_jobs=meas.find(function(f){var l=f.toLowerCase();return l.indexOf('table_num_jobs')!==-1;});
+      F.column_num_jobs=meas.find(function(f){var l=f.toLowerCase();return l.indexOf('column_num_jobs')!==-1;});
+      F.table_num_queries=meas.find(function(f){var l=f.toLowerCase();return l.indexOf('table_num_queries')!==-1;});
+      F.column_num_queries=meas.find(function(f){var l=f.toLowerCase();return l.indexOf('column_num_queries')!==-1;});
+      F.num_jobs=meas.find(function(f){return f.toLowerCase().indexOf('num_jobs')!==-1&&!f.toLowerCase().match(/table_num_jobs|column_num_jobs/);});
+  
+      F.project_id=dims.find(function(f){var l=f.toLowerCase().replace(/\s/g,'_');return l.indexOf('project_id')!==-1;});
   
       F.usage_date=dims.find(function(f){var l=f.toLowerCase().replace(/\s/g,'_');return l.indexOf('stats_date')!==-1;})
         ||dims.find(function(f){var l=f.toLowerCase().replace(/\s/g,'_');return l.indexOf('usage_date')!==-1||l.indexOf('job_date')!==-1;})
@@ -222,11 +228,17 @@ looker.plugins.visualizations.add({
       var exploreIsAirflowPerf=(queryExplore||'').indexOf('airflow_dag_performance')!==-1
         ||((queryExplore||'').indexOf('airflow')!==-1&&((queryExplore||'').indexOf('dag')!==-1||(queryExplore||'').indexOf('performance')!==-1));
   
-      var looksLikeDbtUsage=queryExplore.indexOf('dbt')!==-1&&queryExplore.indexOf('usage')!==-1;
+      var looksLikeDbtUsage=queryExplore.indexOf('bie_dbt_usage')!==-1
+        ||(queryExplore.indexOf('dbt')!==-1&&queryExplore.indexOf('usage')!==-1);
   
       var looksLikeDbtLineage=queryExplore.indexOf('dbt')!==-1&&queryExplore.indexOf('lineage')!==-1;
   
-      var hasNumJobsInQuery=!!(F.num_jobs&&fields&&fields.measure_like&&fields.measure_like.some(function(m){return m.name===F.num_jobs;}));
+      function measInQuery(fieldName){
+        return !!(fieldName&&fields&&fields.measure_like&&fields.measure_like.some(function(m){return m.name===fieldName;}));
+      }
+      var hasTableNumJobsInQuery=measInQuery(F.table_num_jobs);
+      var hasColumnNumJobsInQuery=measInQuery(F.column_num_jobs);
+      var hasNumJobsInQuery=measInQuery(F.num_jobs)||hasTableNumJobsInQuery||hasColumnNumJobsInQuery;
   
       var looksLikeBqJobs=F.bq_job_id&&(F.bq_slot_hours||F.bq_total_slot_ms);
   
@@ -5037,7 +5049,7 @@ looker.plugins.visualizations.add({
       if(mode==='data_dyson'){
   
         if(!F.table_name||!F.consumer_type){
-          R.innerHTML=navBar()+'<div class="lx-body"><div class="lx-bar" style="border-bottom:1px solid #1e293b"><span style="color:#e2e8f0;font-size:12px;font-weight:700">Data Dyson</span></div><div style="padding:24px 20px;color:#94a3b8;font-size:12px;line-height:1.5">This tile is on the Data Dyson dashboard but the query does not include the required fields.<br/><br/>Use the <strong style="color:#e2e8f0">DBT Usage</strong> explore and add dimensions: <strong>Table Schema</strong>, <strong>Table Name</strong>, <strong>Consumer Type</strong>, <strong>Executed By</strong>, a date such as <strong>Stats Date</strong>, and a measure such as <strong>Num Jobs</strong>.</div></div>';
+          R.innerHTML=navBar()+'<div class="lx-body"><div class="lx-bar" style="border-bottom:1px solid #1e293b"><span style="color:#e2e8f0;font-size:12px;font-weight:700">Data Dyson</span></div><div style="padding:24px 20px;color:#94a3b8;font-size:12px;line-height:1.5">This tile is on the Data Dyson dashboard but the query does not include the required fields.<br/><br/>Use the <strong style="color:#e2e8f0">bie_dbt_usage</strong> explore and add dimensions: <strong>Stats Date</strong>, <strong>Table Schema</strong>, <strong>Table Name</strong>, <strong>Column Name</strong>, <strong>Consumer Type</strong>, <strong>Executed By</strong>, and measures <strong>Table Num Jobs</strong> and <strong>Column Num Jobs</strong>.</div></div>';
           done();return;
         }
   
@@ -5056,17 +5068,20 @@ looker.plugins.visualizations.add({
         var tblKey=resolveKey([F.table_name,F.table_schema],firstRow);
         var schemaKey=resolveKey([F.table_schema],firstRow);
         var colKey=resolveKey([F.column_name],firstRow);
-        var jobsKey=resolveKey([F.num_jobs],firstRow);
+        var tableJobsKey=resolveKey([F.table_num_jobs,F.num_jobs],firstRow);
+        var columnJobsKey=resolveKey([F.column_num_jobs,F.num_jobs],firstRow);
         var dateKey=resolveKey([F.usage_date,F.date],firstRow);
         var consumerKey=resolveKey([F.consumer_type],firstRow);
         var userKey=resolveKey([F.executed_by],firstRow);
         function getTbl(r){return tblKey?String(cellVal(r,tblKey)||''):'';}
         function getSchema(r){return schemaKey?String(cellVal(r,schemaKey)||''):'';}
         function getCol(r){return colKey?String(cellVal(r,colKey)||'—'):'—';}
-        function getJobsVal(r){return jobsKey?gn(r,jobsKey):0;}
+        function getTableJobsVal(r){return tableJobsKey?gn(r,tableJobsKey):0;}
+        function getColumnJobsVal(r){return columnJobsKey?gn(r,columnJobsKey):0;}
         function getDateVal(r){return dateKey?String(cellVal(r,dateKey)||'').trim():'';}
         function getConsumer(r){var c=consumerKey?String(cellVal(r,consumerKey)||'').trim():'';return c||'Unknown';}
         function getUser(r){return userKey?String(cellVal(r,userKey)||'').trim():'';}
+        function isNoUsage(consumer,user){return (consumer||'').toUpperCase()==='NO_USAGE'||(user||'').toUpperCase()==='NO_USAGE';}
         function escDyson(s){return String(s==null?'':s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/"/g,'&quot;');}
         function modelKeyOf(schema,tbl){return (schema?schema+'.':'')+tbl;}
         function bumpDetail(map,key,consumer,user,jobs){
@@ -5078,31 +5093,36 @@ looker.plugins.visualizations.add({
           return Object.keys(obj||{}).map(function(k){return {label:k,value:obj[k]};}).sort(function(a,b){return b.value-a.value||a.label.localeCompare(b.label);});
         }
   
-        var tableJobs={}, tableTrend={}, columnJobs={}, columnTrend={}, overallTrend={}, tableDetails={}, columnDetails={};
+        var tableJobs={}, tableTrend={}, columnJobs={}, columnTrend={}, overallTrend={}, tableDetails={}, columnDetails={}, tableJobSeen={};
         data.forEach(function(row){
           var schema=getSchema(row),tbl=getTbl(row),col=getCol(row);
           if(!tbl)return;
           var modelKey=modelKeyOf(schema,tbl);
-          var jobs=getJobsVal(row);
+          var tableJobsVal=getTableJobsVal(row);
+          var columnJobsVal=getColumnJobsVal(row);
           var dt=getDateVal(row);
           var consumer=getConsumer(row);
           var user=getUser(row);
-          tableJobs[modelKey]=(tableJobs[modelKey]||0)+jobs;
-          bumpDetail(tableDetails,modelKey,consumer,user,jobs);
-          if(dt){
-            if(!tableTrend[modelKey])tableTrend[modelKey]={};
-            tableTrend[modelKey][dt]=(tableTrend[modelKey][dt]||0)+jobs;
-            overallTrend[dt]=(overallTrend[dt]||0)+jobs;
+          var tableSliceKey=modelKey+'|'+dt+'|'+consumer+'|'+user;
+          if(!tableJobSeen[tableSliceKey]){
+            tableJobSeen[tableSliceKey]=true;
+            tableJobs[modelKey]=(tableJobs[modelKey]||0)+tableJobsVal;
+            if(!isNoUsage(consumer,user))bumpDetail(tableDetails,modelKey,consumer,user,tableJobsVal);
+            if(dt){
+              if(!tableTrend[modelKey])tableTrend[modelKey]={};
+              tableTrend[modelKey][dt]=(tableTrend[modelKey][dt]||0)+tableJobsVal;
+              overallTrend[dt]=(overallTrend[dt]||0)+tableJobsVal;
+            }
           }
           if(colKey||F.column_name){
             var c=colKey?getCol(row):(gv(row,F.column_name)||'—');
             var colKeyStr=modelKey+'|'+(c||'—');
             if(!columnJobs[colKeyStr])columnJobs[colKeyStr]={modelKey:modelKey,column:c||'—',jobs:0};
-            columnJobs[colKeyStr].jobs+=jobs;
-            bumpDetail(columnDetails,colKeyStr,consumer,user,jobs);
+            columnJobs[colKeyStr].jobs+=columnJobsVal;
+            if(!isNoUsage(consumer,user))bumpDetail(columnDetails,colKeyStr,consumer,user,columnJobsVal);
             if(dt){
               if(!columnTrend[colKeyStr])columnTrend[colKeyStr]={};
-              columnTrend[colKeyStr][dt]=(columnTrend[colKeyStr][dt]||0)+jobs;
+              columnTrend[colKeyStr][dt]=(columnTrend[colKeyStr][dt]||0)+columnJobsVal;
             }
           }
         });
@@ -5195,7 +5215,7 @@ looker.plugins.visualizations.add({
           h+='<div style="text-align:right;color:'+(isZero?'#64748b':'#cbd5e1')+';font-variant-numeric:tabular-nums;font-weight:600">'+(r.total|0).toLocaleString()+'</div>';
           h+='<div style="display:flex;justify-content:flex-end">'+dysonSparkSvg(r.trend)+'</div></div>';
         });
-        if(tablesAllList.length===0) h+='<div style="padding:24px 20px;color:#64748b;font-size:12px;text-align:center">No table data read. Add <strong>Table Name</strong>, <strong>Num Jobs</strong>, and a date field to your query.</div>';
+        if(tablesAllList.length===0) h+='<div style="padding:24px 20px;color:#64748b;font-size:12px;text-align:center">No table data read. Add <strong>Table Name</strong>, <strong>Table Num Jobs</strong>, and <strong>Stats Date</strong> to your query.</div>';
         if(!dateKey&&tablesAllList.length>0) h+='<div style="padding:8px 20px 16px;color:#64748b;font-size:11px">Add a date dimension (e.g. <strong>Stats Date</strong>) to show job trends over time.</div>';
         h+='</div></div>';
         h+='<div id="lx-columns-content" class="lx-zero-tab-panel" style="display:none;border-top:1px solid #1e293b;flex:1;flex-direction:column;min-height:0">';
@@ -5212,7 +5232,7 @@ looker.plugins.visualizations.add({
           h+='<div style="text-align:right;color:'+(isZero?'#64748b':'#cbd5e1')+';font-variant-numeric:tabular-nums;font-weight:600">'+(r.total|0).toLocaleString()+'</div>';
           h+='<div style="display:flex;justify-content:flex-end">'+dysonSparkSvg(r.trend)+'</div></div>';
         });
-        if(columnsAllList.length===0) h+='<div style="padding:24px 20px;color:#64748b;font-size:12px;text-align:center">'+(F.column_name||colKey?'No column data in result. If you use a tile or dashboard filter, check it doesn’t exclude the columns you need.':'Add <strong>Column Name</strong> and <strong>Num Jobs</strong> to the query for column-level usage.')+'</div>';
+        if(columnsAllList.length===0) h+='<div style="padding:24px 20px;color:#64748b;font-size:12px;text-align:center">'+(F.column_name||colKey?'No column data in result. If you use a tile or dashboard filter, check it doesn’t exclude the columns you need.':'Add <strong>Column Name</strong> and <strong>Column Num Jobs</strong> to the query for column-level usage.')+'</div>';
         h+='</div></div></div></div>';
   
         R.innerHTML=h;
@@ -5815,7 +5835,7 @@ looker.plugins.visualizations.add({
       if(mode==='dbt_usage'){
   
         if(!F.table_name||!F.consumer_type){
-          R.innerHTML=navBar()+'<div class="lx-body"><div class="lx-bar" style="border-bottom:1px solid #1e293b"><span style="color:#e2e8f0;font-size:12px;font-weight:700">Consumer dependencies</span></div><div style="padding:24px 20px;color:#94a3b8;font-size:12px;line-height:1.5">This tile is on the DBT Usage dashboard but the query does not include the required fields.<br/><br/>Use the <strong style="color:#e2e8f0">DBT Usage</strong> explore and add dimensions: <strong>Table Schema</strong>, <strong>Table Name</strong>, <strong>Consumer Type</strong>, and a measure such as <strong>Num Jobs</strong>.</div></div>';
+          R.innerHTML=navBar()+'<div class="lx-body"><div class="lx-bar" style="border-bottom:1px solid #1e293b"><span style="color:#e2e8f0;font-size:12px;font-weight:700">Consumer dependencies</span></div><div style="padding:24px 20px;color:#94a3b8;font-size:12px;line-height:1.5">This tile is on the DBT Usage dashboard but the query does not include the required fields.<br/><br/>Use the <strong style="color:#e2e8f0">bie_dbt_usage</strong> explore and add dimensions: <strong>Table Schema</strong>, <strong>Table Name</strong>, <strong>Consumer Type</strong>, and measures such as <strong>Table Num Jobs</strong> or <strong>Column Num Jobs</strong>.</div></div>';
           done();return;
         }
   
@@ -5827,7 +5847,9 @@ looker.plugins.visualizations.add({
   
           var modelKey=(schema?schema+'.':'')+tbl;
   
-          var usage=gn(row,F.total_column_usage)||gn(row,F.num_queries)||gn(row,F.num_jobs)||0;
+          var usage=gn(row,F.table_num_jobs)||gn(row,F.column_num_jobs)||gn(row,F.total_column_usage)||gn(row,F.table_num_queries)||gn(row,F.column_num_queries)||gn(row,F.num_queries)||gn(row,F.num_jobs)||0;
+          var rowJobs=gn(row,F.table_num_jobs)||gn(row,F.column_num_jobs)||gn(row,F.num_jobs)||0;
+          var rowQueries=gn(row,F.table_num_queries)||gn(row,F.column_num_queries)||gn(row,F.num_queries)||0;
   
           if(tbl){if(!modelSet[modelKey])modelSet[modelKey]={key:modelKey,label:modelKey,schema:schema||'',name:tbl};}
   
@@ -5839,9 +5861,9 @@ looker.plugins.visualizations.add({
   
             var ex=edgeMap[ek];
   
-            if(ex){ex.usage+=usage;ex.queries+=gn(row,F.num_queries);ex.jobs+=gn(row,F.num_jobs);}
+            if(ex){ex.usage+=usage;ex.queries+=rowQueries;ex.jobs+=rowJobs;}
   
-            else{var newE={modelKey:modelKey,consumer:consumer,usage:usage,queries:gn(row,F.num_queries),jobs:gn(row,F.num_jobs)};edges.push(newE);edgeMap[ek]=newE;}
+            else{var newE={modelKey:modelKey,consumer:consumer,usage:usage,queries:rowQueries,jobs:rowJobs};edges.push(newE);edgeMap[ek]=newE;}
   
           }
   
